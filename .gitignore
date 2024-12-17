@@ -1,0 +1,16 @@
+# Ignore all.js files
+*.js
+!jest.config.js
+
+# Ignore node_modules directory
+node_modules/
+.idea/
+
+# Yarn
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
