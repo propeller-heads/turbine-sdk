@@ -1,11 +1,12 @@
 import { Address, getAddress } from "viem";
 
+export const TURBINE_API_URL = "http://localhost:8080";
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
-    "0x43d7fCA193b825AfEd49647d0D75ee4500414493"
+    "0x0bfee276dae3f0900410b7095cc84ad54c564537"
 );
 
-export const L1_RPC_URL = process.env.L1_RPC_URL; // leave unset to use default for Mainnet
-export const L1_CHAIN_ID = 1;
+export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet
+export const CHAIN_ID = 1;
 
 /**
  * Web3 connection details. Used to sync to new blocks.

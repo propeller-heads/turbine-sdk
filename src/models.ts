@@ -35,14 +35,20 @@ export interface AllowanceTransferPermitSingle {
     sigDeadline: bigint;
 }
 
+export interface PrimitiveSignature {
+    r: BigInt;
+    s: BigInt;
+    yParity: Hex; // boolean as hex, i.e. 0x0 or 0x1
+}
+
 /**
  * Full struct to be sent to Turbine API to submit an order
  */
 export interface AddOrder {
-    order: OrderIntent,
-    order_signature: Hex,
-    permit: AllowanceTransferPermitSingle,
-    permit_signature: Hex,
+    order: OrderIntent;
+    order_signature: PrimitiveSignature;
+    permit: AllowanceTransferPermitSingle;
+    permit_signature: PrimitiveSignature;
 }
 
 /**
@@ -75,12 +81,12 @@ export interface OrderIntent {
      */
     // endMidPriceDelta: number;
     /** Block timestamp since when the order is valid */
-    startTime: number;
+    startTime: bigint;
     /**
      * Block timestamp until when the order is valid.
      * This is when maxMidPriceDelta will be reached.
      */
-    endTime: number;
+    endTime: bigint;
     partialFill: boolean;
     // callData: Hex;
     // callDataTarget: Address;
