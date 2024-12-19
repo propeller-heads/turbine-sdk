@@ -1,11 +1,10 @@
-name: Run Tests
+name: CI
 
 on: pull_request
 
 jobs:
-  test:
+  setup:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -16,7 +15,43 @@ jobs:
         with:
           node-version: "20.x"
           cache: "yarn"
+      # Add cache for node_modules
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        id: node-modules-cache
+        with:
+          path: |
+            node_modules
+            .yarn/cache
+          key: ${{ runner.os }}-modules-${{ hashFiles('yarn.lock') }}
+      # Only install if cache miss
       - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: yarn install --immutable
+      - name: Upload workspace
+        uses: actions/upload-artifact@v3
+        with:
+          name: workspace
+          path: .
+
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download workspace
+        uses: actions/download-artifact@v3
+        with:
+          name: workspace
       - name: Run tests
         run: yarn test-no-integration
+
+  lint:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download workspace
+        uses: actions/download-artifact@v3
+        with:
+          name: workspace
+      - name: Check formatting
+        run: yarn prettier --check .
