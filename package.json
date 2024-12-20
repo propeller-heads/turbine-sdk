@@ -26,7 +26,8 @@
         "mocha": "^9.2.2",
         "node-fetch": "^3.3.2",
         "prettier": "3.3.2",
-        "ts-jest": "^29.1.5"
+        "ts-jest": "^29.1.5",
+        "viem": "^2.9.1"
     },
     "peerDependencies": {
         "viem": "^2.9.1"
