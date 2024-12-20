@@ -1,6 +1,6 @@
 import { Address, createWalletClient, Hex, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { USDC, USDT } from "../src/constants";
+import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { OrderIntent } from "../src/models";
 import { mainnet } from "viem/chains";
 import { RPC_URL } from "../src/config";
@@ -29,5 +29,7 @@ export const ORDER_INTENT: OrderIntent = {
     startTime: 1630000000n,
     endTime: 1630003600n,
     partialFill: true,
+    callData: "0x",
+    callDataTarget: NULL_ADDRESS,
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;

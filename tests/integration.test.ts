@@ -1,4 +1,4 @@
-import { USDC, USDT } from "../src/constants";
+import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { OrderIntent, PrimitiveSignature } from "../src/models";
 import { convertSignature, getRandomSalt, TurbineClient } from "../src/turbineClient";
 import { ACCOUNT, ORDER_INTENT, WALLET_CLIENT } from "./constants";
@@ -18,6 +18,8 @@ describe("Integration test", () => {
             startTime: 1630000000n,
             endTime: 1630003600n,
             partialFill: true,
+            callData: "0x",
+            callDataTarget: NULL_ADDRESS,
             salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
         } as const;
 

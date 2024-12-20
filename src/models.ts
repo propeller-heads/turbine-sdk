@@ -88,7 +88,7 @@ export interface OrderIntent {
      */
     endTime: bigint;
     partialFill: boolean;
-    // callData: Hex;
-    // callDataTarget: Address;
+    callData: Hex;
+    callDataTarget: Address;
     salt: Hex;
 }
