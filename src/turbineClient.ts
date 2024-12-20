@@ -68,7 +68,7 @@ export class TurbineClient {
         return response;
     }
 
-    async addOrder(intent: OrderIntent, client: WalletClient) {
+    async addOrder(intent: OrderIntent, client: WalletClient): Promise<string> {
         const payload = await this.createAddOrderData(intent, client);
         const response = await this.callAddOrder(payload);
         if (!response.ok) {
@@ -77,9 +77,20 @@ export class TurbineClient {
             );
         }
 
-        const responseText = await response.text();
-        console.log(`Got a response: ${response}`);
-        return responseText;
+        let responseJson;
+        try {
+            responseJson = await response.json();
+        } catch (e) {
+            throw new Error(`Failed to parse response as JSON: ${e}`);
+        }
+
+        if (!responseJson || !responseJson["order_id"]) {
+            throw new Error(
+                `Response missing required order_id field: ${JSON.stringify(responseJson)}`
+            );
+        }
+
+        return responseJson["order_id"];
     }
 
     async addOrderArray(intents: OrderIntent[], client: WalletClient) {

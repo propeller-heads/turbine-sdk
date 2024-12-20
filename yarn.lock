@@ -5513,8 +5513,10 @@ __metadata:
     ts-jest: "npm:^29.1.5"
     ts-node: "npm:^10.8.0"
     typescript: "npm:^5.3.3"
-    viem: "npm:^2.21.55"
+    viem: "npm:^2.9.1"
     web3: "npm:^4.9.0"
+  peerDependencies:
+    viem: ^2.9.1
   languageName: unknown
   linkType: soft
 
@@ -5652,7 +5654,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:^2.21.55":
+"viem@npm:^2.9.1":
   version: 2.21.55
   resolution: "viem@npm:2.21.55"
   dependencies:
