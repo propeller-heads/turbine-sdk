@@ -44,14 +44,14 @@ export const orderIntentABI = {
             name: "partialFill",
             type: "bool",
         },
-        // {
-        //     name: "callData",
-        //     type: "bytes",
-        // },
-        // {
-        //     name: "callDataTarget",
-        //     type: "address",
-        // },
+        {
+            name: "callData",
+            type: "bytes",
+        },
+        {
+            name: "callDataTarget",
+            type: "address",
+        },
         {
             name: "salt",
             type: "bytes32",
