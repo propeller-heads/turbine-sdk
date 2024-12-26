@@ -52,6 +52,14 @@ export interface AddOrder {
 }
 
 /**
+ * Struct to be sent to Turbine API to submit a smart order, which doesn't require permit data
+ */
+export interface AddSmartOrder {
+    order: OrderIntent;
+    order_signature: PrimitiveSignature;
+}
+
+/**
  * A swap order created by a user.
  */
 export interface OrderIntent {

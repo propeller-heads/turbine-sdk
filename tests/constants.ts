@@ -3,7 +3,6 @@ import { privateKeyToAccount } from "viem/accounts";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { OrderIntent } from "../src/models";
 import { mainnet } from "viem/chains";
-import { RPC_URL } from "../src/config";
 
 export const PREFUNDED_ADDRESS: Address = "0xBE69d72ca5f88aCba033a063dF5DBe43a4148De0";
 export const PREFUNDED_PK: Hex =
@@ -31,5 +30,21 @@ export const ORDER_INTENT: OrderIntent = {
     partialFill: true,
     callData: "0x",
     callDataTarget: NULL_ADDRESS,
+    salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
+} as const;
+
+// A smart order is characterized by having calldata and callDataTarget fields set
+export const SMART_ORDER_INTENT: OrderIntent = {
+    owner: ACCOUNT.address,
+    sellToken: USDC.address,
+    buyToken: USDT.address,
+    sellAmount: 1000n,
+    minBuyAmount: 950n,
+    midPriceDelta: 0,
+    startTime: 1630000000n,
+    endTime: 1630003600n,
+    partialFill: true,
+    callData: "0x12345678",
+    callDataTarget: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
