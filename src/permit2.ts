@@ -34,7 +34,7 @@ async function getNonce(
                     { name: "spender", type: "address" },
                 ],
                 name: "allowance",
-                outputs: [{ name: "", type: "bytes32" }],
+                outputs: [{ name: "amount", type: "uint160" }, { name: "expiration", type: "uint48" }, { name: "nonce", type: "uint48" }],
                 stateMutability: "view",
                 type: "function",
             },
@@ -45,7 +45,7 @@ async function getNonce(
 
     // Extract nonce from packed allowance
     // Nonce is stored in the most significant 48 bits
-    const nonce = BigInt(packedAllowance) >> 208n;
+    const nonce = BigInt(packedAllowance[2]);
 
     return nonce;
 }
