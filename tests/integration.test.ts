@@ -9,6 +9,12 @@ describe("Integration test", () => {
         await turbineClient.addOrder(ORDER_INTENT, WALLET_CLIENT);
     });
 
+    it("should successfully submit a smart order", async () => {
+        const turbineClient = new TurbineClient("http://0.0.0.0:8080");
+
+        await turbineClient.addSmartOrder(SMART_ORDER_INTENT, WALLET_CLIENT);
+    });
+
     it("should successfully submit order array", async () => {
         const turbineClient = new TurbineClient();
 

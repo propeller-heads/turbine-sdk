@@ -2,7 +2,7 @@ import { Account, Address, Hex, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
 import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT } from "./config";
 import { TURBINE_DOMAIN } from "./constants";
-import { AddOrder, OrderIntent, PrimitiveSignature } from "./models";
+import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
 
 export class TurbineClient {
@@ -55,7 +55,7 @@ export class TurbineClient {
         };
     }
 
-    private async callAddOrder(payload: AddOrder) {
+    private async callAddOrder(payload: AddOrder | AddSmartOrder) {
         const body = JSON.stringify(payload, bigIntReplacer);
 
         const response = await fetch(`${this.turbineApiUrl}/add_order`, {
@@ -106,6 +106,48 @@ export class TurbineClient {
      * @param orderId Order ID
      */
     async cancelOrder(orderId: string) {}
+
+    async addSmartOrder(intent: OrderIntent, client: WalletClient): Promise<string> {
+        // TODO: add unit test, not only integration test
+        // Verify this is a smart order
+        if (
+            intent.callDataTarget === "0x0000000000000000000000000000000000000000" ||
+            !intent.callData
+        ) {
+            throw new Error(
+                "Smart orders must include both callDataTarget and callData"
+            );
+        }
+
+        const intentSignature = await this.signIntent(intent, client);
+
+        const payload: AddSmartOrder = {
+            order: intent,
+            order_signature: convertSignature(intentSignature),
+        };
+
+        const response = await this.callAddOrder(payload);
+        if (!response.ok) {
+            throw new Error(
+                `Failed to add smart order: ${response.statusText}, ${await response.text()}`
+            );
+        }
+
+        let responseJson;
+        try {
+            responseJson = await response.json();
+        } catch (e) {
+            throw new Error(`Failed to parse response as JSON: ${e}`);
+        }
+
+        if (!responseJson || !responseJson["order_id"]) {
+            throw new Error(
+                `Response missing required order_id field: ${JSON.stringify(responseJson)}`
+            );
+        }
+
+        return responseJson["order_id"];
+    }
 }
 
 // Returns random bytes32 as a hex string
