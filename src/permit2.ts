@@ -24,7 +24,7 @@ async function getNonce(
     spender: Address,
     client: ReturnType<typeof createPublicClient>
 ): Promise<bigint> {
-    const packedAllowance = await client.readContract({
+    const allowance = await client.readContract({
         address: PERMIT2_ADDRESS,
         abi: [
             {
@@ -34,7 +34,11 @@ async function getNonce(
                     { name: "spender", type: "address" },
                 ],
                 name: "allowance",
-                outputs: [{ name: "amount", type: "uint160" }, { name: "expiration", type: "uint48" }, { name: "nonce", type: "uint48" }],
+                outputs: [
+                    { name: "amount", type: "uint160" },
+                    { name: "expiration", type: "uint48" },
+                    { name: "nonce", type: "uint48" },
+                ],
                 stateMutability: "view",
                 type: "function",
             },
@@ -42,11 +46,7 @@ async function getNonce(
         functionName: "allowance",
         args: [owner, token, spender],
     });
-
-    // Extract nonce from packed allowance
-    // Nonce is stored in the most significant 48 bits
-    const nonce = BigInt(packedAllowance[2]);
-
+    const nonce = BigInt(allowance[2]);
     return nonce;
 }
 
