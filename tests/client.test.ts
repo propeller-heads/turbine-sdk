@@ -6,7 +6,7 @@ import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 
 describe("TurbineClient", () => {
     describe("addOrder", () => {
-        it("should call Turbine API and return order ID", async () => {
+        it.only("should call Turbine API and return order ID", async () => {
             const mockOrderId = "test-order-id-123";
             const client = new TurbineClient();
 
@@ -17,7 +17,9 @@ describe("TurbineClient", () => {
             // @ts-ignore - accessing private method for testing
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
 
+            console.debug("Calling addOrder...");
             const orderId = await client.addOrder(ORDER_INTENT, WALLET_CLIENT);
+            console.debug("Finished addOrder.");
 
             expect(orderId).toBe(mockOrderId);
             // @ts-ignore - accessing private method for testing

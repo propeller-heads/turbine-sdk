@@ -42,11 +42,13 @@ export class TurbineClient {
         client: WalletClient
     ): Promise<AddOrder> {
         let intentSignature = await this.signIntent(intent, client);
+        console.debug("signed intent");
         let { permit, permitSignature } = await getSignedAllowance({
             order: intent,
             wallet: client,
             spender: this.settlerContract,
         });
+        console.debug("got signed allowance");
         return {
             order: intent,
             order_signature: convertSignature(intentSignature),
@@ -70,7 +72,9 @@ export class TurbineClient {
 
     async addOrder(intent: OrderIntent, client: WalletClient): Promise<string> {
         const payload = await this.createAddOrderData(intent, client);
+        console.debug("created payload");
         const response = await this.callAddOrder(payload);
+        console.debug("got a response from Turbine API");
         if (!response.ok) {
             throw new Error(
                 `Failed to add order: ${response.statusText}, ${await response.text()}`

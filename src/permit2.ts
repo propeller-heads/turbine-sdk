@@ -74,12 +74,14 @@ export async function getSignedAllowance({
     spender?: Address;
     publicClient?: ReturnType<typeof createPublicClient>;
 }): Promise<getSignedAllowanceReturnType> {
+    console.debug("getting nonce...");
     const nonce = await getNonce(
         (await wallet.getAddresses())[0],
         order.sellToken,
         spender,
         publicClient
     );
+    console.debug("got nonce.");
     const permit: AllowanceTransferPermitSingle = {
         details: {
             token: order.sellToken,
@@ -92,6 +94,7 @@ export async function getSignedAllowance({
     };
 
     const permitSignature = await getSignature(permit, wallet);
+    console.debug("got signature.");
 
     return { permit, permitSignature };
 }
