@@ -1,6 +1,6 @@
 import { Address, getAddress } from "viem";
 
-export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://localhost:8080";
+export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080";
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
     "0x0bfee276dae3f0900410b7095cc84ad54c564537"
 );

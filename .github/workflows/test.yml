@@ -20,6 +20,8 @@ jobs:
         run: yarn install --immutable
       - name: Run tests
         run: yarn test-no-integration
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
 
   lint:
     runs-on: ubuntu-latest
