@@ -2,7 +2,7 @@ import { Address, getAddress } from "viem";
 
 export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080";
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
-    "0x0bfee276dae3f0900410b7095cc84ad54c564537"
+    "0xab1daf6ab4951a09c907b8a9c06d2a3f67d6e4f6"
 );
 
 export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet

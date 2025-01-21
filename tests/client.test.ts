@@ -80,12 +80,12 @@ describe("TurbineClient", () => {
         // The values below are taken from Rust implementation
         const expected: PrimitiveSignature = {
             r: BigInt(
-                "0xb4584666ee9c235f6f86cb6196ed9b0b2005c803252f6a3c2cf7ee970bca543b"
+                "0x910e3c01991ff9f528d07fde8d98027237b3046e38c1ae573afd5e47b96a4240"
             ),
             s: BigInt(
-                "0x0f5b2f34a280c43653405b040b9642cf680894a95ca579373f3e359728261183"
+                "0x3521037fe64aed3fb036690032382acb9909a754209fc8daabebe4b76bd2104b"
             ),
-            yParity: "0x1",
+            yParity: "0x0",
         };
         expect(convertedSignature).toEqual(expected);
     });
