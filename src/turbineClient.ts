@@ -1,7 +1,6 @@
 import { Account, Address, Hex, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
-import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT } from "./config";
-import { TURBINE_DOMAIN } from "./constants";
+import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
 
@@ -14,9 +13,16 @@ export class TurbineClient {
         this.settlerContract = settlerContract ?? TURBINE_SETTLER_CONTRACT;
     }
 
+    private getTurbineDomain() {
+        return {
+            ...TURBINE_DOMAIN,
+            verifyingContract: this.settlerContract,
+        };
+    }
+
     private getIntentTypedData(intent: OrderIntent) {
         return {
-            domain: TURBINE_DOMAIN,
+            domain: this.getTurbineDomain(),
             types: {
                 OrderIntent: orderIntentABI.components,
             },
