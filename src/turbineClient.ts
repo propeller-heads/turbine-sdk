@@ -13,9 +13,16 @@ export class TurbineClient {
         this.settlerContract = settlerContract ?? TURBINE_SETTLER_CONTRACT;
     }
 
+    private getTurbineDomain() {
+        return {
+            ...TURBINE_DOMAIN,
+            verifyingContract: this.settlerContract,
+        };
+    }
+
     private getIntentTypedData(intent: OrderIntent) {
         return {
-            domain: TURBINE_DOMAIN,
+            domain: this.getTurbineDomain(),
             types: {
                 OrderIntent: orderIntentABI.components,
             },
