@@ -1,16 +1,7 @@
 import { Address } from "viem";
 import { Token } from "./models";
-import { CHAIN_ID, TURBINE_SETTLER_CONTRACT } from "./config";
 
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-export const TURBINE_DOMAIN = {
-    name: "Turbine",
-    version: "0.1.0",
-    chainId: CHAIN_ID,
-    verifyingContract: TURBINE_SETTLER_CONTRACT,
-    salt: "0xea6078b87659a262f2239bc31d5f870898575eed78c14d5feb90615aafb06587",
-} as const;
 
 export const USDC = new Token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6, "USDC");
 export const USDT = new Token("0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, "USDT");

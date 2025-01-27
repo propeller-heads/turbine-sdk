@@ -1,7 +1,6 @@
 import { Account, Address, Hex, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
-import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT } from "./config";
-import { TURBINE_DOMAIN } from "./constants";
+import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
 
