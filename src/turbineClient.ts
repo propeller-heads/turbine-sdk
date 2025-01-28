@@ -5,8 +5,8 @@ import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./mode
 import { getSignedAllowance } from "./permit2";
 
 export class TurbineClient {
-    private turbineApiUrl: string;
-    private settlerContract: Address;
+    public turbineApiUrl: string;
+    public settlerContract: Address;
 
     constructor(turbineApiUrl?: string, settlerContract?: Address) {
         this.turbineApiUrl = turbineApiUrl ?? TURBINE_API_URL;
