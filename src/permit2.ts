@@ -4,8 +4,7 @@ import {
     PermitSingle,
     PermitSingleData,
 } from "@uniswap/permit2-sdk";
-import { Address, createPublicClient, Hex, http, maxUint160, PublicClient, WalletClient } from "viem";
-import { mainnet } from "viem/chains";
+import { Address, Hex, maxUint160, PublicClient, WalletClient } from "viem";
 import { CHAIN_ID, TURBINE_SETTLER_CONTRACT } from "./config";
 import { AllowanceTransferPermitSingle, OrderIntent } from "./models";
 
@@ -16,7 +15,7 @@ async function getNonce(
     owner: Address,
     token: Address,
     spender: Address,
-    client: ReturnType<typeof createPublicClient>
+    client: PublicClient
 ): Promise<bigint> {
     const allowance = await client.readContract({
         address: PERMIT2_ADDRESS,
