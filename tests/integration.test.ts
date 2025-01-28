@@ -1,12 +1,12 @@
 import { OrderIntent } from "../src/models";
 import { getRandomSalt, TurbineClient } from "../src/turbineClient";
-import { ORDER_INTENT, SMART_ORDER_INTENT, WALLET_CLIENT } from "./constants";
+import { ORDER_INTENT, PUBLIC_CLIENT, SMART_ORDER_INTENT, WALLET_CLIENT } from "./constants";
 
 describe("Integration test", () => {
     it("should successfully submit an order", async () => {
         const turbineClient = new TurbineClient("http://0.0.0.0:8080");
 
-        await turbineClient.addOrder(ORDER_INTENT, WALLET_CLIENT);
+        await turbineClient.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT);
     });
 
     it("should successfully submit a smart order", async () => {
@@ -23,7 +23,7 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         }));
 
-        const result = await turbineClient.addOrderArray(intents, WALLET_CLIENT);
+        const result = await turbineClient.addOrderArray(intents, WALLET_CLIENT, PUBLIC_CLIENT);
 
         result.forEach((response) => {
             expect(response).toBeDefined();
