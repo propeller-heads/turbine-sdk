@@ -1,23 +1,8 @@
-import {
-    Account,
-    Address,
-    createPublicClient,
-    Hex,
-    http,
-    PublicClient,
-    WalletClient,
-} from "viem";
+import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
-import {
-    TURBINE_API_URL,
-    TURBINE_SETTLER_CONTRACT,
-    TURBINE_DOMAIN,
-    RPC_URL,
-    CHAIN_ID,
-} from "./config";
+import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
-import { mainnet } from "viem/chains";
 
 export class TurbineClient {
     public turbineApiUrl: string;
