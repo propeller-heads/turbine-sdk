@@ -4,16 +4,9 @@ import {
     PermitSingle,
     PermitSingleData,
 } from "@uniswap/permit2-sdk";
-import { Address, createPublicClient, Hex, http, maxUint160, WalletClient } from "viem";
-import { mainnet } from "viem/chains";
-import { CHAIN_ID, RPC_URL, TURBINE_SETTLER_CONTRACT } from "./config";
+import { Address, Hex, maxUint160, PublicClient, WalletClient } from "viem";
+import { CHAIN_ID, TURBINE_SETTLER_CONTRACT } from "./config";
 import { AllowanceTransferPermitSingle, OrderIntent } from "./models";
-
-// Instantiate a public mainnet client
-const defaultPublicClient = createPublicClient({
-    chain: CHAIN_ID ? { ...mainnet, id: CHAIN_ID } : mainnet,
-    transport: http(RPC_URL),
-});
 
 /* Get current nonce of Permit2 AllowanceTransfer.
  * This nonce should be used in a new allowance.
@@ -22,7 +15,7 @@ async function getNonce(
     owner: Address,
     token: Address,
     spender: Address,
-    client: ReturnType<typeof createPublicClient>
+    client: PublicClient
 ): Promise<bigint> {
     const allowance = await client.readContract({
         address: PERMIT2_ADDRESS,
@@ -53,29 +46,29 @@ async function getNonce(
 /**
  * Generate permit object for an order and sign it.
  * @param order The order to sign
- * @param wallet User wallet that will be used to sign the order
+ * @param walletClient User wallet client that will be used to sign the order
+ * @param publicClient An instance of PublicClient to use for getting
+ * the Permit2 nonce.
  * @param deadline When allowance and signature expire. By default
  * will be set to order's endTime.
  * @param spender The address of allowed token spender. By default
  * will be set to OrderSettler address.
- * @param publicClient An instance of PublicClient to use for getting
- * the Permit2 nonce. If not given, a default public client will be used.
  */
 export async function getSignedAllowance({
     order,
-    wallet,
+    walletClient,
+    publicClient,
     deadline = BigInt(order.endTime),
     spender = TURBINE_SETTLER_CONTRACT,
-    publicClient = defaultPublicClient,
 }: {
     order: OrderIntent;
-    wallet: WalletClient;
+    walletClient: WalletClient;
+    publicClient: PublicClient;
     deadline?: bigint;
     spender?: Address;
-    publicClient?: ReturnType<typeof createPublicClient>;
 }): Promise<getSignedAllowanceReturnType> {
     const nonce = await getNonce(
-        (await wallet.getAddresses())[0],
+        (await walletClient.getAddresses())[0],
         order.sellToken,
         spender,
         publicClient
@@ -91,7 +84,7 @@ export async function getSignedAllowance({
         sigDeadline: deadline,
     };
 
-    const permitSignature = await getSignature(permit, wallet);
+    const permitSignature = await getSignature(permit, walletClient);
 
     return { permit, permitSignature };
 }
@@ -112,7 +105,7 @@ export async function getSignature(
     const { domain, types, values } = AllowanceTransfer.getPermitData(
         permit as PermitSingle,
         PERMIT2_ADDRESS,
-        CHAIN_ID
+        CHAIN_ID // TODO use chainId from wallet?
     ) as PermitSingleData;
     const signature = await wallet.signTypedData({
         account: wallet.account!,

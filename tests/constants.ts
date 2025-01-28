@@ -1,4 +1,4 @@
-import { createWalletClient, Hex, http } from "viem";
+import { createPublicClient, createWalletClient, Hex, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { RPC_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
@@ -14,6 +14,10 @@ export const USDC_SELLER_PK: Hex =
 export const ACCOUNT = privateKeyToAccount(PREFUNDED_PK);
 export const WALLET_CLIENT = createWalletClient({
     account: ACCOUNT,
+    chain: mainnet,
+    transport: http(RPC_URL),
+});
+export const PUBLIC_CLIENT = createPublicClient({
     chain: mainnet,
     transport: http(RPC_URL),
 });

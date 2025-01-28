@@ -1,6 +1,6 @@
 import { describe, expect, jest } from "@jest/globals";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
-import { ACCOUNT, ORDER_INTENT, WALLET_CLIENT } from "./constants";
+import { ACCOUNT, ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
 import { OrderIntent, PrimitiveSignature } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 
@@ -17,7 +17,11 @@ describe("TurbineClient", () => {
             // @ts-ignore - accessing private method for testing
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
 
-            const orderId = await client.addOrder(ORDER_INTENT, WALLET_CLIENT);
+            const orderId = await client.addOrder(
+                ORDER_INTENT,
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             expect(orderId).toBe(mockOrderId);
             // @ts-ignore - accessing private method for testing
@@ -34,7 +38,9 @@ describe("TurbineClient", () => {
             // @ts-ignore - accessing private method for testing
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
 
-            await expect(client.addOrder(ORDER_INTENT, WALLET_CLIENT)).rejects.toThrow(
+            await expect(
+                client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
+            ).rejects.toThrow(
                 'Response missing required order_id field: {"message":"something went wrong"}'
             );
         });
@@ -48,7 +54,7 @@ describe("TurbineClient", () => {
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
 
             const error = await client
-                .addOrder(ORDER_INTENT, WALLET_CLIENT)
+                .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
             expect(error.message).toMatch(/happy chrysler/);

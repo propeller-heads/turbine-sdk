@@ -1,8 +1,23 @@
-import { Account, Address, Hex, WalletClient } from "viem";
+import {
+    Account,
+    Address,
+    createPublicClient,
+    Hex,
+    http,
+    PublicClient,
+    WalletClient,
+} from "viem";
 import { orderIntentABI } from "./abi";
-import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
+import {
+    TURBINE_API_URL,
+    TURBINE_SETTLER_CONTRACT,
+    TURBINE_DOMAIN,
+    RPC_URL,
+    CHAIN_ID,
+} from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
+import { mainnet } from "viem/chains";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -45,12 +60,14 @@ export class TurbineClient {
 
     private async createAddOrderData(
         intent: OrderIntent,
-        client: WalletClient
+        walletClient: WalletClient,
+        publicClient: PublicClient
     ): Promise<AddOrder> {
-        let intentSignature = await this.signIntent(intent, client);
+        let intentSignature = await this.signIntent(intent, walletClient);
         let { permit, permitSignature } = await getSignedAllowance({
             order: intent,
-            wallet: client,
+            walletClient,
+            publicClient,
             spender: this.settlerContract,
         });
         return {
@@ -74,8 +91,16 @@ export class TurbineClient {
         return response;
     }
 
-    async addOrder(intent: OrderIntent, client: WalletClient): Promise<string> {
-        const payload = await this.createAddOrderData(intent, client);
+    async addOrder(
+        intent: OrderIntent,
+        walletClient: WalletClient,
+        publicClient: PublicClient
+    ): Promise<string> {
+        const payload = await this.createAddOrderData(
+            intent,
+            walletClient,
+            publicClient
+        );
         const response = await this.callAddOrder(payload);
         if (!response.ok) {
             throw new Error(
@@ -99,14 +124,18 @@ export class TurbineClient {
         return responseJson["order_id"];
     }
 
-    async addOrderArray(intents: OrderIntent[], client: WalletClient) {
+    async addOrderArray(
+        intents: OrderIntent[],
+        walletClient: WalletClient,
+        publicClient: PublicClient
+    ) {
         // Check whether smart order or regular order, and call the appropriate method
         return await Promise.all(
             intents.map((intent) => {
                 if (this.is_smart_order(intent)) {
-                    return this.addSmartOrder(intent, client);
+                    return this.addSmartOrder(intent, walletClient);
                 }
-                return this.addOrder(intent, client);
+                return this.addOrder(intent, walletClient, publicClient);
             })
         );
     }
