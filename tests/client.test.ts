@@ -17,7 +17,11 @@ describe("TurbineClient", () => {
             // @ts-ignore - accessing private method for testing
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
 
-            const orderId = await client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT);
+            const orderId = await client.addOrder(
+                ORDER_INTENT,
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             expect(orderId).toBe(mockOrderId);
             // @ts-ignore - accessing private method for testing
@@ -34,7 +38,9 @@ describe("TurbineClient", () => {
             // @ts-ignore - accessing private method for testing
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
 
-            await expect(client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)).rejects.toThrow(
+            await expect(
+                client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
+            ).rejects.toThrow(
                 'Response missing required order_id field: {"message":"something went wrong"}'
             );
         });
