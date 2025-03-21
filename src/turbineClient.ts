@@ -1,23 +1,8 @@
-import {
-    Account,
-    Address,
-    createPublicClient,
-    Hex,
-    http,
-    PublicClient,
-    WalletClient,
-} from "viem";
+import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
-import {
-    TURBINE_API_URL,
-    TURBINE_SETTLER_CONTRACT,
-    TURBINE_DOMAIN,
-    RPC_URL,
-    CHAIN_ID,
-} from "./config";
+import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
-import { mainnet } from "viem/chains";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -91,6 +76,13 @@ export class TurbineClient {
         return response;
     }
 
+    /**
+     * Add an order to the Turbine API.
+     * @param intent An `OrderIntent` object containing the details of the trade to be executed
+     * @param walletClient The wallet client used for signing the order intent
+     * @param publicClient The public client used for blockchain interactions and permit2 allowance
+     * @returns A Promise that resolves to a string containing the submitted order ID.
+     */
     async addOrder(
         intent: OrderIntent,
         walletClient: WalletClient,
@@ -124,11 +116,18 @@ export class TurbineClient {
         return responseJson["order_id"];
     }
 
+    /**
+     * Add an array of orders to the Turbine API.
+     * @param intents An array of `OrderIntent` objects containing the details of the trades to be executed
+     * @param walletClient The wallet client used for signing the order intents
+     * @param publicClient The public client used for blockchain interactions and permit2 allowances
+     * @returns A Promise that resolves to an array of strings containing the submitted order IDs.
+     */
     async addOrderArray(
         intents: OrderIntent[],
         walletClient: WalletClient,
         publicClient: PublicClient
-    ) {
+    ): Promise<string[]> {
         // Check whether smart order or regular order, and call the appropriate method
         return await Promise.all(
             intents.map((intent) => {
@@ -150,7 +149,6 @@ export class TurbineClient {
 
     async addSmartOrder(intent: OrderIntent, client: WalletClient): Promise<string> {
         // TODO: add unit test, not only integration test
-        // Verify this is a smart order
         if (!this.is_smart_order(intent)) {
             throw new Error(
                 "Smart orders must include both callDataTarget and callData"
