@@ -71,6 +71,7 @@ It is possible to submit orders with the SDK.
 ```typescript
 import { TurbineClient } from "turbine-rust-sdk";
 import { createPublicClient, createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 
 // Create Viem clients
@@ -80,7 +81,7 @@ const publicClient = createPublicClient({
 });
 
 const walletClient = createWalletClient({
-    account,
+    account: privateKeyToAccount(PRIVATE_KEY),
     chain: mainnet,
     transport: http(RPC_URL),
 });
