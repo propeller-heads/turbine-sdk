@@ -56,10 +56,6 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
-### Matching algorithm
-
-TODO
-
 ## Submitting orders
 
 > You can submit orders using our frontend: https://swap.propellerheads.xyz/turbine
