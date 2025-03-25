@@ -1,5 +1,5 @@
 {
-    "name": "turbine-rust-sdk",
+    "name": "turbine-sdk",
     "version": "0.0.9",
     "description": "Submit orders to Turbine",
     "main": "index.js",
