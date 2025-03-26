@@ -65,7 +65,7 @@ It is possible to submit orders with the SDK.
 ### Basic Setup
 
 ```typescript
-import { TurbineClient } from "turbine-rust-sdk";
+import { TurbineClient } from "turbine-sdk/turbineClient";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
@@ -89,19 +89,20 @@ const turbineClient = new TurbineClient();
 ### Creating an Order
 
 ```typescript
-import { Token } from "turbine-rust-sdk";
-import { getRandomSalt } from "turbine-rust-sdk";
+import { Token, OrderIntent } from "turbine-sdk/models";
+import { getRandomSalt } from "turbine-sdk/turbineClient";
 
 // Define tokens
 const USDC = new Token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6, "USDC");
 const WETH = new Token("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 18, "WETH");
 
 // Create an order to sell USDC for WETH
-const order = {
+const order: OrderIntent = {
+    owner: walletClient.account.address,
     sellToken: USDC.address,
     buyToken: WETH.address,
     sellAmount: USDC.toOnchainAmount(100), // Sell 100 USDC
-    buyAmount: WETH.toOnchainAmount(0.05), // Buy 0.05 WETH
+    minBuyAmount: WETH.toOnchainAmount(0.05), // Buy 0.05 WETH
     midPriceDelta: 500, // At most 5% worse than market mid-price
     startTime: Math.floor(Date.now() / 1000), // Start now
     endTime: Math.floor(Date.now() / 1000) + 3600, // End in 1 hour
