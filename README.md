@@ -20,43 +20,41 @@ yarn
 
 A market that is private and protected from extraction – where anyone can trade large orders with peace of mind.
 
-**Secure**: Utilizing TEEs and advanced privacy techniques
+-   **Secure**: Utilizing TEEs and advanced privacy techniques
 
-**Private**: Pre-settlement privacy for all trades
+-   **Private**: Pre-settlement privacy for all trades
 
-**Darkpool**: A trading venue where order information is not publicly displayed
+-   **Darkpool**: A trading venue where order information is not publicly displayed
 
-**Passive Liquidity**: Liquidity providers provide passive liquidity
+-   **Passive Liquidity**: Liquidity providers provide passive liquidity
 
-**Without market impact**: Minimizing price slippage and front-running risks
+-   **Without market impact**: Minimizing price slippage and front-running risks
 
-### Architecture
+### Advantages for Market Makers
 
-Turbine is designed as an asynchronous application that processes events from multiple sources:
+Market makers benefit from Turbine in several ways:
 
-#### Core Components
+-   **Reduced adverse selection**: Without order visibility, predatory trading strategies cannot target your orders
+-   **Lower hedging costs**: The TEE-protected environment prevents front-running, reducing the cost of managing inventory
+-   **Diverse counterparties**: Access to a pool of users specifically looking for trading large volumes and privacy-preserving execution
+-   **Simplified integration**: Submit orders through an intuitive API with flexible parameters
 
--   **Chain client**: Abstracts access to underlying chain data and handles transaction signing and submission to L1
--   **Clearing Algorithm**: Uses Speedex for batch auction clearing
--   **Liquidity Provision**: Tracks liquidity pools and actions to add/remove liquidity
--   **Price Providers**: Multiple sources to determine market mid-prices
--   **Solution Submitter**: Periodically executes batch auctions via our OrderSettler contract, including orders to settle and liquidity actions
+### How it works
+
+A simplified workflow goes like this:
+
+1. **Order submission**: Users and market makers submit signed orders through the API ([see more on orders](#orders))
+2. **Secure storage**: Orders are securely stored in the TEE, invisible to outside observers
+3. **Price discovery**: The system determines current market prices via multiple oracles and updates limit prices of orders that rely on mid-price delta
+4. **Matching engine**: Turbine matches orders, finding coincidences of wants, and determines uniform market clearing prices
+5. **Settlement preparation**: Turbine prepares the settlement transaction with matched orders
+6. **On-chain settlement**: The OrderSettler contract executes the settlement, transferring tokens between participants
 
 ### Contract addresses
 
 | Contract     | Address                                    |
 | ------------ | ------------------------------------------ |
 | OrderSettler | 0x0C16bE7A4C9cFDe42e37a18aEF32e2b5214cc2BD |
-
-### How it works
-
-A simplified workflow goes like this:
-
--   Users and market makers submit their trade orders to Turbine API running in a TEE ([see more on orders](#orders))
--   Turbine determines the market mid-price using multiple oracles and updates limit prices of orders that rely on mid-price delta
--   Turbine matches the orders, finding coincidences of wants, and determines uniform market clearing prices
--   Turbine sends a transaction to the OrderSettler contract on L1 chain
--   The OrderSettler contract executes the settlement transaction and transfers tokens between users and market makers.
 
 ### Orders
 
