@@ -74,12 +74,26 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
-## Submitting orders
+## Submitting orders via the SDK
 
 > [!TIP]
-> You can submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
+> You can also submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
 
-It is possible to submit orders with the SDK.
+### Available environments to submit orders
+
+The available URLs are:
+
+-   **DEV** environment: <http://dev-turbine.propellerheads.xyz/api/>
+-   **STAGING** environment in a TEE on DStack: <https://cf57bca965c02d1dbfccc8a4677856765800efab-8080.dstack-prod5.phala.network/>
+
+> [!WARNING]
+> The URL of the STAGING environment is subject to change.
+
+The `TurbineClient` gets the default URL from environment variables.
+
+```bash
+export TURBINE_API_URL=...
+```
 
 ### Basic Setup
 
@@ -101,7 +115,8 @@ const walletClient = createWalletClient({
     transport: http(RPC_URL),
 });
 
-// Create Turbine client with default endpoint
+// Create Turbine client that uses the URL from TURBINE_API_URL environment variable by default.
+// You can also manually specify the URL: new TurbineClient("https://...")
 const turbineClient = new TurbineClient();
 ```
 
@@ -152,4 +167,5 @@ const orderIds = await turbineClient.addOrders(
 );
 ```
 
-Note: This SDK handles the necessary Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
+> [!Note]
+> This SDK handles the necessary Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
