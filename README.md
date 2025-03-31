@@ -115,7 +115,8 @@ const walletClient = createWalletClient({
     transport: http(RPC_URL),
 });
 
-// Create Turbine client with default URL.
+// Create Turbine client that uses the URL from TURBINE_API_URL environment variable by default.
+// You can also manually specify the URL: new TurbineClient("https://...")
 const turbineClient = new TurbineClient();
 ```
 
