@@ -28,7 +28,7 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         }));
 
-        const result = await turbineClient.addOrderArray(
+        const result = await turbineClient.addOrders(
             intents,
             WALLET_CLIENT,
             PUBLIC_CLIENT

@@ -123,7 +123,7 @@ export class TurbineClient {
      * @param publicClient The public client used for blockchain interactions and permit2 allowances
      * @returns A Promise that resolves to an array of strings containing the submitted order IDs.
      */
-    async addOrderArray(
+    async addOrders(
         intents: OrderIntent[],
         walletClient: WalletClient,
         publicClient: PublicClient

@@ -18,25 +18,43 @@ yarn
 
 ## The Turbine protocol
 
-### Contract addresses
+A market that is private and protected from extraction – where anyone can trade large orders with peace of mind.
 
-| Contract     | Address                                    |
-| ------------ | ------------------------------------------ |
-| OrderSettler | 0x0C16bE7A4C9cFDe42e37a18aEF32e2b5214cc2BD |
+-   **Secure**: Utilizing TEEs and advanced privacy techniques
 
-### Architecture
+-   **Private**: Pre-settlement privacy for all trades
 
-TODO
+-   **Darkpool**: A trading venue where order information is not publicly displayed
+
+-   **Passive Liquidity**: Liquidity providers provide passive liquidity
+
+-   **Low market impact**: Minimizing price slippage and front-running risks
+
+### Advantages for Market Makers
+
+Market makers benefit from Turbine in several ways:
+
+-   **Reduced adverse selection**: Without order visibility, predatory trading strategies cannot target your orders
+-   **Lower hedging costs**: The TEE-protected environment prevents front-running, reducing the cost of managing inventory
+-   **Diverse counterparties**: Access to a pool of users specifically looking for trading large volumes and privacy-preserving execution
+-   **Simplified integration**: Submit orders through an intuitive API with flexible parameters
 
 ### How it works
 
 A simplified workflow goes like this:
 
--   users and market makers submit their trade orders to Turbine API running in a TEE ([see more on orders](#orders))
--   Turbine determines the market mid-price using multiple oracles and updates limit prices of orders that rely on mid-price delta
--   Turbine matches the orders, finding coincidences of wants, and determines uniform market clearing prices ([see more on matching algorithm](#matching-algorithm))
--   Turbine sends a transaction to the OrderSettler contract on L1 chain
--   the OrderSettler contract executes the settlement transaction and transfers tokens between users and market makers.
+1. **Order submission**: Users and market makers submit signed orders through the API ([see more on orders](#orders))
+2. **Secure storage**: Orders are securely stored in the TEE, invisible to outside observers
+3. **Price discovery**: The system determines current market prices via multiple oracles and updates limit prices of orders that rely on mid-price delta
+4. **Matching engine**: Turbine matches orders, finding coincidences of wants, and determines uniform market clearing prices
+5. **Settlement preparation**: Turbine prepares the settlement transaction with matched orders
+6. **On-chain settlement**: The OrderSettler contract executes the settlement, transferring tokens between participants
+
+### Contract addresses
+
+| Contract     | Address                                    |
+| ------------ | ------------------------------------------ |
+| OrderSettler | 0x0C16bE7A4C9cFDe42e37a18aEF32e2b5214cc2BD |
 
 ### Orders
 
@@ -58,7 +76,8 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 
 ## Submitting orders
 
-> You can submit orders using our frontend: https://swap.propellerheads.xyz/turbine
+> [!TIP]
+> You can submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
 
 It is possible to submit orders with the SDK.
 
