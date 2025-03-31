@@ -102,7 +102,7 @@ const walletClient = createWalletClient({
 });
 
 // Create Turbine client with default endpoint
-const turbineClient = new TurbineClient();
+const turbineClient = new TurbineClient("http://turbine.propellerheads.xyz/api/");
 ```
 
 ### Creating an Order
