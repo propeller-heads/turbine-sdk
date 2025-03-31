@@ -28,7 +28,7 @@ A market that is private and protected from extraction – where anyone can trad
 
 -   **Passive Liquidity**: Liquidity providers provide passive liquidity
 
--   **Without market impact**: Minimizing price slippage and front-running risks
+-   **Low market impact**: Minimizing price slippage and front-running risks
 
 ### Advantages for Market Makers
 
@@ -76,6 +76,7 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 
 ## Submitting orders
 
+> [!TIP]
 > You can submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
 
 It is possible to submit orders with the SDK.
