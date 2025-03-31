@@ -168,4 +168,4 @@ const orderIds = await turbineClient.addOrders(
 ```
 
 > [!Note]
-> This SDK handles the necessary Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
+> Turbine requires infinite approvals and this SDK handles the necessary infinite Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
