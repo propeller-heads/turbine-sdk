@@ -74,22 +74,22 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
-## Submitting orders
+## Submitting orders via the SDK
 
 > [!TIP]
-> You can submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
-
-It is possible to submit orders with the SDK.
+> You can also submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
 
 ### Available environments to submit orders
 
-The TurbineClient gets the default url from environment variables. The available URLs are:
+The available URLs are:
 
--   Dev environment: <http://dev-turbine.propellerheads.xyz/api/>
--   Staging environment in a TEE on DStack: <https://cf57bca965c02d1dbfccc8a4677856765800efab-8080.dstack-prod5.phala.network/>
+-   **DEV** environment: <http://dev-turbine.propellerheads.xyz/api/>
+-   **STAGING** environment in a TEE on DStack: <https://cf57bca965c02d1dbfccc8a4677856765800efab-8080.dstack-prod5.phala.network/>
 
 > [!WARNING]
-> The URL of the staging environment is subject to change.
+> The URL of the STAGING environment is subject to change.
+
+The `TurbineClient` gets the default URL from environment variables.
 
 ```bash
 export TURBINE_API_URL=...
@@ -115,7 +115,7 @@ const walletClient = createWalletClient({
     transport: http(RPC_URL),
 });
 
-// Create Turbine client with default url.
+// Create Turbine client with default URL.
 const turbineClient = new TurbineClient();
 ```
 
