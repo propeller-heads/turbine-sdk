@@ -36,11 +36,11 @@ Turbine is designed as an asynchronous application that processes events from mu
 
 #### Core Components
 
-- **Chain client**: Abstracts access to underlying chain data and handles transaction signing and submission to L1
-- **Clearing Algorithm**: Uses Speedex for batch auction clearing
-- **Liquidity Provision**: Tracks liquidity pools and actions to add/remove liquidity
-- **Price Providers**: Multiple sources to determine market mid-prices
-- **Solution Submitter**: Periodically executes batch auctions via our OrderSettler contract, including orders to settle and liquidity actions
+-   **Chain client**: Abstracts access to underlying chain data and handles transaction signing and submission to L1
+-   **Clearing Algorithm**: Uses Speedex for batch auction clearing
+-   **Liquidity Provision**: Tracks liquidity pools and actions to add/remove liquidity
+-   **Price Providers**: Multiple sources to determine market mid-prices
+-   **Solution Submitter**: Periodically executes batch auctions via our OrderSettler contract, including orders to settle and liquidity actions
 
 ### Contract addresses
 
@@ -52,29 +52,29 @@ Turbine is designed as an asynchronous application that processes events from mu
 
 A simplified workflow goes like this:
 
-- Users and market makers submit their trade orders to Turbine API running in a TEE ([see more on orders](#orders))
-- Turbine determines the market mid-price using multiple oracles and updates limit prices of orders that rely on mid-price delta
-- Turbine matches the orders, finding coincidences of wants, and determines uniform market clearing prices
-- Turbine sends a transaction to the OrderSettler contract on L1 chain
-- The OrderSettler contract executes the settlement transaction and transfers tokens between users and market makers.
+-   Users and market makers submit their trade orders to Turbine API running in a TEE ([see more on orders](#orders))
+-   Turbine determines the market mid-price using multiple oracles and updates limit prices of orders that rely on mid-price delta
+-   Turbine matches the orders, finding coincidences of wants, and determines uniform market clearing prices
+-   Turbine sends a transaction to the OrderSettler contract on L1 chain
+-   The OrderSettler contract executes the settlement transaction and transfers tokens between users and market makers.
 
 ### Orders
 
 Orders in Turbine are represented by the `OrderIntent` interface. They contain the following fields:
 
-- `owner`: The address of the user who created the order
-- `sellToken`: Address of the token being sold
-- `buyToken`: Address of the token being bought
-- `sellAmount`: Amount of sell token (in atomic units)
-- `minBuyAmount`: Minimum amount of buy token to receive (defines the limit price)
-- `midPriceDelta`: Allowed deviation from market mid-price (in basis points)
-  - For example, 100 basis points = 1% worse than mid-price
-- `startTime`: Unix timestamp when the order becomes valid
-- `endTime`: Unix timestamp when the order expires
-- `partialFill`: Boolean flag allowing partial fills of the order
-- `callData`: Optional call data for smart orders, allowing custom routing
-- `callDataTarget`: Target address for the call data
-- `salt`: Random value to ensure order uniqueness
+-   `owner`: The address of the user who created the order
+-   `sellToken`: Address of the token being sold
+-   `buyToken`: Address of the token being bought
+-   `sellAmount`: Amount of sell token (in atomic units)
+-   `minBuyAmount`: Minimum amount of buy token to receive (defines the limit price)
+-   `midPriceDelta`: Allowed deviation from market mid-price (in basis points)
+    -   For example, 100 basis points = 1% worse than mid-price
+-   `startTime`: Unix timestamp when the order becomes valid
+-   `endTime`: Unix timestamp when the order expires
+-   `partialFill`: Boolean flag allowing partial fills of the order
+-   `callData`: Optional call data for smart orders, allowing custom routing
+-   `callDataTarget`: Target address for the call data
+-   `salt`: Random value to ensure order uniqueness
 
 ## Submitting orders
 
