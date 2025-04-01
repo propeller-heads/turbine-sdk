@@ -17,7 +17,7 @@ describe("Integration test", () => {
     it("should successfully submit a smart order", async () => {
         const turbineClient = new TurbineClient("http://0.0.0.0:8080");
 
-        await turbineClient.addSmartOrder(SMART_ORDER_INTENT, WALLET_CLIENT);
+        await turbineClient.addOrder(SMART_ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT);
     });
 
     it("should successfully submit order array", async () => {
@@ -28,7 +28,7 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         }));
 
-        const result = await turbineClient.addOrderArray(
+        const result = await turbineClient.addOrders(
             intents,
             WALLET_CLIENT,
             PUBLIC_CLIENT

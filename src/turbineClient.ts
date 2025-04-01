@@ -1,23 +1,8 @@
-import {
-    Account,
-    Address,
-    createPublicClient,
-    Hex,
-    http,
-    PublicClient,
-    WalletClient,
-} from "viem";
+import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
-import {
-    TURBINE_API_URL,
-    TURBINE_SETTLER_CONTRACT,
-    TURBINE_DOMAIN,
-    RPC_URL,
-    CHAIN_ID,
-} from "./config";
+import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
-import { mainnet } from "viem/chains";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -62,8 +47,17 @@ export class TurbineClient {
         intent: OrderIntent,
         walletClient: WalletClient,
         publicClient: PublicClient
-    ): Promise<AddOrder> {
+    ): Promise<AddOrder | AddSmartOrder> {
         let intentSignature = await this.signIntent(intent, walletClient);
+
+        // Skip permit data for smart orders
+        if (this.is_smart_order(intent)) {
+            return {
+                order: intent,
+                order_signature: convertSignature(intentSignature),
+            };
+        }
+
         let { permit, permitSignature } = await getSignedAllowance({
             order: intent,
             walletClient,
@@ -91,6 +85,26 @@ export class TurbineClient {
         return response;
     }
 
+    private async callAddOrders(payloads: (AddOrder | AddSmartOrder)[]) {
+        const body = JSON.stringify(payloads, bigIntReplacer);
+
+        const response = await fetch(`${this.turbineApiUrl}/add_orders`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body,
+        });
+        return response;
+    }
+
+    /**
+     * Add an order to the Turbine API.
+     * @param intent An `OrderIntent` object containing the details of the trade to be executed
+     * @param walletClient The wallet client used for signing the order intent
+     * @param publicClient The public client used for blockchain interactions and permit2 allowance
+     * @returns A Promise that resolves to a string containing the submitted order hash.
+     */
     async addOrder(
         intent: OrderIntent,
         walletClient: WalletClient,
@@ -115,59 +129,36 @@ export class TurbineClient {
             throw new Error(`Failed to parse response as JSON: ${e}`);
         }
 
-        if (!responseJson || !responseJson["order_id"]) {
+        if (!responseJson || !responseJson["order_hash"]) {
             throw new Error(
-                `Response missing required order_id field: ${JSON.stringify(responseJson)}`
+                `Response missing required order_hash field: ${JSON.stringify(responseJson)}`
             );
         }
 
-        return responseJson["order_id"];
-    }
-
-    async addOrderArray(
-        intents: OrderIntent[],
-        walletClient: WalletClient,
-        publicClient: PublicClient
-    ) {
-        // Check whether smart order or regular order, and call the appropriate method
-        return await Promise.all(
-            intents.map((intent) => {
-                if (this.is_smart_order(intent)) {
-                    return this.addSmartOrder(intent, walletClient);
-                }
-                return this.addOrder(intent, walletClient, publicClient);
-            })
-        );
+        return responseJson["order_hash"];
     }
 
     /**
-     * Cancel an order by its ID.
-     * Order cancellation is subjected to a speedbump. If the next settlement
-     * happens before the speedbump time passes, your order may still be filled.
-     * @param orderId Order ID
+     * Add an array of orders to the Turbine API.
+     * @param intents An array of `OrderIntent` objects containing the details of the trades to be executed
+     * @param walletClient The wallet client used for signing the order intents
+     * @param publicClient The public client used for blockchain interactions and permit2 allowances
+     * @returns A Promise that resolves to an array of strings containing the submitted order hashes.
      */
-    async cancelOrder(orderId: string) {}
-
-    async addSmartOrder(intent: OrderIntent, client: WalletClient): Promise<string> {
-        // TODO: add unit test, not only integration test
-        // Verify this is a smart order
-        if (!this.is_smart_order(intent)) {
-            throw new Error(
-                "Smart orders must include both callDataTarget and callData"
-            );
-        }
-
-        const intentSignature = await this.signIntent(intent, client);
-
-        const payload: AddSmartOrder = {
-            order: intent,
-            order_signature: convertSignature(intentSignature),
-        };
-
-        const response = await this.callAddOrder(payload);
+    async addOrders(
+        intents: OrderIntent[],
+        walletClient: WalletClient,
+        publicClient: PublicClient
+    ): Promise<string[]> {
+        const payloads = await Promise.all(
+            intents.map((intent) =>
+                this.createAddOrderData(intent, walletClient, publicClient)
+            )
+        );
+        const response = await this.callAddOrders(payloads);
         if (!response.ok) {
             throw new Error(
-                `Failed to add smart order: ${response.statusText}, ${await response.text()}`
+                `Failed to add orders: ${response.statusText}, ${await response.text()}`
             );
         }
 
@@ -178,14 +169,22 @@ export class TurbineClient {
             throw new Error(`Failed to parse response as JSON: ${e}`);
         }
 
-        if (!responseJson || !responseJson["order_id"]) {
+        if (!responseJson || !responseJson.length) {
             throw new Error(
-                `Response missing required order_id field: ${JSON.stringify(responseJson)}`
+                `Response missing required order hashes: ${JSON.stringify(responseJson)}`
             );
         }
 
-        return responseJson["order_id"];
+        return responseJson.map((order: any) => order.order_hash);
     }
+
+    /**
+     * Cancel an order by its hash.
+     * Order cancellation is subjected to a speedbump. If the next settlement
+     * happens before the speedbump time passes, your order may still be filled.
+     * @param orderHash Order hash
+     */
+    async cancelOrder(orderHash: string) {}
 
     private is_smart_order(intent: OrderIntent): Boolean {
         return (
