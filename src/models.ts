@@ -67,27 +67,18 @@ export interface OrderIntent {
     owner: Address;
     /** Address of sell token */
     sellToken: Address;
+    /** Address of buy token */
     buyToken: Address;
     /** Sell amount */
     sellAmount: bigint /** Address of buy token */;
-    /** Minimum buy amount, effectively defining limit price. Currently unsupported. */
+    /** Minimum buy amount, effectively defining limit price. */
     minBuyAmount: bigint;
-    // maxGas: number;
     /**
-     * Start mid-price delta in basis points.
+     * Allowed deviation from the mid-price delta in basis points.
      * E.g. 1% (100 basis points) mid-price delta means that the trade will be executed
      * at a price at most 1% worse than mid-price.
      */
     midPriceDelta: number;
-    /**
-     * End mid-price delta in basis points.
-     *
-     * Set to the same value as minMidPriceDelta to keep the delta static.
-     *
-     * Alternatively, set this to a value higher than minMidPriceDelta
-     * to make the delta increase over time, so that the order gets easier to fill.
-     */
-    // endMidPriceDelta: number;
     /** Block timestamp since when the order is valid */
     startTime: bigint;
     /**
@@ -95,8 +86,12 @@ export interface OrderIntent {
      * This is when maxMidPriceDelta will be reached.
      */
     endTime: bigint;
+    /** Flag allowing partial fills */
     partialFill: boolean;
+    /** Optional call data for smart orders, allowing custom routing */
     callData: Hex;
+    /** Address of the target contract for the calldata */
     callDataTarget: Address;
+    /** Used to differentiate between orders with the same parameters */
     salt: Hex;
 }

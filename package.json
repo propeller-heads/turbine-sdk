@@ -1,5 +1,5 @@
 {
-    "name": "turbine-rust-sdk",
+    "name": "turbine-sdk",
     "version": "0.0.9",
     "description": "Submit orders to Turbine",
     "main": "index.js",
@@ -32,5 +32,5 @@
     "peerDependencies": {
         "viem": "^2.9.1"
     },
-    "packageManager": "yarn@4.5.1"
+    "packageManager": "yarn@4.7.0"
 }
