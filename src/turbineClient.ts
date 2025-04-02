@@ -3,6 +3,7 @@ import { orderIntentABI } from "./abi";
 import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
+import { NULL_ADDRESS } from "./constants";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -67,8 +68,10 @@ export class TurbineClient {
         return {
             order: intent,
             order_signature: convertSignature(intentSignature),
-            permit,
-            permit_signature: convertSignature(permitSignature),
+            signed_permit: {
+                signature: convertSignature(permitSignature),
+                permit: permit,
+            },
         };
     }
 
@@ -187,10 +190,7 @@ export class TurbineClient {
     async cancelOrder(orderHash: string) {}
 
     private is_smart_order(intent: OrderIntent): Boolean {
-        return (
-            intent.callDataTarget != "0x0000000000000000000000000000000000000000" &&
-            intent.callData != "0x"
-        );
+        return intent.callDataTarget != NULL_ADDRESS && intent.callData != "0x";
     }
 }
 
