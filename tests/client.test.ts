@@ -3,6 +3,7 @@ import { convertSignature, TurbineClient } from "../src/turbineClient";
 import { ACCOUNT, ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
 import { OrderIntent, PrimitiveSignature } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
+import { Hex } from "viem";
 
 describe("TurbineClient", () => {
     describe("addOrder", () => {
@@ -155,16 +156,11 @@ describe("TurbineClient", () => {
         const signature = await turbineClient["signIntent"](orderIntent, WALLET_CLIENT);
 
         const convertedSignature = convertSignature(signature);
-        // The values below are taken from Rust implementation
-        const expected: PrimitiveSignature = {
-            r: BigInt(
-                "0x332d52ae61e65d3837f8e4e56edcfda15008480e7ea0006008aeb31151b3cb4f"
-            ),
-            s: BigInt(
-                "0x65e06cadb90056cd77f42fa3ad7ea373483bad653fd6f1f0f44a67bbcf474efc"
-            ),
-            yParity: "0x0",
-        };
-        expect(convertedSignature).toEqual(expected);
+
+        // Expected signature taken from Rust implementation of the same order
+        const expectedSignature = convertSignature(
+            "0x2c0276f888b9465f6ca64876cad72a96c202b921255eab77b05ca49283c43b203e084cb7d772fd7a3e677e1312c9de0476080b38c7adf847654e4fc630b2e1091b" as Hex
+        );
+        expect(convertedSignature).toEqual(expectedSignature);
     });
 });
