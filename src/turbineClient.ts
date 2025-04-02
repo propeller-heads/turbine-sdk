@@ -187,7 +187,9 @@ export class TurbineClient {
      * happens before the speedbump time passes, your order may still be filled.
      * @param orderHash Order hash
      */
-    async cancelOrder(orderHash: string) {}
+    async cancelOrder(orderHash: string) {
+        throw new Error("Not implemented in SDK nor Turbine API");
+    }
 
     private is_smart_order(intent: OrderIntent): Boolean {
         return intent.callDataTarget != NULL_ADDRESS && intent.callData != "0x";
