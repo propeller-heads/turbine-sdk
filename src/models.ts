@@ -41,14 +41,18 @@ export interface PrimitiveSignature {
     yParity: Hex; // boolean as hex, i.e. 0x0 or 0x1
 }
 
+export interface SignedPermit {
+    signature: PrimitiveSignature;
+    permit: AllowanceTransferPermitSingle;
+}
+
 /**
  * Full struct to be sent to Turbine API to submit an order
  */
 export interface AddOrder {
     order: OrderIntent;
     order_signature: PrimitiveSignature;
-    permit: AllowanceTransferPermitSingle;
-    permit_signature: PrimitiveSignature;
+    signed_permit: SignedPermit;
 }
 
 /**

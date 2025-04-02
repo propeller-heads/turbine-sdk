@@ -3,6 +3,7 @@ import { convertSignature, TurbineClient } from "../src/turbineClient";
 import { ACCOUNT, ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
 import { OrderIntent, PrimitiveSignature } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
+import { Hex } from "viem";
 
 describe("TurbineClient", () => {
     describe("addOrder", () => {
@@ -12,7 +13,7 @@ describe("TurbineClient", () => {
 
             // Mock the private callAddOrder method
             const mockResponse = new Response(
-                JSON.stringify({ order_id: mockOrderId })
+                JSON.stringify({ order_hash: mockOrderId })
             );
             // @ts-ignore - accessing private method for testing
             client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
@@ -41,7 +42,7 @@ describe("TurbineClient", () => {
             await expect(
                 client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
             ).rejects.toThrow(
-                'Response missing required order_id field: {"message":"something went wrong"}'
+                'Response missing required order_hash field: {"message":"something went wrong"}'
             );
         });
 
@@ -58,6 +59,78 @@ describe("TurbineClient", () => {
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
             expect(error.message).toMatch(/happy chrysler/);
+        });
+    });
+
+    describe("addOrders", () => {
+        it("should call Turbine API and return array of order IDs", async () => {
+            const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
+            const client = new TurbineClient();
+
+            // Mock the private callAddOrders method
+            const mockResponse = new Response(
+                JSON.stringify([
+                    { order_hash: mockOrderIds[0] },
+                    { order_hash: mockOrderIds[1] },
+                ])
+            );
+            // @ts-ignore - accessing private method for testing
+            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+
+            const orderIds = await client.addOrders(
+                [ORDER_INTENT, ORDER_INTENT],
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
+
+            expect(orderIds).toEqual(mockOrderIds);
+            // @ts-ignore - accessing private method for testing
+            expect(client.callAddOrders).toHaveBeenCalledTimes(1);
+        });
+
+        it("should return informative error in case of unexpected API response in json", async () => {
+            const client = new TurbineClient();
+
+            // Mock the private callAddOrders method
+            const mockResponse = new Response(
+                JSON.stringify({ message: "something went wrong" })
+            );
+            // @ts-ignore - accessing private method for testing
+            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+
+            await expect(
+                client.addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
+            ).rejects.toThrow(
+                'Response missing required order hashes: {"message":"something went wrong"}'
+            );
+        });
+
+        it("should return informative error in case of malformed API response", async () => {
+            const client = new TurbineClient();
+
+            // Mock the private callAddOrders method
+            const mockResponse = new Response("happy chrysler");
+            // @ts-ignore - accessing private method for testing
+            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+
+            const error = await client
+                .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
+                .catch((e) => e);
+            expect(error.message).toMatch(/Failed to parse response as JSON/);
+            expect(error.message).toMatch(/happy chrysler/);
+        });
+
+        it("should handle empty array of orders", async () => {
+            const client = new TurbineClient();
+
+            // Mock the private callAddOrders method
+            const mockResponse = new Response(JSON.stringify([]));
+            // @ts-ignore - accessing private method for testing
+            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+
+            await expect(
+                client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
+            ).rejects.toThrow("Response missing required order hashes: []");
         });
     });
 
@@ -83,16 +156,11 @@ describe("TurbineClient", () => {
         const signature = await turbineClient["signIntent"](orderIntent, WALLET_CLIENT);
 
         const convertedSignature = convertSignature(signature);
-        // The values below are taken from Rust implementation
-        const expected: PrimitiveSignature = {
-            r: BigInt(
-                "0x332d52ae61e65d3837f8e4e56edcfda15008480e7ea0006008aeb31151b3cb4f"
-            ),
-            s: BigInt(
-                "0x65e06cadb90056cd77f42fa3ad7ea373483bad653fd6f1f0f44a67bbcf474efc"
-            ),
-            yParity: "0x0",
-        };
-        expect(convertedSignature).toEqual(expected);
+
+        // Expected signature taken from Rust implementation of the same order
+        const expectedSignature = convertSignature(
+            "0x2c0276f888b9465f6ca64876cad72a96c202b921255eab77b05ca49283c43b203e084cb7d772fd7a3e677e1312c9de0476080b38c7adf847654e4fc630b2e1091b" as Hex
+        );
+        expect(convertedSignature).toEqual(expectedSignature);
     });
 });
