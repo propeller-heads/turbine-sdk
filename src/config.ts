@@ -6,12 +6,14 @@ export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:80
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
     process.env.TURBINE_SETTLER_CONTRACT || "0x0C16bE7A4C9cFDe42e37a18aEF32e2b5214cc2BD"
 );
+const TURBINE_SALT =
+    "0xea6078b87659a262f2239bc31d5f870898575eed78c14d5feb90615aafb06587";
 export const TURBINE_DOMAIN = {
     name: "Turbine",
     version: "0.1.0",
     chainId: CHAIN_ID,
     verifyingContract: TURBINE_SETTLER_CONTRACT,
-    salt: "0xea6078b87659a262f2239bc31d5f870898575eed78c14d5feb90615aafb06587",
+    salt: TURBINE_SALT,
 } as const;
 
 export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet
