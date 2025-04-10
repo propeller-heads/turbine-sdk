@@ -54,7 +54,7 @@ A simplified workflow goes like this:
 
 | Contract     | Address                                    |
 | ------------ | ------------------------------------------ |
-| OrderSettler | 0x0C16bE7A4C9cFDe42e37a18aEF32e2b5214cc2BD |
+| OrderSettler | 0x7B39F073d2f2511a5e1ff664AeC5daee02044967 |
 
 ### Orders
 
