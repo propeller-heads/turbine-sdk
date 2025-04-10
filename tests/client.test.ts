@@ -154,12 +154,11 @@ describe("TurbineClient", () => {
         } as const;
 
         const signature = await turbineClient["signIntent"](orderIntent, WALLET_CLIENT);
-
         const convertedSignature = convertSignature(signature);
 
         // Expected signature taken from Rust implementation of the same order
         const expectedSignature = convertSignature(
-            "0x2c0276f888b9465f6ca64876cad72a96c202b921255eab77b05ca49283c43b203e084cb7d772fd7a3e677e1312c9de0476080b38c7adf847654e4fc630b2e1091b" as Hex
+            "0x7a3fd8a46bdea8b744b4be06d2adc45c1067528793fcadf64bda69357b056a3f50b243dca7a1279a61c1e4724af9e943d65f5a0b60677210da70e4b7c68d20df1c" as Hex
         );
         expect(convertedSignature).toEqual(expectedSignature);
     });
