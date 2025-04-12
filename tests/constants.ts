@@ -2,7 +2,7 @@ import { createPublicClient, createWalletClient, Hex, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { RPC_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
-import { OrderIntent } from "../src/models";
+import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
 import { mainnet } from "viem/chains";
 
 export const PREFUNDED_PK: Hex =
@@ -50,5 +50,25 @@ export const SMART_ORDER_INTENT: OrderIntent = {
     partialFill: true,
     callData: "0x12345678",
     callDataTarget: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
+} as const;
+
+export const ADD_LIQUIDITY_INTENT: AddLiquidityIntent = {
+    owner: ACCOUNT.address,
+    token0: USDC.address,
+    token1: USDT.address,
+    fee: 3000n,
+    maxToken0: 1000n,
+    maxToken1: 1000n,
+    salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
+} as const;
+
+export const REMOVE_LIQUIDITY_INTENT: RemoveLiquidityIntent = {
+    owner: ACCOUNT.address,
+    token0: USDC.address,
+    token1: USDT.address,
+    fee: 3000n,
+    lpToken: USDT.address,
+    lpTokenAmount: 1000n,
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
