@@ -55,27 +55,27 @@ async function getNonce(
  * will be set to OrderSettler address.
  */
 export async function getSignedAllowance({
-    order,
+    token,
     walletClient,
     publicClient,
-    deadline = BigInt(order.endTime),
+    deadline,
     spender = TURBINE_SETTLER_CONTRACT,
 }: {
-    order: OrderIntent;
+    token: Address;
     walletClient: WalletClient;
     publicClient: PublicClient;
-    deadline?: bigint;
+    deadline: bigint;
     spender?: Address;
 }): Promise<getSignedAllowanceReturnType> {
     const nonce = await getNonce(
         (await walletClient.getAddresses())[0],
-        order.sellToken,
+        token,
         spender,
         publicClient
     );
     const permit: AllowanceTransferPermitSingle = {
         details: {
-            token: order.sellToken,
+            token: token,
             amount: maxUint160, // infinite approval
             expiration: deadline,
             nonce: nonce,
