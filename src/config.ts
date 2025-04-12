@@ -1,4 +1,4 @@
-import { Address, getAddress } from "viem";
+import { Address, getAddress, Hex } from "viem";
 
 export const CHAIN_ID = 1;
 
@@ -13,7 +13,7 @@ export const TURBINE_DOMAIN = {
     version: "0.1.0",
     chainId: CHAIN_ID,
     verifyingContract: TURBINE_SETTLER_CONTRACT,
-    salt: TURBINE_SALT,
+    salt: TURBINE_SALT as Hex,
 } as const;
 
 export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet

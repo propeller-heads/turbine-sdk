@@ -99,3 +99,81 @@ export interface OrderIntent {
     /** Used to differentiate between orders with the same parameters */
     salt: Hex;
 }
+
+/**
+ * Represents a liquidity addition with permit functionality.
+ *
+ * This struct encapsulates all necessary information needed to submit a new intent to add
+ * liquidity to the system, including the intent, its signature, and the permit data for approvals.
+ */
+export interface AddLiquidity {
+    /** The intent to add liquidity with cryptographic signature validating it */
+    signed_intent: SignedAddLiquidityIntent;
+    /** The permit signature and permit data for token0 */
+    permit_token0: SignedPermit;
+    /** The permit signature and permit data for token1 */
+    permit_token1: SignedPermit;
+}
+
+export interface SignedAddLiquidityIntent {
+    intent: AddLiquidityIntent;
+    signature: PrimitiveSignature;
+}
+
+/**
+ * A struct for the intent to add liquidity that user signs
+ */
+export interface AddLiquidityIntent {
+    /** The account providing the liquidity */
+    owner: Address;
+    /** token0 of the pool to which the liquidity is provided */
+    token0: Address;
+    /** token1 of the pool to which the liquidity is provided */
+    token1: Address;
+    /** fee of the pool to which the liquidity is provided, in 1/100 of bip (3000=0.3%) */
+    fee: bigint;
+    /** Maximum amount of token0 of the pool that the user is willing to provide */
+    maxToken0: bigint;
+    /** Maximum amount of token1 of the pool that the user is willing to provide */
+    maxToken1: bigint;
+    /** Arbitrary value differentiating intents whose other fields are the same */
+    salt: Hex;
+}
+
+/**
+ * Represents a liquidity removal with permit functionality.
+ *
+ * This struct encapsulates all necessary information needed to submit a new intent to remove
+ * liquidity to the system, including the intent, its signature, and the permit data for approvals.
+ */
+export interface RemoveLiquidity {
+    /** The intent to remove liquidity with cryptographic signature validating it */
+    signed_intent: SignedRemoveLiquidityIntent;
+    /** The permit signature and permit data for the lp token */
+    permit_lp_token: SignedPermit;
+}
+
+export interface SignedRemoveLiquidityIntent {
+    intent: RemoveLiquidityIntent;
+    signature: PrimitiveSignature;
+}
+
+/**
+ * A struct for the intent to remove liquidity that user signs
+ */
+export interface RemoveLiquidityIntent {
+    /** The account withdrawing the liquidity */
+    owner: Address;
+    /** token0 of the pool to which the liquidity is withdrawn */
+    token0: Address;
+    /** token1 of the pool to which the liquidity is withdrawing */
+    token1: Address;
+    /** fee of the pool to which the liquidity is withdrawing, in 1/100 of bip (3000=0.3%) */
+    fee: bigint;
+    /** Address of the LP token that the user wants to burn. */
+    lpToken: Address;
+    /** Quantity of LP tokens that the user wants to burn. */
+    lpTokenAmount: bigint;
+    /** Arbitrary value differentiating intents whose other fields are the same */
+    salt: Hex;
+}
