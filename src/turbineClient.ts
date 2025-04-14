@@ -337,7 +337,8 @@ export class TurbineClient {
             typedData.types["AddLiquidityIntent"] = addLiquidityIntentABI.components;
             typedData.primaryType = "AddLiquidityIntent";
         } else if ("token0" in intent && "token1" in intent && "lpToken" in intent) {
-            typedData.types["RemoveLiquidityIntent"] = removeLiquidityIntentABI.components;
+            typedData.types["RemoveLiquidityIntent"] =
+                removeLiquidityIntentABI.components;
             typedData.primaryType = "RemoveLiquidityIntent";
         }
 
@@ -363,6 +364,12 @@ export class TurbineClient {
         });
     }
 
+    /**
+     * Calls the Turbine API endpoint with the given payload.
+     * @param payload The payload to send to the endpoint
+     * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity"
+     * @returns A Promise that resolves to the response from the endpoint
+     */
     private async callAPIendpoint(
         payload:
             | AddOrder

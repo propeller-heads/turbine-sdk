@@ -1,6 +1,12 @@
 import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
 import { getRandomSalt, TurbineClient } from "../src/turbineClient";
-import { ADD_LIQUIDITY_INTENT, ORDER_INTENT, PUBLIC_CLIENT, REMOVE_LIQUIDITY_INTENT, WALLET_CLIENT } from "./constants";
+import {
+    ADD_LIQUIDITY_INTENT,
+    ORDER_INTENT,
+    PUBLIC_CLIENT,
+    REMOVE_LIQUIDITY_INTENT,
+    WALLET_CLIENT,
+} from "./constants";
 
 describe("Integration test", () => {
     it("should successfully submit an order", async () => {

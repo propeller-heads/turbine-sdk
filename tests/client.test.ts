@@ -1,6 +1,13 @@
 import { describe, expect, jest } from "@jest/globals";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
-import { ACCOUNT, ADD_LIQUIDITY_INTENT, ORDER_INTENT, PUBLIC_CLIENT, REMOVE_LIQUIDITY_INTENT, WALLET_CLIENT } from "./constants";
+import {
+    ACCOUNT,
+    ADD_LIQUIDITY_INTENT,
+    ORDER_INTENT,
+    PUBLIC_CLIENT,
+    REMOVE_LIQUIDITY_INTENT,
+    WALLET_CLIENT,
+} from "./constants";
 import { OrderIntent, PrimitiveSignature } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { Hex } from "viem";
@@ -144,7 +151,7 @@ describe("TurbineClient", () => {
                 JSON.stringify({ hash: mockLiquidityId })
             );
             // @ts-ignore - accessing private method for testing
-            client.callAPIendpoint = jest.fn().mockResolvedValue(mockResponse); 
+            client.callAPIendpoint = jest.fn().mockResolvedValue(mockResponse);
 
             const liquidityId = await client.addLiquidity(
                 ADD_LIQUIDITY_INTENT,
