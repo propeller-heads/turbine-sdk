@@ -1,6 +1,6 @@
-import { OrderIntent } from "../src/models";
+import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
 import { getRandomSalt, TurbineClient } from "../src/turbineClient";
-import { ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
+import { ADD_LIQUIDITY_INTENT, ORDER_INTENT, PUBLIC_CLIENT, REMOVE_LIQUIDITY_INTENT, WALLET_CLIENT } from "./constants";
 
 describe("Integration test", () => {
     it("should successfully submit an order", async () => {
@@ -37,5 +37,39 @@ describe("Integration test", () => {
         result.forEach((response) => {
             expect(response).toBeDefined();
         });
+    });
+
+    it("should successfully submit an add liquidity intent", async () => {
+        const turbineClient = new TurbineClient();
+
+        const intent: AddLiquidityIntent = {
+            ...ADD_LIQUIDITY_INTENT,
+            salt: getRandomSalt(),
+        };
+
+        const result = await turbineClient.addLiquidity(
+            intent,
+            WALLET_CLIENT,
+            PUBLIC_CLIENT
+        );
+
+        expect(result).toBeDefined();
+    });
+
+    it("should successfully submit a remove liquidity intent", async () => {
+        const turbineClient = new TurbineClient();
+
+        const intent: RemoveLiquidityIntent = {
+            ...REMOVE_LIQUIDITY_INTENT,
+            salt: getRandomSalt(),
+        };
+
+        const result = await turbineClient.removeLiquidity(
+            intent,
+            WALLET_CLIENT,
+            PUBLIC_CLIENT
+        );
+
+        expect(result).toBeDefined();
     });
 });
