@@ -236,7 +236,7 @@ export class TurbineClient {
     ): Promise<AddLiquidity> {
         let intentSignature = await this.signIntent(intent, walletClient);
 
-        // TODO: Add start time and end time to the intent ?
+        // TODO: Add start time and end time to the liquidity intents ?
         let deadline = BigInt(Date.now() + 300_000); // 5 minutes from now
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
@@ -319,30 +319,25 @@ export class TurbineClient {
                 chainId: number;
                 salt: Hex;
             };
-            types: {
-                OrderIntent: any[];
-                AddLiquidityIntent: any[];
-                RemoveLiquidityIntent: any[];
-            };
-            primaryType: "OrderIntent" | "AddLiquidityIntent" | "RemoveLiquidityIntent";
+            types: any;
+            primaryType: string;
             message: Record<string, unknown>;
         } = {
             domain: this.getTurbineDomain(),
-            types: {
-                OrderIntent: orderIntentABI.components,
-                AddLiquidityIntent: addLiquidityIntentABI.components,
-                RemoveLiquidityIntent: removeLiquidityIntentABI.components,
-            },
-            primaryType: "OrderIntent", // default value
+            types: {},
+            primaryType: "",
             message: intent as unknown as Record<string, unknown>,
         };
 
         // Determine the primary type based on the intent
         if ("sellToken" in intent && "buyToken" in intent) {
+            typedData.types["OrderIntent"] = orderIntentABI.components;
             typedData.primaryType = "OrderIntent";
         } else if ("token0" in intent && "token1" in intent && "maxToken0" in intent) {
+            typedData.types["AddLiquidityIntent"] = addLiquidityIntentABI.components;
             typedData.primaryType = "AddLiquidityIntent";
         } else if ("token0" in intent && "token1" in intent && "lpToken" in intent) {
+            typedData.types["RemoveLiquidityIntent"] = removeLiquidityIntentABI.components;
             typedData.primaryType = "RemoveLiquidityIntent";
         }
 
