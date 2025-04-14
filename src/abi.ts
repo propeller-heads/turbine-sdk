@@ -120,7 +120,7 @@ export const removeLiquidityIntentABI = {
         },
         {
             name: "lpTokenAmount",
-            type: "uint256",
+            type: "uint128",
         },
         {
             name: "salt",

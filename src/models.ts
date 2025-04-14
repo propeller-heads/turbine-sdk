@@ -74,7 +74,7 @@ export interface OrderIntent {
     /** Address of buy token */
     buyToken: Address;
     /** Sell amount */
-    sellAmount: bigint /** Address of buy token */;
+    sellAmount: bigint;
     /** Minimum buy amount, effectively defining limit price. */
     minBuyAmount: bigint;
     /**
@@ -131,11 +131,11 @@ export interface AddLiquidityIntent {
     /** token1 of the pool to which the liquidity is provided */
     token1: Address;
     /** fee of the pool to which the liquidity is provided, in 1/100 of bip (3000=0.3%) */
-    fee: bigint;
+    fee: number;
     /** Maximum amount of token0 of the pool that the user is willing to provide */
-    maxToken0: bigint;
+    maxToken0: number;
     /** Maximum amount of token1 of the pool that the user is willing to provide */
-    maxToken1: bigint;
+    maxToken1: number;
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }
@@ -169,11 +169,11 @@ export interface RemoveLiquidityIntent {
     /** token1 of the pool to which the liquidity is withdrawing */
     token1: Address;
     /** fee of the pool to which the liquidity is withdrawing, in 1/100 of bip (3000=0.3%) */
-    fee: bigint;
+    fee: number;
     /** Address of the LP token that the user wants to burn. */
     lpToken: Address;
     /** Quantity of LP tokens that the user wants to burn. */
-    lpTokenAmount: bigint;
+    lpTokenAmount: number;
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }
