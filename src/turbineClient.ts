@@ -55,7 +55,7 @@ export class TurbineClient {
         if (this.is_smart_order(intent)) {
             return {
                 order: intent,
-                order_signature: convertSignature(intentSignature),
+                orderSignature: convertSignature(intentSignature),
             };
         }
 
@@ -67,8 +67,8 @@ export class TurbineClient {
         });
         return {
             order: intent,
-            order_signature: convertSignature(intentSignature),
-            signed_permit: {
+            orderSignature: convertSignature(intentSignature),
+            signedPermit: {
                 signature: convertSignature(permitSignature),
                 permit: permit,
             },
@@ -208,7 +208,7 @@ export function convertSignature(sig: Hex): PrimitiveSignature {
     return {
         r: BigInt(`0x${sig.slice(2, 66)}`),
         s: BigInt(`0x${sig.slice(66, 130)}`),
-        yParity: `0x${parseInt(sig.slice(130, 132), 16) - 27}`, // Convert v (27/28) to y_parity (false/true)
+        yParity: parseInt(sig.slice(130, 132), 16) - 27 === 1, // Convert v (27/28) to y_parity (false/true)
     };
 }
 

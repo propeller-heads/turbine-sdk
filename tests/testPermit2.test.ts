@@ -10,8 +10,8 @@ describe("Permit2", () => {
             details: {
                 token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
                 amount: 1461501637330902918203684832716283019655932542975n,
-                expiration: 1719735740n,
-                nonce: 0n,
+                expiration: 1719735740,
+                nonce: 0,
             },
             spender: "0x26df0ea798971a97ae121514b32999dfdb220e1f",
             sigDeadline: 1719735740n,
