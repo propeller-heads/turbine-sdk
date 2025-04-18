@@ -28,8 +28,8 @@ export interface AllowanceTransferPermitSingle {
     details: {
         token: Address;
         amount: bigint;
-        expiration: bigint;
-        nonce: bigint;
+        expiration: number;
+        nonce: number;
     };
     spender: Address;
     sigDeadline: bigint;
@@ -38,7 +38,7 @@ export interface AllowanceTransferPermitSingle {
 export interface PrimitiveSignature {
     r: BigInt;
     s: BigInt;
-    yParity: Hex; // boolean as hex, i.e. 0x0 or 0x1
+    yParity: boolean;
 }
 
 export interface SignedPermit {
@@ -51,8 +51,8 @@ export interface SignedPermit {
  */
 export interface AddOrder {
     order: OrderIntent;
-    order_signature: PrimitiveSignature;
-    signed_permit: SignedPermit;
+    orderSignature: PrimitiveSignature;
+    signedPermit: SignedPermit;
 }
 
 /**
@@ -60,7 +60,7 @@ export interface AddOrder {
  */
 export interface AddSmartOrder {
     order: OrderIntent;
-    order_signature: PrimitiveSignature;
+    orderSignature: PrimitiveSignature;
 }
 
 /**

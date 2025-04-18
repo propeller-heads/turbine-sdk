@@ -16,7 +16,7 @@ async function getNonce(
     token: Address,
     spender: Address,
     client: PublicClient
-): Promise<bigint> {
+): Promise<number> {
     const allowance = await client.readContract({
         address: PERMIT2_ADDRESS,
         abi: [
@@ -39,7 +39,7 @@ async function getNonce(
         functionName: "allowance",
         args: [owner, token, spender],
     });
-    const nonce = BigInt(allowance[2]);
+    const nonce = allowance[2];
     return nonce;
 }
 
@@ -58,13 +58,13 @@ export async function getSignedAllowance({
     order,
     walletClient,
     publicClient,
-    deadline = BigInt(order.endTime),
+    deadline = Number(order.endTime),
     spender = TURBINE_SETTLER_CONTRACT,
 }: {
     order: OrderIntent;
     walletClient: WalletClient;
     publicClient: PublicClient;
-    deadline?: bigint;
+    deadline?: number;
     spender?: Address;
 }): Promise<getSignedAllowanceReturnType> {
     const nonce = await getNonce(
@@ -81,7 +81,7 @@ export async function getSignedAllowance({
             nonce: nonce,
         },
         spender: spender,
-        sigDeadline: deadline,
+        sigDeadline: BigInt(deadline),
     };
 
     const permitSignature = await getSignature(permit, walletClient);
