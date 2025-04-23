@@ -20,18 +20,10 @@ export const orderIntentABI = {
             name: "minBuyAmount",
             type: "uint256",
         },
-        // {
-        //     name: "maxGas",
-        //     type: "uint32",
-        // },
         {
             name: "midPriceDelta",
             type: "int32",
         },
-        // {
-        //     name: "endMidPriceDelta",
-        //     type: "uint32",
-        // },
         {
             name: "startTime",
             type: "uint256",

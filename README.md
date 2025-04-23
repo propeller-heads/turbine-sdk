@@ -79,12 +79,15 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 > [!TIP]
 > You can also submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
 
+> [!Note]
+> For this alpha version Turbine has a limit of 60 active orders per `owner`.
+
 ### Available environments to submit orders
 
 The available URLs are:
 
--   **DEV** environment: <http://dev-turbine.propellerheads.xyz/api/>
--   **STAGING** environment in a TEE on DStack: <https://cf57bca965c02d1dbfccc8a4677856765800efab-8080.dstack-prod5.phala.network/>
+-   **DEV** environment: <http://dev-turbine.propellerheads.xyz/api>
+-   **STAGING** environment in a TEE on DStack: <https://cf57bca965c02d1dbfccc8a4677856765800efab-8080.dstack-prod5.phala.network>
 
 > [!WARNING]
 > The URL of the STAGING environment is subject to change.
