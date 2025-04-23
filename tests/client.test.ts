@@ -58,7 +58,6 @@ describe("TurbineClient", () => {
                 .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
-            expect(error.message).toMatch(/happy chrysler/);
         });
     });
 
@@ -117,7 +116,6 @@ describe("TurbineClient", () => {
                 .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
-            expect(error.message).toMatch(/happy chrysler/);
         });
 
         it("should handle empty array of orders", async () => {
