@@ -108,11 +108,11 @@ export interface OrderIntent {
  */
 export interface AddLiquidity {
     /** The intent to add liquidity with cryptographic signature validating it */
-    signed_intent: SignedAddLiquidityIntent;
+    signedIntent: SignedAddLiquidityIntent;
     /** The permit signature and permit data for token0 */
-    permit_token0: SignedPermit;
+    permitToken0: SignedPermit;
     /** The permit signature and permit data for token1 */
-    permit_token1: SignedPermit;
+    permitToken1: SignedPermit;
 }
 
 export interface SignedAddLiquidityIntent {
@@ -148,9 +148,9 @@ export interface AddLiquidityIntent {
  */
 export interface RemoveLiquidity {
     /** The intent to remove liquidity with cryptographic signature validating it */
-    signed_intent: SignedRemoveLiquidityIntent;
+    signedIntent: SignedRemoveLiquidityIntent;
     /** The permit signature and permit data for the lp token */
-    permit_lp_token: SignedPermit;
+    permitLpToken: SignedPermit;
 }
 
 export interface SignedRemoveLiquidityIntent {

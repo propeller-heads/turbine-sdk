@@ -42,7 +42,7 @@ export class TurbineClient {
             walletClient,
             publicClient
         );
-        const response = await this.callAPIendpoint(payload, "add_order");
+        const response = await this.callApiEndpoint(payload, "add_order");
         if (!response.ok) {
             throw new Error(
                 `Failed to add order: ${response.statusText}, ${await response.text()}`
@@ -82,7 +82,7 @@ export class TurbineClient {
                 this.createAddOrderData(intent, walletClient, publicClient)
             )
         );
-        const response = await this.callAPIendpoint(payloads, "add_orders");
+        const response = await this.callApiEndpoint(payloads, "add_orders");
         if (!response.ok) {
             throw new Error(
                 `Failed to add orders: ${response.statusText}, ${await response.text()}`
@@ -110,7 +110,7 @@ export class TurbineClient {
      * @param intent The intent to add liquidity
      * @param walletClient The wallet client used for signing the intent
      * @param publicClient The public client used for blockchain interactions and permit2 allowances
-     * @returns A Promise that resolves to a string containing the submitted order hash.
+     * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidity(
         intent: AddLiquidityIntent,
@@ -122,7 +122,7 @@ export class TurbineClient {
             walletClient,
             publicClient
         );
-        const response = await this.callAPIendpoint(payload, "add_liquidity");
+        const response = await this.callApiEndpoint(payload, "add_liquidity");
         if (!response.ok) {
             throw new Error(
                 `Failed to add liquidity: ${response.statusText}, ${await response.text()}`
@@ -136,13 +136,13 @@ export class TurbineClient {
             throw new Error(`Failed to parse response as JSON: ${e}`);
         }
 
-        if (!responseJson || !responseJson["hash"]) {
+        if (!responseJson || !responseJson["intent_hash"]) {
             throw new Error(
                 `Response missing required hash field: ${JSON.stringify(responseJson)}`
             );
         }
 
-        return responseJson["hash"];
+        return responseJson["intent_hash"];
     }
 
     /**
@@ -150,7 +150,7 @@ export class TurbineClient {
      * @param intent The intent to remove liquidity
      * @param walletClient The wallet client used for signing the intent
      * @param publicClient The public client used for blockchain interactions and permit2 allowances
-     * @returns A Promise that resolves to a string containing the submitted order hash.
+     * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async removeLiquidity(
         intent: RemoveLiquidityIntent,
@@ -162,7 +162,7 @@ export class TurbineClient {
             walletClient,
             publicClient
         );
-        const response = await this.callAPIendpoint(payload, "remove_liquidity");
+        const response = await this.callApiEndpoint(payload, "remove_liquidity");
         if (!response.ok) {
             throw new Error(
                 `Failed to remove liquidity: ${response.statusText}, ${await response.text()}`
@@ -176,13 +176,13 @@ export class TurbineClient {
             throw new Error(`Failed to parse response as JSON: ${e}`);
         }
 
-        if (!responseJson || !responseJson["hash"]) {
+        if (!responseJson || !responseJson["intent_hash"]) {
             throw new Error(
                 `Response missing required hash field: ${JSON.stringify(responseJson)}`
             );
         }
 
-        return responseJson["hash"];
+        return responseJson["intent_hash"];
     }
 
     /**
@@ -216,7 +216,7 @@ export class TurbineClient {
             token: intent.sellToken,
             walletClient,
             publicClient,
-            deadline: intent.endTime,
+            deadline: Number(intent.endTime),
             spender: this.settlerContract,
         });
         return {
@@ -236,14 +236,14 @@ export class TurbineClient {
     ): Promise<AddLiquidity> {
         let intentSignature = await this.signIntent(intent, walletClient);
 
-        // TODO: Add start time and end time to the liquidity intents ?
-        let deadline = BigInt(Date.now() + 300_000); // 5 minutes from now
+        // At least one block time + speedbump (16 seconds) and at most two blocks time (24 seconds)
+        let deadline = BigInt(Date.now() + 20 * 1000); // 20 seconds from now
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
                 token: intent.token0,
                 walletClient,
                 publicClient,
-                deadline: deadline,
+                deadline: Number(deadline),
                 spender: this.settlerContract,
             });
         let { permit: permit1, permitSignature: permitSignature1 } =
@@ -251,19 +251,19 @@ export class TurbineClient {
                 token: intent.token1,
                 walletClient,
                 publicClient,
-                deadline: deadline,
+                deadline: Number(deadline),
                 spender: this.settlerContract,
             });
         return {
-            signed_intent: {
+            signedIntent: {
                 intent: intent,
                 signature: convertSignature(intentSignature),
             },
-            permit_token0: {
+            permitToken0: {
                 signature: convertSignature(permitSignature0),
                 permit: permit0,
             },
-            permit_token1: {
+            permitToken1: {
                 signature: convertSignature(permitSignature1),
                 permit: permit1,
             },
@@ -283,14 +283,14 @@ export class TurbineClient {
                 token: intent.lpToken,
                 walletClient,
                 publicClient,
-                deadline: deadline,
+                deadline: Number(deadline),
             });
         return {
-            signed_intent: {
+            signedIntent: {
                 intent: intent,
                 signature: convertSignature(intentSignature),
             },
-            permit_lp_token: {
+            permitLpToken: {
                 signature: convertSignature(permitSignature),
                 permit: permit,
             },
@@ -329,14 +329,13 @@ export class TurbineClient {
             message: intent as unknown as Record<string, unknown>,
         };
 
-        // Determine the primary type based on the intent
-        if ("sellToken" in intent && "buyToken" in intent) {
+        if (this.isOrderIntent(intent)) {
             typedData.types["OrderIntent"] = orderIntentABI.components;
             typedData.primaryType = "OrderIntent";
-        } else if ("token0" in intent && "token1" in intent && "maxToken0" in intent) {
+        } else if (this.isAddLiquidityIntent(intent)) {
             typedData.types["AddLiquidityIntent"] = addLiquidityIntentABI.components;
             typedData.primaryType = "AddLiquidityIntent";
-        } else if ("token0" in intent && "token1" in intent && "lpToken" in intent) {
+        } else if (this.isRemoveLiquidityIntent(intent)) {
             typedData.types["RemoveLiquidityIntent"] =
                 removeLiquidityIntentABI.components;
             typedData.primaryType = "RemoveLiquidityIntent";
@@ -370,7 +369,7 @@ export class TurbineClient {
      * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity"
      * @returns A Promise that resolves to the response from the endpoint
      */
-    private async callAPIendpoint(
+    protected async callApiEndpoint(
         payload:
             | AddOrder
             | AddSmartOrder
@@ -389,6 +388,18 @@ export class TurbineClient {
             body,
         });
         return response;
+    }
+
+    private isOrderIntent(intent: any): intent is OrderIntent {
+        return "sellToken" in intent && "buyToken" in intent;
+    }
+
+    private isAddLiquidityIntent(intent: any): intent is AddLiquidityIntent {
+        return "token0" in intent && "token1" in intent && "maxToken0" in intent;
+    }
+
+    private isRemoveLiquidityIntent(intent: any): intent is RemoveLiquidityIntent {
+        return "token0" in intent && "token1" in intent && "lpToken" in intent;
     }
 }
 

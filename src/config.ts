@@ -2,7 +2,7 @@ import { Address, getAddress, Hex } from "viem";
 
 export const CHAIN_ID = 1;
 
-export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080";
+export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
     process.env.TURBINE_SETTLER_CONTRACT || "0x7B39F073d2f2511a5e1ff664AeC5daee02044967"
 );
