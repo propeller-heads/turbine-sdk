@@ -243,6 +243,7 @@ export class TurbineClient {
                 token: intent.token0,
                 walletClient,
                 publicClient,
+                amount: BigInt(intent.maxToken0),
                 deadline: Number(deadline),
                 spender: this.settlerContract,
             });
@@ -251,6 +252,7 @@ export class TurbineClient {
                 token: intent.token1,
                 walletClient,
                 publicClient,
+                amount: BigInt(intent.maxToken1),
                 deadline: Number(deadline),
                 spender: this.settlerContract,
             });
@@ -283,6 +285,7 @@ export class TurbineClient {
                 token: intent.lpToken,
                 walletClient,
                 publicClient,
+                amount: BigInt(intent.lpTokenAmount),
                 deadline: Number(deadline),
             });
         return {
