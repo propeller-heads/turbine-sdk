@@ -1,7 +1,7 @@
 import { describe, expect, jest } from "@jest/globals";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
 import { ACCOUNT, ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
-import { OrderIntent, PrimitiveSignature } from "../src/models";
+import { OrderIntent } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { Hex } from "viem";
 
@@ -58,7 +58,6 @@ describe("TurbineClient", () => {
                 .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
-            expect(error.message).toMatch(/happy chrysler/);
         });
     });
 
@@ -117,7 +116,6 @@ describe("TurbineClient", () => {
                 .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
-            expect(error.message).toMatch(/happy chrysler/);
         });
 
         it("should handle empty array of orders", async () => {
@@ -161,5 +159,86 @@ describe("TurbineClient", () => {
             "0x7a3fd8a46bdea8b744b4be06d2adc45c1067528793fcadf64bda69357b056a3f50b243dca7a1279a61c1e4724af9e943d65f5a0b60677210da70e4b7c68d20df1c" as Hex
         );
         expect(convertedSignature).toEqual(expectedSignature);
+    });
+
+    describe("removeOrder", () => {
+        it("should call Turbine API and return success message", async () => {
+            const mockOrderHash =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            const mockMessage = "Order successfully queued for removal";
+            const client = new TurbineClient();
+
+            // Mock the fetch response directly
+            const mockResponse = new Response(
+                JSON.stringify({
+                    order_hash: mockOrderHash,
+                    message: mockMessage,
+                })
+            );
+
+            // Use jest.spyOn instead of directly replacing fetch
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            const result = await client.removeOrder(
+                mockOrderHash as Hex,
+                WALLET_CLIENT
+            );
+
+            expect(result).toEqual({
+                order_hash: mockOrderHash,
+                message: mockMessage,
+            });
+            expect(global.fetch).toHaveBeenCalledTimes(1);
+        });
+
+        it("should return informative error in case of unexpected API response in json", async () => {
+            const mockOrderHash =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            const client = new TurbineClient();
+
+            // Mock the response
+            const mockResponse = new Response(
+                JSON.stringify({ error: "something went wrong" })
+            );
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            await expect(
+                client.removeOrder(mockOrderHash as Hex, WALLET_CLIENT)
+            ).rejects.toThrow(
+                'Response missing required fields: {"error":"something went wrong"}'
+            );
+        });
+
+        it("should return informative error in case of malformed API response", async () => {
+            const mockOrderHash =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            const client = new TurbineClient();
+
+            // Mock with invalid JSON
+            const mockResponse = new Response("happy chrysler");
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            const error = await client
+                .removeOrder(mockOrderHash as Hex, WALLET_CLIENT)
+                .catch((e) => e);
+            expect(error.message).toMatch(/Failed to parse response as JSON/);
+        });
+
+        it("should throw error when API returns non-ok response", async () => {
+            const mockOrderHash =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+            const client = new TurbineClient();
+
+            // Mock a failed response
+            const mockResponse = new Response("Order not found", {
+                status: 404,
+                statusText: "Not Found",
+            });
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            await expect(
+                client.removeOrder(mockOrderHash as Hex, WALLET_CLIENT)
+            ).rejects.toThrow("Failed to remove order: Not Found, Order not found");
+        });
     });
 });

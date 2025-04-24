@@ -1,6 +1,6 @@
 import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { orderIntentABI } from "./abi";
-import { TURBINE_API_URL, TURBINE_SETTLER_CONTRACT, TURBINE_DOMAIN } from "./config";
+import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT } from "./config";
 import { AddOrder, AddSmartOrder, OrderIntent, PrimitiveSignature } from "./models";
 import { getSignedAllowance } from "./permit2";
 import { NULL_ADDRESS } from "./constants";
@@ -182,13 +182,54 @@ export class TurbineClient {
     }
 
     /**
-     * Cancel an order by its hash.
-     * Order cancellation is subjected to a speedbump. If the next settlement
-     * happens before the speedbump time passes, your order may still be filled.
-     * @param orderHash Order hash
+     * Remove an order from the Turbine API.
+     * @param orderHash The hash of the order to remove
+     * @param walletClient The wallet client used for signing the removal request
+     * @returns A Promise that resolves to the response message from the API.
      */
-    async cancelOrder(orderHash: string) {
-        throw new Error("Not implemented in SDK nor Turbine API");
+    async removeOrder(
+        orderHash: Hex,
+        walletClient: WalletClient
+    ): Promise<{ order_hash: string; message: string }> {
+        // Sign the order hash to prove ownership
+        const signature = await walletClient.signMessage({
+            message: { raw: orderHash },
+            account: walletClient.account!,
+        });
+
+        const payload = {
+            order_hash: orderHash,
+            signature: convertSignature(signature),
+        };
+
+        const response = await fetch(`${this.turbineApiUrl}/remove_order`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload, bigIntReplacer),
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                `Failed to remove order: ${response.statusText}, ${await response.text()}`
+            );
+        }
+
+        let responseJson;
+        try {
+            responseJson = await response.json();
+        } catch (e) {
+            throw new Error(`Failed to parse response as JSON: ${e}`);
+        }
+
+        if (!responseJson || !responseJson.order_hash || !responseJson.message) {
+            throw new Error(
+                `Response missing required fields: ${JSON.stringify(responseJson)}`
+            );
+        }
+
+        return responseJson;
     }
 
     private is_smart_order(intent: OrderIntent): Boolean {
