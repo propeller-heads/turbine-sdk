@@ -21,7 +21,9 @@ describe("TurbineClient", () => {
             const mockResponse = new Response(
                 JSON.stringify({ order_hash: mockOrderId })
             );
-            const mockCallAPI = jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
 
             const orderId = await client.addOrder(
                 ORDER_INTENT,
@@ -39,7 +41,9 @@ describe("TurbineClient", () => {
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
             );
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(
                 client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
@@ -52,7 +56,9 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             const mockResponse = new Response("happy chrysler");
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             const error = await client
                 .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
@@ -73,7 +79,9 @@ describe("TurbineClient", () => {
                     { order_hash: mockOrderIds[1] },
                 ])
             );
-            const mockCallAPI = jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
 
             const orderIds = await client.addOrders(
                 [ORDER_INTENT, ORDER_INTENT],
@@ -91,7 +99,9 @@ describe("TurbineClient", () => {
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
             );
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(
                 client.addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
@@ -104,7 +114,9 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             const mockResponse = new Response("happy chrysler");
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             const error = await client
                 .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
@@ -117,7 +129,9 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             const mockResponse = new Response(JSON.stringify([]));
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(
                 client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
@@ -133,7 +147,9 @@ describe("TurbineClient", () => {
             const mockResponse = new Response(
                 JSON.stringify({ intent_hash: mockIntentId })
             );
-            const mockCallAPI = jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
 
             const liquidityId = await client.addLiquidity(
                 ADD_LIQUIDITY_INTENT,
@@ -154,7 +170,9 @@ describe("TurbineClient", () => {
             const mockResponse = new Response(
                 JSON.stringify({ intent_hash: mockIntentId })
             );
-            const mockCallAPI = jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(mockResponse);
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
 
             const liquidityId = await client.removeLiquidity(
                 REMOVE_LIQUIDITY_INTENT,
