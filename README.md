@@ -76,7 +76,7 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 
 The `callData` can be used to route the order to a specific contract or to perform additional actions when executing the swap. The `callDataTarget` is the address of the contract that will execute the `callData`.
 
-When settling the batch, the `OrderSettler` first transfers the `buyToken`  to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `OrderSettler` contract.
+When settling the batch, the `OrderSettler` first transfers the `buyToken` to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `OrderSettler` contract.
 
 In case of partial fills, the `OrderSettler` will update the `minBuyAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `OrderSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `minBuyAmount` in the `callData` if you want to use this feature.
 
@@ -243,6 +243,10 @@ const intent: RemoveLiquidityIntent = {
 ### Submitting an intent to remove liquidity
 
 ```typescript
-const intentHash = await turbineClient.removeLiquidity(intent, walletClient, publicClient);
+const intentHash = await turbineClient.removeLiquidity(
+    intent,
+    walletClient,
+    publicClient
+);
 console.log(`Liquidity intent submitted with ID: ${intentHash}`);
 ```
