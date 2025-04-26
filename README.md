@@ -74,6 +74,12 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
+The `callData` can be used to route the order to a specific contract or to perform additional actions when executing the swap. The `callDataTarget` is the address of the contract that will execute the `callData`.
+
+When settling the batch, the `OrderSettler` first transfers the `buyToken`  to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `OrderSettler` contract.
+
+In case of partial fills, the `OrderSettler` will update the `minBuyAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `OrderSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `minBuyAmount` in the `callData` if you want to use this feature.
+
 ## Submitting orders via the SDK
 
 > [!TIP]
@@ -153,22 +159,90 @@ const order: OrderIntent = {
 ### Submitting an Order
 
 ```typescript
-// Submit the order
-const orderId = await turbineClient.addOrder(order, walletClient, publicClient);
-
-console.log(`Order submitted with ID: ${orderId}`);
+const orderHash = await turbineClient.addOrder(order, walletClient, publicClient);
+console.log(`Order submitted with ID: ${orderHash}`);
 ```
 
 ### Batch Submitting Orders
 
 ```typescript
-// Submit multiple orders at once
-const orderIds = await turbineClient.addOrders(
+const orderHashes = await turbineClient.addOrders(
     [order1, order2, order3],
     walletClient,
     publicClient
 );
 ```
 
+### Removing an Order
+
+```typescript
+const orderHash = await turbineClient.removeOrder(order, walletClient);
+console.log(`Order removed with ID: ${orderHash}`);
+```
+
 > [!Note]
 > Turbine requires infinite approvals and this SDK handles the necessary infinite Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
+
+## Add liquidity to a Turbine pool via the SDK
+
+TODO: Add details about Turbine Liquidity provisioning
+
+### Creating an intent to add liquidity
+
+```typescript
+import { Token, AddLiquidityIntent } from "turbine-sdk/models";
+import { getRandomSalt } from "turbine-sdk/turbineClient";
+
+// Define tokens
+const USDC = new Token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6, "USDC");
+const WETH = new Token("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 18, "WETH");
+
+// Create an intent to provide 3000 USDC and 1 WETH to the USDC/WETH Turbine pool
+const intent: AddLiquidityIntent = {
+    owner: walletClient.account.address,
+    token0: USDC.address,
+    token1: WETH.address,
+    fee: 3000,
+    maxToken0: USDC.toOnchainAmount(3000),
+    maxToken1: WETH.toOnchainAmount(1),
+    salt: getRandomSalt(),
+};
+```
+
+### Submitting an intent to add liquidity
+
+```typescript
+const intentHash = await turbineClient.addLiquidity(intent, walletClient, publicClient);
+console.log(`Liquidity intent submitted with ID: ${intentHash}`);
+```
+
+## Remove liquidity from a Turbine pool via the SDK
+
+### Creating an intent to remove liquidity
+
+```typescript
+import { Token, RemoveLiquidityIntent } from "turbine-sdk/models";
+import { getRandomSalt } from "turbine-sdk/turbineClient";
+
+// Define tokens
+const USDC = new Token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6, "USDC");
+const WETH = new Token("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 18, "WETH");
+
+// Create an intent to burn 10_000 LP tokens from the USDC/WETH Turbine pool
+const intent: RemoveLiquidityIntent = {
+    owner: walletClient.account.address,
+    token0: USDC.address,
+    token1: WETH.address,
+    fee: 3000,
+    lpToken: "0x8893eFd5338C5159D43678A07F4796713fBD491B",
+    lpTokenAmount: 10_000,
+    salt: getRandomSalt(),
+};
+```
+
+### Submitting an intent to remove liquidity
+
+```typescript
+const intentHash = await turbineClient.removeLiquidity(intent, walletClient, publicClient);
+console.log(`Liquidity intent submitted with ID: ${intentHash}`);
+```
