@@ -212,7 +212,7 @@ describe("TurbineClient", () => {
         expect(convertedSignature).toEqual(expectedSignature);
     });
 
-    describe("removeOrder", () => {
+    describe("cancelOrder", () => {
         it("should call Turbine API and return success message", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
@@ -230,7 +230,7 @@ describe("TurbineClient", () => {
             // Use jest.spyOn instead of directly replacing fetch
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
-            const result = await client.removeOrder(
+            const result = await client.cancelOrder(
                 mockOrderHash as Hex,
                 WALLET_CLIENT
             );
@@ -254,7 +254,7 @@ describe("TurbineClient", () => {
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             await expect(
-                client.removeOrder(mockOrderHash as Hex, WALLET_CLIENT)
+                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
             ).rejects.toThrow(
                 'Response missing required fields: {"error":"something went wrong"}'
             );
@@ -270,7 +270,7 @@ describe("TurbineClient", () => {
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             const error = await client
-                .removeOrder(mockOrderHash as Hex, WALLET_CLIENT)
+                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
                 .catch((e) => e);
             expect(error.message).toMatch(/Failed to parse response as JSON/);
         });
@@ -288,7 +288,7 @@ describe("TurbineClient", () => {
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             await expect(
-                client.removeOrder(mockOrderHash as Hex, WALLET_CLIENT)
+                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
             ).rejects.toThrow("Failed to remove order: Not Found, Order not found");
         });
     });

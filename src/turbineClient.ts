@@ -186,12 +186,12 @@ export class TurbineClient {
     }
 
     /**
-     * Remove an order from the Turbine API.
-     * @param orderHash The hash of the order to remove
-     * @param walletClient The wallet client used for signing the removal request
+     * Cancel an order from the Turbine API.
+     * @param orderHash The hash of the order to cancel
+     * @param walletClient The wallet client used for signing the cancellation request
      * @returns A Promise that resolves to the response message from the API.
      */
-    async removeOrder(
+    async cancelOrder(
         orderHash: Hex,
         walletClient: WalletClient
     ): Promise<{ order_hash: string; message: string }> {
