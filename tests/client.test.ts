@@ -1,6 +1,13 @@
 import { describe, expect, jest } from "@jest/globals";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
-import { ACCOUNT, ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
+import {
+    ACCOUNT,
+    ADD_LIQUIDITY_INTENT,
+    ORDER_INTENT,
+    PUBLIC_CLIENT,
+    REMOVE_LIQUIDITY_INTENT,
+    WALLET_CLIENT,
+} from "./constants";
 import { OrderIntent } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { Hex } from "viem";
@@ -11,12 +18,12 @@ describe("TurbineClient", () => {
             const mockOrderId = "test-order-id-123";
             const client = new TurbineClient();
 
-            // Mock the private callAddOrder method
             const mockResponse = new Response(
                 JSON.stringify({ order_hash: mockOrderId })
             );
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
 
             const orderId = await client.addOrder(
                 ORDER_INTENT,
@@ -25,19 +32,18 @@ describe("TurbineClient", () => {
             );
 
             expect(orderId).toBe(mockOrderId);
-            // @ts-ignore - accessing private method for testing
-            expect(client.callAddOrder).toHaveBeenCalledTimes(1);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
 
         it("should return informative error in case of unexpected API response in json", async () => {
             const client = new TurbineClient();
 
-            // Mock the private callAddOrder method
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
             );
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(
                 client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
@@ -49,10 +55,10 @@ describe("TurbineClient", () => {
         it("should return informative error in case of malformed API response", async () => {
             const client = new TurbineClient();
 
-            // Mock the private callAddOrder method
             const mockResponse = new Response("happy chrysler");
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrder = jest.fn().mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             const error = await client
                 .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
@@ -66,15 +72,15 @@ describe("TurbineClient", () => {
             const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
             const client = new TurbineClient();
 
-            // Mock the private callAddOrders method
             const mockResponse = new Response(
                 JSON.stringify([
                     { order_hash: mockOrderIds[0] },
                     { order_hash: mockOrderIds[1] },
                 ])
             );
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
 
             const orderIds = await client.addOrders(
                 [ORDER_INTENT, ORDER_INTENT],
@@ -83,19 +89,18 @@ describe("TurbineClient", () => {
             );
 
             expect(orderIds).toEqual(mockOrderIds);
-            // @ts-ignore - accessing private method for testing
-            expect(client.callAddOrders).toHaveBeenCalledTimes(1);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
 
         it("should return informative error in case of unexpected API response in json", async () => {
             const client = new TurbineClient();
 
-            // Mock the private callAddOrders method
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
             );
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(
                 client.addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
@@ -107,10 +112,10 @@ describe("TurbineClient", () => {
         it("should return informative error in case of malformed API response", async () => {
             const client = new TurbineClient();
 
-            // Mock the private callAddOrders method
             const mockResponse = new Response("happy chrysler");
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             const error = await client
                 .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
@@ -121,14 +126,60 @@ describe("TurbineClient", () => {
         it("should handle empty array of orders", async () => {
             const client = new TurbineClient();
 
-            // Mock the private callAddOrders method
             const mockResponse = new Response(JSON.stringify([]));
-            // @ts-ignore - accessing private method for testing
-            client.callAddOrders = jest.fn().mockResolvedValue(mockResponse);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(
                 client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
             ).rejects.toThrow("Response missing required order hashes: []");
+        });
+    });
+
+    describe("addLiquidity", () => {
+        it("should call Turbine API and return intent ID", async () => {
+            const mockIntentId = "test-intent-id-123";
+            const client = new TurbineClient();
+
+            const mockResponse = new Response(
+                JSON.stringify({ intent_hash: mockIntentId })
+            );
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
+
+            const liquidityId = await client.addLiquidity(
+                ADD_LIQUIDITY_INTENT,
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
+
+            expect(liquidityId).toBe(mockIntentId);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("removeLiquidity", () => {
+        it("should call Turbine API and return intent ID", async () => {
+            const mockIntentId = "test-intent-id-123";
+            const client = new TurbineClient();
+
+            const mockResponse = new Response(
+                JSON.stringify({ intent_hash: mockIntentId })
+            );
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(mockResponse);
+
+            const liquidityId = await client.removeLiquidity(
+                REMOVE_LIQUIDITY_INTENT,
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
+
+            expect(liquidityId).toBe(mockIntentId);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
     });
 
