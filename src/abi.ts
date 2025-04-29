@@ -52,3 +52,73 @@ export const orderIntentABI = {
     name: "order",
     type: "tuple",
 };
+
+export const addLiquidityIntentABI = {
+    components: [
+        {
+            name: "owner",
+            type: "address",
+        },
+        {
+            name: "token0",
+            type: "address",
+        },
+        {
+            name: "token1",
+            type: "address",
+        },
+        {
+            name: "fee",
+            type: "uint24",
+        },
+        {
+            name: "maxToken0",
+            type: "uint128",
+        },
+        {
+            name: "maxToken1",
+            type: "uint128",
+        },
+        {
+            name: "salt",
+            type: "bytes32",
+        },
+    ],
+    name: "addLiquidityIntent",
+    type: "tuple",
+};
+
+export const removeLiquidityIntentABI = {
+    components: [
+        {
+            name: "owner",
+            type: "address",
+        },
+        {
+            name: "token0",
+            type: "address",
+        },
+        {
+            name: "token1",
+            type: "address",
+        },
+        {
+            name: "fee",
+            type: "uint24",
+        },
+        {
+            name: "lpToken",
+            type: "address",
+        },
+        {
+            name: "lpTokenAmount",
+            type: "uint128",
+        },
+        {
+            name: "salt",
+            type: "bytes32",
+        },
+    ],
+    name: "removeLiquidityIntent",
+    type: "tuple",
+};
