@@ -48,13 +48,13 @@ A simplified workflow goes like this:
 3. **Price discovery**: The system determines current market prices via multiple oracles and updates limit prices of orders that rely on mid-price delta
 4. **Matching engine**: Turbine matches orders, finding coincidences of wants, and determines uniform market clearing prices
 5. **Settlement preparation**: Turbine prepares the settlement transaction with matched orders
-6. **On-chain settlement**: The OrderSettler contract executes the settlement, transferring tokens between participants
+6. **On-chain settlement**: The TurbineSettler contract executes the settlement, transferring tokens between participants
 
 ### Contract addresses
 
 | Contract     | Address                                    |
 | ------------ | ------------------------------------------ |
-| OrderSettler | 0x7B39F073d2f2511a5e1ff664AeC5daee02044967 |
+| TurbineSettler | 0x7B39F073d2f2511a5e1ff664AeC5daee02044967 |
 
 ### Orders
 
@@ -76,9 +76,9 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 
 The `callData` can be used to route the order to a specific contract or to perform additional actions when executing the swap. The `callDataTarget` is the address of the contract that will execute the `callData`.
 
-When settling the batch, the `OrderSettler` first transfers the `buyToken` to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `OrderSettler` contract.
+When settling the batch, the `TurbineSettler` first transfers the `buyToken` to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `TurbineSettler` contract.
 
-In case of partial fills, the `OrderSettler` will update the `minBuyAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `OrderSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `minBuyAmount` in the `callData` if you want to use this feature.
+In case of partial fills, the `TurbineSettler` will update the `minBuyAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `TurbineSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `minBuyAmount` in the `callData` if you want to use this feature.
 
 ## Submitting orders via the SDK
 
