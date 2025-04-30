@@ -78,7 +78,7 @@ The `callData` can be used to route the order to a specific contract or to perfo
 
 When settling the batch, the `TurbineSettler` first transfers the `buyToken` to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `TurbineSettler` contract.
 
-In case of partial fills, the `TurbineSettler` will update the `minBuyAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `TurbineSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `minBuyAmount` in the `callData` if you want to use this feature.
+In case of partial fills, the `TurbineSettler` will update the `sellAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `TurbineSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `sellAmount` in the `callData` if you want to use this feature.
 
 ## Submitting orders via the SDK
 
@@ -173,11 +173,11 @@ const orderHashes = await turbineClient.addOrders(
 );
 ```
 
-### Removing an Order
+### Cancelling an Order
 
 ```typescript
-const orderHash = await turbineClient.removeOrder(order, walletClient);
-console.log(`Order removed with ID: ${orderHash}`);
+const orderHash = await turbineClient.cancelOrder(order, walletClient);
+console.log(`Order cancelled with ID: ${orderHash}`);
 ```
 
 > [!Note]
