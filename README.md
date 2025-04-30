@@ -69,16 +69,18 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
     -   For example, 100 basis points = 1% worse than mid-price
 -   `startTime`: Unix timestamp when the order becomes valid
 -   `endTime`: Unix timestamp when the order expires
--   `partialFill`: Boolean flag allowing partial fills of the order
+-   `partialFill`: Boolean flag allowing partial fills of the order. For now we only support partially fillable orders.
 -   `callData`: Optional call data for smart orders, allowing custom routing
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
-The `callData` can be used to route the order to a specific contract or to perform additional actions when executing the swap. The `callDataTarget` is the address of the contract that will execute the `callData`.
+The `callData` and `callDataTarget` fields, if provided, make the order a _smart order_.
 
-When settling the batch, the `TurbineSettler` first transfers the `buyToken` to the `callDataTarget`, then executes the `callData` from the `callDataTarget` contract, which should transfer the `sellToken` to the `TurbineSettler` contract.
+With regular orders, `TurbineSettler` takes the sell token from the owner's wallet and then transfers the buy token into the owner's wallet.
 
-In case of partial fills, the `TurbineSettler` will update the `sellAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `TurbineSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `sellAmount` in the `callData` if you want to use this feature.
+With smart orders, `TurbineSettler` first transfers the buy token to the `callDataTarget`, and then calls the `callDataTarget` with `callData`, expecting to receive the sell token.
+
+In case of partial fills, the `TurbineSettler` will update the `sellAmount` in the `callData` before executing it. The function encoded in `callData` should be able to handle this and transfer the correct amount of `sellToken` to the `TurbineSettler`, in the same ratio as the amounts specified in the `OrderIntent`. Please reach out to us to tell us the offset of the `sellAmount` in our `callData` if you want to submit smart orders.
 
 ## Submitting orders via the SDK
 
@@ -173,15 +175,15 @@ const orderHashes = await turbineClient.addOrders(
 );
 ```
 
+> [!Note]
+> Turbine requires infinite approvals and this SDK handles the necessary infinite Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
+
 ### Cancelling an Order
 
 ```typescript
 const orderHash = await turbineClient.cancelOrder(order, walletClient);
 console.log(`Order cancelled with ID: ${orderHash}`);
 ```
-
-> [!Note]
-> Turbine requires infinite approvals and this SDK handles the necessary infinite Permit2 approvals for token spending automatically. The orders are signed using your wallet and sent to the Turbine API, which will match and settle them according to the Turbine protocol rules.
 
 ## Add liquidity to a Turbine pool via the SDK
 
