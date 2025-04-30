@@ -52,8 +52,8 @@ A simplified workflow goes like this:
 
 ### Contract addresses
 
-| Contract     | Address                                    |
-| ------------ | ------------------------------------------ |
+| Contract       | Address                                    |
+| -------------- | ------------------------------------------ |
 | TurbineSettler | 0x7B39F073d2f2511a5e1ff664AeC5daee02044967 |
 
 ### Orders
