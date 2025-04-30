@@ -173,11 +173,11 @@ const orderHashes = await turbineClient.addOrders(
 );
 ```
 
-### Removing an Order
+### Cancelling an Order
 
 ```typescript
-const orderHash = await turbineClient.removeOrder(order, walletClient);
-console.log(`Order removed with ID: ${orderHash}`);
+const orderHash = await turbineClient.cancelOrder(order, walletClient);
+console.log(`Order cancelled with ID: ${orderHash}`);
 ```
 
 > [!Note]
