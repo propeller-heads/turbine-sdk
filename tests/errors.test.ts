@@ -72,7 +72,7 @@ describe("handleError", () => {
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("USER_REJECTION");
-        expect(result.message).toContain("Transaction was cancelled");
+        expect(result.message).toContain("Rejected by the wallet");
     });
 
     it("should convert unknown errors to default TurbineError", () => {
