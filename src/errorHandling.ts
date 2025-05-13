@@ -159,7 +159,7 @@ export function toTurbineError(error: unknown): TurbineError {
         return new TurbineError(
             "USER_REJECTION",
             errorMessage,
-            "Transaction was cancelled. Please try again if you want to complete this operation."
+            "Rejected by the wallet. Please try again if you want to complete this operation."
         );
     }
 
