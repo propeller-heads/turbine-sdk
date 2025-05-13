@@ -115,7 +115,7 @@ export function createApiError(response: Response, responseText: string): Turbin
 /**
  * Creates appropriate TurbineError from various types of errors
  */
-export function handleError(error: unknown): TurbineError {
+export function toTurbineError(error: unknown): TurbineError {
     if (error instanceof TurbineError) {
         return error;
     }
