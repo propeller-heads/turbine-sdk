@@ -36,7 +36,7 @@ export class TurbineError extends Error {
 /**
  * Creates a TurbineError from an API response error
  */
-export function createApiError(response: Response, responseText: string): TurbineError {
+export function unsuccessfulResponseToTurbineError(response: Response, responseText: string): TurbineError {
     // Parse the response text to extract error details if possible
     let errorDetails;
     try {
