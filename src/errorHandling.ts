@@ -38,7 +38,7 @@ export class TurbineError extends Error {
  */
 export function createApiError(response: Response, responseText: string): TurbineError {
     // Parse the response text to extract error details if possible
-    let errorDetails = responseText;
+    let errorDetails;
     try {
         const parsedError = JSON.parse(responseText);
         if (parsedError && parsedError.error) {
@@ -46,6 +46,7 @@ export function createApiError(response: Response, responseText: string): Turbin
         }
     } catch (e) {
         // If parsing fails, use the original response text
+        errorDetails = responseText;
     }
 
     const originalMessage = `Failed to process request: ${response.status} ${response.statusText}, ${responseText}`;
