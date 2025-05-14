@@ -35,8 +35,17 @@ export class TurbineError extends Error {
 
 /**
  * Creates a TurbineError from an API response error
+ * @param response The response object from the fetch API
+ * @param responseText The response text body
+ * @param code Optional error code to use (if not provided, will be determined from response status)
+ * @param userMessage Optional user-friendly message (if not provided, will be determined from response status)
  */
-export function unsuccessfulResponseToTurbineError(response: Response, responseText: string): TurbineError {
+export function unsuccessfulResponseToTurbineError(
+    response: Response,
+    responseText: string,
+    code?: string,
+    userMessage?: string
+): TurbineError {
     // Parse the response text to extract error details if possible
     let errorDetails;
     try {
@@ -51,64 +60,52 @@ export function unsuccessfulResponseToTurbineError(response: Response, responseT
 
     const originalMessage = `Failed to process request: ${response.status} ${response.statusText}, ${responseText}`;
 
-    // Handle specific API error cases
-    if (response.status === 400) {
-        // Handle known 400 Bad Request errors
-        if (errorDetails.includes("Invalid order format")) {
-            return new TurbineError(
-                "API_INVALID_FORMAT",
-                originalMessage,
-                "Order format is invalid. Please check your input values and try again."
-            );
-        } else if (errorDetails.includes("Insufficient balance")) {
-            return new TurbineError(
-                "API_INSUFFICIENT_BALANCE",
-                originalMessage,
-                "Insufficient balance for this operation. Please check your wallet balance and try again."
-            );
-        } else if (errorDetails.includes("Slippage tolerance exceeded")) {
-            return new TurbineError(
-                "API_SLIPPAGE_EXCEEDED",
-                originalMessage,
-                "Slippage tolerance exceeded. The market conditions have changed - please try again."
-            );
-        } else {
+    // If code and userMessage are provided, use those directly
+    if (code && userMessage) {
+        return new TurbineError(code, originalMessage, userMessage);
+    }
+
+    // Otherwise, determine code and message based on response status
+    switch (response.status) {
+        case 400:
             return new TurbineError(
                 "API_BAD_REQUEST",
                 originalMessage,
                 "The request couldn't be processed. Please try again with different parameters."
             );
-        }
-    } else if (response.status === 401 || response.status === 403) {
-        return new TurbineError(
-            "API_UNAUTHORIZED",
-            originalMessage,
-            "Authorization failed. Please check your credentials."
-        );
-    } else if (response.status === 404) {
-        return new TurbineError(
-            "API_NOT_FOUND",
-            originalMessage,
-            "The requested resource was not found."
-        );
-    } else if (response.status === 500) {
-        return new TurbineError(
-            "API_SERVER_ERROR",
-            originalMessage,
-            "Server error occurred. Our team has been notified. Please try again later."
-        );
-    } else if (response.status >= 500) {
-        return new TurbineError(
-            "API_SERVER_ERROR",
-            originalMessage,
-            "Server error occurred. Please try again later."
-        );
-    } else {
-        return new TurbineError(
-            "API_UNKNOWN_ERROR",
-            originalMessage,
-            "An error occurred while processing your request. Please try again."
-        );
+        case 401:
+        case 403:
+            return new TurbineError(
+                "API_UNAUTHORIZED",
+                originalMessage,
+                "Authorization failed. Please check your credentials."
+            );
+        case 404:
+            return new TurbineError(
+                "API_NOT_FOUND",
+                originalMessage,
+                "The requested resource was not found."
+            );
+        case 500:
+            return new TurbineError(
+                "API_SERVER_ERROR",
+                originalMessage,
+                "Server error occurred. Our team has been notified. Please try again later."
+            );
+        default:
+            if (response.status >= 500) {
+                return new TurbineError(
+                    "API_SERVER_ERROR",
+                    originalMessage,
+                    "Server error occurred. Please try again later."
+                );
+            } else {
+                return new TurbineError(
+                    "API_UNKNOWN_ERROR",
+                    originalMessage,
+                    "An error occurred while processing your request. Please try again."
+                );
+            }
     }
 }
 
