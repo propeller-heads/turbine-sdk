@@ -1,7 +1,7 @@
 import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { addLiquidityIntentABI, orderIntentABI, removeLiquidityIntentABI } from "./abi";
 import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT } from "./config";
-import { createApiError, handleError, TurbineError } from "./errorHandling";
+import { unsuccessfulResponseToTurbineError, toTurbineError, TurbineError } from "./errorHandling";
 import {
     AddLiquidity,
     AddLiquidityIntent,
@@ -48,7 +48,7 @@ export class TurbineClient {
             const responseText = await response.text();
 
             if (!response.ok) {
-                throw createApiError(response, responseText);
+                throw unsuccessfulResponseToTurbineError(response, responseText);
             }
 
             let responseJson;
@@ -72,10 +72,7 @@ export class TurbineClient {
 
             return responseJson["order_hash"];
         } catch (error) {
-            if (error instanceof TurbineError) {
-                throw error;
-            }
-            throw handleError(error);
+            throw toTurbineError(error);
         }
     }
 
@@ -101,7 +98,7 @@ export class TurbineClient {
             const responseText = await response.text();
 
             if (!response.ok) {
-                throw createApiError(response, responseText);
+                throw unsuccessfulResponseToTurbineError(response, responseText);
             }
 
             let responseJson;
@@ -125,10 +122,7 @@ export class TurbineClient {
 
             return responseJson.map((order: any) => order.order_hash);
         } catch (error) {
-            if (error instanceof TurbineError) {
-                throw error;
-            }
-            throw handleError(error);
+            throw toTurbineError(error);
         }
     }
 
@@ -154,7 +148,7 @@ export class TurbineClient {
             const responseText = await response.text();
 
             if (!response.ok) {
-                throw createApiError(response, responseText);
+                throw unsuccessfulResponseToTurbineError(response, responseText);
             }
 
             let responseJson;
@@ -178,10 +172,7 @@ export class TurbineClient {
 
             return responseJson["intent_hash"];
         } catch (error) {
-            if (error instanceof TurbineError) {
-                throw error;
-            }
-            throw handleError(error);
+            throw toTurbineError(error);
         }
     }
 
@@ -207,7 +198,7 @@ export class TurbineClient {
             const responseText = await response.text();
 
             if (!response.ok) {
-                throw createApiError(response, responseText);
+                throw unsuccessfulResponseToTurbineError(response, responseText);
             }
 
             let responseJson;
@@ -231,10 +222,7 @@ export class TurbineClient {
 
             return responseJson["intent_hash"];
         } catch (error) {
-            if (error instanceof TurbineError) {
-                throw error;
-            }
-            throw handleError(error);
+            throw toTurbineError(error);
         }
     }
 
@@ -271,7 +259,7 @@ export class TurbineClient {
             const responseText = await response.text();
 
             if (!response.ok) {
-                throw createApiError(response, responseText);
+                throw unsuccessfulResponseToTurbineError(response, responseText);
             }
 
             let responseJson;
@@ -295,10 +283,7 @@ export class TurbineClient {
 
             return responseJson;
         } catch (error) {
-            if (error instanceof TurbineError) {
-                throw error;
-            }
-            throw handleError(error);
+            throw toTurbineError(error);
         }
     }
 
