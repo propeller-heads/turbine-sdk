@@ -2,6 +2,11 @@ import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { addLiquidityIntentABI, orderIntentABI, removeLiquidityIntentABI } from "./abi";
 import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT } from "./config";
 import {
+    unsuccessfulResponseToTurbineError,
+    toTurbineError,
+    TurbineError,
+} from "./errorHandling";
+import {
     AddLiquidity,
     AddLiquidityIntent,
     AddOrder,
@@ -37,32 +42,42 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
-        const payload = await this.createAddOrderData(
-            intent,
-            walletClient,
-            publicClient
-        );
-        const response = await this.callApiEndpoint(payload, "add_order");
-        if (!response.ok) {
-            throw new Error(
-                `Failed to add order: ${response.statusText}, ${await response.text()}`
-            );
-        }
-
-        let responseJson;
         try {
-            responseJson = await response.json();
-        } catch (e) {
-            throw new Error(`Failed to parse response as JSON: ${e}`);
-        }
-
-        if (!responseJson || !responseJson["order_hash"]) {
-            throw new Error(
-                `Response missing required order_hash field: ${JSON.stringify(responseJson)}`
+            const payload = await this.createAddOrderData(
+                intent,
+                walletClient,
+                publicClient
             );
-        }
+            const response = await this.callApiEndpoint(payload, "add_order");
+            const responseText = await response.text();
 
-        return responseJson["order_hash"];
+            if (!response.ok) {
+                throw unsuccessfulResponseToTurbineError(response, responseText);
+            }
+
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                throw new TurbineError(
+                    "PARSE_ERROR",
+                    `Failed to parse response as JSON: ${e}`,
+                    "Failed to process the server response. Please try again later."
+                );
+            }
+
+            if (!responseJson || !responseJson["order_hash"]) {
+                throw new TurbineError(
+                    "MISSING_ORDER_HASH",
+                    `Response missing required order_hash field: ${JSON.stringify(responseJson)}`,
+                    "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed."
+                );
+            }
+
+            return responseJson["order_hash"];
+        } catch (error) {
+            throw toTurbineError(error);
+        }
     }
 
     /**
@@ -77,32 +92,42 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string[]> {
-        const payloads = await Promise.all(
-            intents.map((intent) =>
-                this.createAddOrderData(intent, walletClient, publicClient)
-            )
-        );
-        const response = await this.callApiEndpoint(payloads, "add_orders");
-        if (!response.ok) {
-            throw new Error(
-                `Failed to add orders: ${response.statusText}, ${await response.text()}`
-            );
-        }
-
-        let responseJson;
         try {
-            responseJson = await response.json();
-        } catch (e) {
-            throw new Error(`Failed to parse response as JSON: ${e}`);
-        }
-
-        if (!responseJson || !responseJson.length) {
-            throw new Error(
-                `Response missing required order hashes: ${JSON.stringify(responseJson)}`
+            const payloads = await Promise.all(
+                intents.map((intent) =>
+                    this.createAddOrderData(intent, walletClient, publicClient)
+                )
             );
-        }
+            const response = await this.callApiEndpoint(payloads, "add_orders");
+            const responseText = await response.text();
 
-        return responseJson.map((order: any) => order.order_hash);
+            if (!response.ok) {
+                throw unsuccessfulResponseToTurbineError(response, responseText);
+            }
+
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                throw new TurbineError(
+                    "PARSE_ERROR",
+                    `Failed to parse response as JSON: ${e}`,
+                    "Failed to process the server response. Please try again later."
+                );
+            }
+
+            if (!responseJson || !responseJson.length) {
+                throw new TurbineError(
+                    "MISSING_ORDER_HASHES",
+                    `Response missing required order hashes: ${JSON.stringify(responseJson)}`,
+                    "Orders were submitted but confirmations are missing. Please check your orders to verify if they were processed."
+                );
+            }
+
+            return responseJson.map((order: any) => order.order_hash);
+        } catch (error) {
+            throw toTurbineError(error);
+        }
     }
 
     /**
@@ -117,32 +142,42 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
-        const payload = await this.createAddLiquidityData(
-            intent,
-            walletClient,
-            publicClient
-        );
-        const response = await this.callApiEndpoint(payload, "add_liquidity");
-        if (!response.ok) {
-            throw new Error(
-                `Failed to add liquidity: ${response.statusText}, ${await response.text()}`
-            );
-        }
-
-        let responseJson;
         try {
-            responseJson = await response.json();
-        } catch (e) {
-            throw new Error(`Failed to parse response as JSON: ${e}`);
-        }
-
-        if (!responseJson || !responseJson["intent_hash"]) {
-            throw new Error(
-                `Response missing required hash field: ${JSON.stringify(responseJson)}`
+            const payload = await this.createAddLiquidityData(
+                intent,
+                walletClient,
+                publicClient
             );
-        }
+            const response = await this.callApiEndpoint(payload, "add_liquidity");
+            const responseText = await response.text();
 
-        return responseJson["intent_hash"];
+            if (!response.ok) {
+                throw unsuccessfulResponseToTurbineError(response, responseText);
+            }
+
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                throw new TurbineError(
+                    "PARSE_ERROR",
+                    `Failed to parse response as JSON: ${e}`,
+                    "Failed to process the server response. Please try again later."
+                );
+            }
+
+            if (!responseJson || !responseJson["intent_hash"]) {
+                throw new TurbineError(
+                    "MISSING_INTENT_HASH",
+                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
+                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                );
+            }
+
+            return responseJson["intent_hash"];
+        } catch (error) {
+            throw toTurbineError(error);
+        }
     }
 
     /**
@@ -157,32 +192,42 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
-        const payload = await this.createRemoveLiquidityData(
-            intent,
-            walletClient,
-            publicClient
-        );
-        const response = await this.callApiEndpoint(payload, "remove_liquidity");
-        if (!response.ok) {
-            throw new Error(
-                `Failed to remove liquidity: ${response.statusText}, ${await response.text()}`
-            );
-        }
-
-        let responseJson;
         try {
-            responseJson = await response.json();
-        } catch (e) {
-            throw new Error(`Failed to parse response as JSON: ${e}`);
-        }
-
-        if (!responseJson || !responseJson["intent_hash"]) {
-            throw new Error(
-                `Response missing required hash field: ${JSON.stringify(responseJson)}`
+            const payload = await this.createRemoveLiquidityData(
+                intent,
+                walletClient,
+                publicClient
             );
-        }
+            const response = await this.callApiEndpoint(payload, "remove_liquidity");
+            const responseText = await response.text();
 
-        return responseJson["intent_hash"];
+            if (!response.ok) {
+                throw unsuccessfulResponseToTurbineError(response, responseText);
+            }
+
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                throw new TurbineError(
+                    "PARSE_ERROR",
+                    `Failed to parse response as JSON: ${e}`,
+                    "Failed to process the server response. Please try again later."
+                );
+            }
+
+            if (!responseJson || !responseJson["intent_hash"]) {
+                throw new TurbineError(
+                    "MISSING_INTENT_HASH",
+                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
+                    "Liquidity removal was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                );
+            }
+
+            return responseJson["intent_hash"];
+        } catch (error) {
+            throw toTurbineError(error);
+        }
     }
 
     /**
@@ -195,45 +240,55 @@ export class TurbineClient {
         orderHash: Hex,
         walletClient: WalletClient
     ): Promise<{ order_hash: string; message: string }> {
-        // Sign the order hash to prove ownership
-        const signature = await walletClient.signMessage({
-            message: { raw: orderHash },
-            account: walletClient.account!,
-        });
-
-        const payload = {
-            order_hash: orderHash,
-            signature: convertSignature(signature),
-        };
-
-        const response = await fetch(`${this.turbineApiUrl}/remove_order`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload, bigIntReplacer),
-        });
-
-        if (!response.ok) {
-            throw new Error(
-                `Failed to remove order: ${response.statusText}, ${await response.text()}`
-            );
-        }
-
-        let responseJson;
         try {
-            responseJson = await response.json();
-        } catch (e) {
-            throw new Error(`Failed to parse response as JSON: ${e}`);
-        }
+            // Sign the order hash to prove ownership
+            const signature = await walletClient.signMessage({
+                message: { raw: orderHash },
+                account: walletClient.account!,
+            });
 
-        if (!responseJson || !responseJson.order_hash || !responseJson.message) {
-            throw new Error(
-                `Response missing required fields: ${JSON.stringify(responseJson)}`
-            );
-        }
+            const payload = {
+                order_hash: orderHash,
+                signature: convertSignature(signature),
+            };
 
-        return responseJson;
+            const response = await fetch(`${this.turbineApiUrl}/remove_order`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload, bigIntReplacer),
+            });
+
+            const responseText = await response.text();
+
+            if (!response.ok) {
+                throw unsuccessfulResponseToTurbineError(response, responseText);
+            }
+
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                throw new TurbineError(
+                    "PARSE_ERROR",
+                    `Failed to parse response as JSON: ${e}`,
+                    "Failed to process the server response. Please try again later."
+                );
+            }
+
+            if (!responseJson || !responseJson.order_hash || !responseJson.message) {
+                throw new TurbineError(
+                    "MISSING_FIELD",
+                    `Response missing required fields: ${JSON.stringify(responseJson)}`,
+                    "Order cancellation was submitted but confirmation is missing. Please check your orders to verify if it was processed."
+                );
+            }
+
+            return responseJson;
+        } catch (error) {
+            throw toTurbineError(error);
+        }
     }
 
     /* PRIVATE METHODS */

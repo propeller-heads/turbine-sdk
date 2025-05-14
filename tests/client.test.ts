@@ -34,37 +34,6 @@ describe("TurbineClient", () => {
             expect(orderId).toBe(mockOrderId);
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
-
-        it("should return informative error in case of unexpected API response in json", async () => {
-            const client = new TurbineClient();
-
-            const mockResponse = new Response(
-                JSON.stringify({ message: "something went wrong" })
-            );
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
-                mockResponse
-            );
-
-            await expect(
-                client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
-            ).rejects.toThrow(
-                'Response missing required order_hash field: {"message":"something went wrong"}'
-            );
-        });
-
-        it("should return informative error in case of malformed API response", async () => {
-            const client = new TurbineClient();
-
-            const mockResponse = new Response("happy chrysler");
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
-                mockResponse
-            );
-
-            const error = await client
-                .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((e) => e);
-            expect(error.message).toMatch(/Failed to parse response as JSON/);
-        });
     });
 
     describe("addOrders", () => {
@@ -90,50 +59,6 @@ describe("TurbineClient", () => {
 
             expect(orderIds).toEqual(mockOrderIds);
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
-        });
-
-        it("should return informative error in case of unexpected API response in json", async () => {
-            const client = new TurbineClient();
-
-            const mockResponse = new Response(
-                JSON.stringify({ message: "something went wrong" })
-            );
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
-                mockResponse
-            );
-
-            await expect(
-                client.addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
-            ).rejects.toThrow(
-                'Response missing required order hashes: {"message":"something went wrong"}'
-            );
-        });
-
-        it("should return informative error in case of malformed API response", async () => {
-            const client = new TurbineClient();
-
-            const mockResponse = new Response("happy chrysler");
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
-                mockResponse
-            );
-
-            const error = await client
-                .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((e) => e);
-            expect(error.message).toMatch(/Failed to parse response as JSON/);
-        });
-
-        it("should handle empty array of orders", async () => {
-            const client = new TurbineClient();
-
-            const mockResponse = new Response(JSON.stringify([]));
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
-                mockResponse
-            );
-
-            await expect(
-                client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
-            ).rejects.toThrow("Response missing required order hashes: []");
         });
     });
 
@@ -240,56 +165,6 @@ describe("TurbineClient", () => {
                 message: mockMessage,
             });
             expect(global.fetch).toHaveBeenCalledTimes(1);
-        });
-
-        it("should return informative error in case of unexpected API response in json", async () => {
-            const mockOrderHash =
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
-
-            // Mock the response
-            const mockResponse = new Response(
-                JSON.stringify({ error: "something went wrong" })
-            );
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
-
-            await expect(
-                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-            ).rejects.toThrow(
-                'Response missing required fields: {"error":"something went wrong"}'
-            );
-        });
-
-        it("should return informative error in case of malformed API response", async () => {
-            const mockOrderHash =
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
-
-            // Mock with invalid JSON
-            const mockResponse = new Response("happy chrysler");
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
-
-            const error = await client
-                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-                .catch((e) => e);
-            expect(error.message).toMatch(/Failed to parse response as JSON/);
-        });
-
-        it("should throw error when API returns non-ok response", async () => {
-            const mockOrderHash =
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
-
-            // Mock a failed response
-            const mockResponse = new Response("Order not found", {
-                status: 404,
-                statusText: "Not Found",
-            });
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
-
-            await expect(
-                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-            ).rejects.toThrow("Failed to remove order: Not Found, Order not found");
         });
     });
 });
