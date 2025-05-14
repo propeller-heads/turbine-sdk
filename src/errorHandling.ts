@@ -130,25 +130,12 @@ export function toTurbineError(error: unknown): TurbineError {
 
     // Handle missing field errors
     if (errorMessage.includes("Response missing required")) {
-        if (errorMessage.includes("order_hash")) {
-            return new TurbineError(
-                "MISSING_ORDER_HASH",
-                errorMessage,
-                "Order was submitted but order confirmation is missing. Please check your orders to verify if it was processed."
-            );
-        } else if (errorMessage.includes("hash field")) {
-            return new TurbineError(
-                "MISSING_HASH",
-                errorMessage,
-                "Transaction was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
-            );
-        } else {
-            return new TurbineError(
-                "MISSING_FIELD",
-                errorMessage,
-                "Transaction was submitted but some confirmation details are missing. Please check your orders/transactions to verify if it was processed."
-            );
-        }
+        // General case for missing fields in responses
+        return new TurbineError(
+            "MISSING_FIELD",
+            errorMessage,
+            "Transaction was submitted but some confirmation details are missing. Please check your orders/transactions to verify if it was processed."
+        );
     }
 
     // Handle user rejection errors
