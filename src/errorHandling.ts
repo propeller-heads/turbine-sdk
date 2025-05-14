@@ -17,7 +17,7 @@ export class TurbineError extends Error {
         this.userMessage = userMessage;
 
         // Set the name to match the class name
-        this.name = 'TurbineError';
+        this.name = "TurbineError";
 
         // Maintains proper stack trace for where our error was thrown
         if (Error.captureStackTrace) {
@@ -139,7 +139,10 @@ export function toTurbineError(error: unknown): TurbineError {
     }
 
     // Handle user rejection errors
-    if (errorMessage.includes("User rejected") || errorMessage.includes("user rejected")) {
+    if (
+        errorMessage.includes("User rejected") ||
+        errorMessage.includes("user rejected")
+    ) {
         return new TurbineError(
             "USER_REJECTION",
             errorMessage,

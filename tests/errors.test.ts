@@ -1,11 +1,11 @@
 import { describe, expect, jest, it } from "@jest/globals";
-import { toTurbineError, TurbineError, unsuccessfulResponseToTurbineError } from "../src/errorHandling";
-import { TurbineClient } from "../src/turbineClient";
 import {
-    ORDER_INTENT,
-    PUBLIC_CLIENT,
-    WALLET_CLIENT,
-} from "./constants";
+    toTurbineError,
+    TurbineError,
+    unsuccessfulResponseToTurbineError,
+} from "../src/errorHandling";
+import { TurbineClient } from "../src/turbineClient";
+import { ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
 import { Hex } from "viem";
 
 describe("TurbineError", () => {
@@ -28,7 +28,7 @@ describe("TurbineError", () => {
     it("should preserve technical details while providing user-friendly message", () => {
         const error = new TurbineError(
             "TEST_CODE",
-            "Original technical message with JSON: {\"error\":\"Invalid order\"}",
+            'Original technical message with JSON: {"error":"Invalid order"}',
             "Your order couldn't be processed"
         );
 
@@ -52,17 +52,23 @@ describe("toTurbineError", () => {
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("PARSE_ERROR");
-        expect(result.originalMessage).toBe("Failed to parse response as JSON: SyntaxError");
+        expect(result.originalMessage).toBe(
+            "Failed to parse response as JSON: SyntaxError"
+        );
         expect(result.message).toContain("Failed to process the server response");
     });
 
     it("should convert missing field errors to appropriate TurbineError", () => {
-        const missingFieldError = new Error("Response missing required order_hash field: {}");
+        const missingFieldError = new Error(
+            "Response missing required order_hash field: {}"
+        );
         const result = toTurbineError(missingFieldError);
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("MISSING_FIELD");
-        expect(result.originalMessage).toBe("Response missing required order_hash field: {}");
+        expect(result.originalMessage).toBe(
+            "Response missing required order_hash field: {}"
+        );
         expect(result.message).toContain("Transaction was submitted but");
     });
 
@@ -90,7 +96,7 @@ describe("unsuccessfulResponseToTurbineError", () => {
         const response = {
             ok: false,
             status: 400,
-            statusText: "Bad Request"
+            statusText: "Bad Request",
         } as Response;
 
         const responseText = JSON.stringify({ error: "Some bad request error" });
@@ -105,7 +111,7 @@ describe("unsuccessfulResponseToTurbineError", () => {
         const response = {
             ok: false,
             status: 500,
-            statusText: "Internal Server Error"
+            statusText: "Internal Server Error",
         } as Response;
 
         const responseText = JSON.stringify({ error: "Server processing error" });
@@ -120,7 +126,7 @@ describe("unsuccessfulResponseToTurbineError", () => {
         const response = {
             ok: false,
             status: 400,
-            statusText: "Bad Request"
+            statusText: "Bad Request",
         } as Response;
 
         const responseText = JSON.stringify({ error: "Insufficient balance" });
@@ -237,13 +243,12 @@ describe("TurbineClient Error Handling", () => {
                 client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
             ).rejects.toThrow(TurbineError);
 
-            await client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((error) => {
-                    expect(error).toBeInstanceOf(TurbineError);
-                    expect(error.code).toBeTruthy();
-                    expect(error.originalMessage).toBeTruthy();
-                    expect(error.message).toBeTruthy();
-                });
+            await client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT).catch((error) => {
+                expect(error).toBeInstanceOf(TurbineError);
+                expect(error.code).toBeTruthy();
+                expect(error.originalMessage).toBeTruthy();
+                expect(error.message).toBeTruthy();
+            });
         });
     });
 
@@ -263,7 +268,8 @@ describe("TurbineClient Error Handling", () => {
                 client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
             ).rejects.toThrow(TurbineError);
 
-            await client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
+            await client
+                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
                 .catch((error) => {
                     expect(error).toBeInstanceOf(TurbineError);
                     expect(error.code).toBeTruthy();
@@ -307,7 +313,8 @@ describe("TurbineClient Error Handling", () => {
                 client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
             ).rejects.toThrow(TurbineError);
 
-            await client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
+            await client
+                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
                 .catch((error) => {
                     expect(error).toBeInstanceOf(TurbineError);
                     expect(error.code).toBeTruthy();

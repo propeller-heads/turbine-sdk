@@ -1,7 +1,11 @@
 import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { addLiquidityIntentABI, orderIntentABI, removeLiquidityIntentABI } from "./abi";
 import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT } from "./config";
-import { unsuccessfulResponseToTurbineError, toTurbineError, TurbineError } from "./errorHandling";
+import {
+    unsuccessfulResponseToTurbineError,
+    toTurbineError,
+    TurbineError,
+} from "./errorHandling";
 import {
     AddLiquidity,
     AddLiquidityIntent,
