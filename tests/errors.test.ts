@@ -1,5 +1,5 @@
 import { describe, expect, jest, it } from "@jest/globals";
-import { handleError, TurbineError, createApiError } from "../src/errorHandling";
+import { toTurbineError, TurbineError, unsuccessfulResponseToTurbineError } from "../src/errorHandling";
 import { TurbineClient } from "../src/turbineClient";
 import {
     ORDER_INTENT,
@@ -38,17 +38,17 @@ describe("TurbineError", () => {
     });
 });
 
-describe("handleError", () => {
+describe("toTurbineError", () => {
     it("should pass through TurbineError instances", () => {
         const original = new TurbineError("TEST", "Original", "User");
-        const result = handleError(original);
+        const result = toTurbineError(original);
 
         expect(result).toBe(original);
     });
 
     it("should convert parse errors to appropriate TurbineError", () => {
         const parseError = new Error("Failed to parse response as JSON: SyntaxError");
-        const result = handleError(parseError);
+        const result = toTurbineError(parseError);
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("PARSE_ERROR");
@@ -58,17 +58,17 @@ describe("handleError", () => {
 
     it("should convert missing field errors to appropriate TurbineError", () => {
         const missingFieldError = new Error("Response missing required order_hash field: {}");
-        const result = handleError(missingFieldError);
+        const result = toTurbineError(missingFieldError);
 
         expect(result).toBeInstanceOf(TurbineError);
-        expect(result.code).toBe("MISSING_ORDER_HASH");
+        expect(result.code).toBe("MISSING_FIELD");
         expect(result.originalMessage).toBe("Response missing required order_hash field: {}");
-        expect(result.message).toContain("Order was submitted but");
+        expect(result.message).toContain("Transaction was submitted but");
     });
 
     it("should convert user rejection errors to appropriate TurbineError", () => {
         const rejectionError = new Error("User rejected the request");
-        const result = handleError(rejectionError);
+        const result = toTurbineError(rejectionError);
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("USER_REJECTION");
@@ -77,7 +77,7 @@ describe("handleError", () => {
 
     it("should convert unknown errors to default TurbineError", () => {
         const unknownError = new Error("Some unexpected error");
-        const result = handleError(unknownError);
+        const result = toTurbineError(unknownError);
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("UNKNOWN_ERROR");
@@ -85,50 +85,20 @@ describe("handleError", () => {
     });
 });
 
-describe("createApiError", () => {
-    it("should create appropriate error for invalid order format", () => {
+describe("unsuccessfulResponseToTurbineError", () => {
+    it("should create appropriate error for bad request", () => {
         const response = {
             ok: false,
             status: 400,
             statusText: "Bad Request"
         } as Response;
 
-        const responseText = JSON.stringify({ error: "Invalid order format" });
-        const error = createApiError(response, responseText);
+        const responseText = JSON.stringify({ error: "Some bad request error" });
+        const error = unsuccessfulResponseToTurbineError(response, responseText);
 
         expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("API_INVALID_FORMAT");
-        expect(error.message).toContain("Order format is invalid");
-    });
-
-    it("should create appropriate error for insufficient balance", () => {
-        const response = {
-            ok: false,
-            status: 400,
-            statusText: "Bad Request"
-        } as Response;
-
-        const responseText = JSON.stringify({ error: "Insufficient balance for this operation" });
-        const error = createApiError(response, responseText);
-
-        expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("API_INSUFFICIENT_BALANCE");
-        expect(error.message).toContain("Insufficient balance");
-    });
-
-    it("should create appropriate error for slippage tolerance exceeded", () => {
-        const response = {
-            ok: false,
-            status: 400,
-            statusText: "Bad Request"
-        } as Response;
-
-        const responseText = JSON.stringify({ error: "Slippage tolerance exceeded" });
-        const error = createApiError(response, responseText);
-
-        expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("API_SLIPPAGE_EXCEEDED");
-        expect(error.message).toContain("Slippage tolerance exceeded");
+        expect(error.code).toBe("API_BAD_REQUEST");
+        expect(error.message).toContain("The request couldn't be processed");
     });
 
     it("should create appropriate error for server errors", () => {
@@ -139,11 +109,31 @@ describe("createApiError", () => {
         } as Response;
 
         const responseText = JSON.stringify({ error: "Server processing error" });
-        const error = createApiError(response, responseText);
+        const error = unsuccessfulResponseToTurbineError(response, responseText);
 
         expect(error).toBeInstanceOf(TurbineError);
         expect(error.code).toBe("API_SERVER_ERROR");
         expect(error.message).toContain("Server error occurred");
+    });
+
+    it("should respect custom code and message when provided", () => {
+        const response = {
+            ok: false,
+            status: 400,
+            statusText: "Bad Request"
+        } as Response;
+
+        const responseText = JSON.stringify({ error: "Insufficient balance" });
+        const error = unsuccessfulResponseToTurbineError(
+            response,
+            responseText,
+            "CUSTOM_ERROR_CODE",
+            "Custom error message"
+        );
+
+        expect(error).toBeInstanceOf(TurbineError);
+        expect(error.code).toBe("CUSTOM_ERROR_CODE");
+        expect(error.message).toBe("Custom error message");
     });
 });
 
