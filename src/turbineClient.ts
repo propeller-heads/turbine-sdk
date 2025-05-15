@@ -252,7 +252,7 @@ export class TurbineClient {
                 signature: convertSignature(signature),
             };
 
-            const response = await fetch(`${this.turbineApiUrl}/remove_order`, {
+            const response = await fetch(`${this.turbineApiUrl}/cancel_order`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
