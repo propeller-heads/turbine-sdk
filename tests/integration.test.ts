@@ -92,6 +92,6 @@ describe("Integration test", () => {
         );
 
         expect(result).toBeDefined();
-        expect(result.order_hash).toBe(orderHash);
+        expect(result.orderHash).toBe(orderHash);
     });
 });

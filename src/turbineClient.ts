@@ -66,15 +66,15 @@ export class TurbineClient {
                 );
             }
 
-            if (!responseJson || !responseJson["order_hash"]) {
+            if (!responseJson || !responseJson["orderHash"]) {
                 throw new TurbineError(
                     "MISSING_ORDER_HASH",
-                    `Response missing required order_hash field: ${JSON.stringify(responseJson)}`,
+                    `Response missing required orderHash field: ${JSON.stringify(responseJson)}`,
                     "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed."
                 );
             }
 
-            return responseJson["order_hash"];
+            return responseJson["orderHash"];
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -124,7 +124,7 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((order: any) => order.order_hash);
+            return responseJson.map((order: any) => order.orderHash);
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -166,7 +166,7 @@ export class TurbineClient {
                 );
             }
 
-            if (!responseJson || !responseJson["intent_hash"]) {
+            if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
                     "MISSING_INTENT_HASH",
                     `Response missing required hash field: ${JSON.stringify(responseJson)}`,
@@ -174,7 +174,7 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson["intent_hash"];
+            return responseJson["intentHash"];
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -216,7 +216,7 @@ export class TurbineClient {
                 );
             }
 
-            if (!responseJson || !responseJson["intent_hash"]) {
+            if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
                     "MISSING_INTENT_HASH",
                     `Response missing required hash field: ${JSON.stringify(responseJson)}`,
@@ -224,7 +224,7 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson["intent_hash"];
+            return responseJson["intentHash"];
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -239,7 +239,7 @@ export class TurbineClient {
     async cancelOrder(
         orderHash: Hex,
         walletClient: WalletClient
-    ): Promise<{ order_hash: string; message: string }> {
+    ): Promise<{ orderHash: string; message: string }> {
         try {
             // Sign the order hash to prove ownership
             const signature = await walletClient.signMessage({
@@ -277,7 +277,7 @@ export class TurbineClient {
                 );
             }
 
-            if (!responseJson || !responseJson.order_hash) {
+            if (!responseJson || !responseJson.orderHash) {
                 throw new TurbineError(
                     "MISSING_FIELD",
                     `Response missing required fields: ${JSON.stringify(responseJson)}`,

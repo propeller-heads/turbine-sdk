@@ -20,7 +20,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             const mockResponse = new Response(
-                JSON.stringify({ order_hash: mockOrderId })
+                JSON.stringify({ orderHash: mockOrderId })
             );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
@@ -42,8 +42,8 @@ describe("TurbineClient", () => {
 
             const mockResponse = new Response(
                 JSON.stringify([
-                    { order_hash: mockOrderIds[0] },
-                    { order_hash: mockOrderIds[1] },
+                    { orderHash: mockOrderIds[0] },
+                    { orderHash: mockOrderIds[1] },
                 ])
             );
             const mockCallAPI = jest
@@ -69,7 +69,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             const mockResponse = new Response(
-                JSON.stringify({ intent_hash: mockIntentId })
+                JSON.stringify({ intentHash: mockIntentId })
             );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
@@ -90,7 +90,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             const mockResponse = new Response(
-                JSON.stringify({ intent_hash: mockIntentId })
+                JSON.stringify({ intentHash: mockIntentId })
             );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
@@ -144,14 +144,12 @@ describe("TurbineClient", () => {
         it("should call Turbine API and return success message", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const mockMessage = "Order successfully queued for removal";
             const client = new TurbineClient();
 
             // Mock the fetch response directly
             const mockResponse = new Response(
                 JSON.stringify({
-                    order_hash: mockOrderHash,
-                    message: mockMessage,
+                    orderHash: mockOrderHash,
                 })
             );
 
@@ -163,8 +161,7 @@ describe("TurbineClient", () => {
             );
 
             expect(result).toEqual({
-                order_hash: mockOrderHash,
-                message: mockMessage,
+                orderHash: mockOrderHash,
             });
             expect(global.fetch).toHaveBeenCalledTimes(1);
         });
