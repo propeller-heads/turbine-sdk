@@ -277,7 +277,7 @@ export class TurbineClient {
                 );
             }
 
-            if (!responseJson || !responseJson.order_hash || !responseJson.message) {
+            if (!responseJson || !responseJson.order_hash) {
                 throw new TurbineError(
                     "MISSING_FIELD",
                     `Response missing required fields: ${JSON.stringify(responseJson)}`,
