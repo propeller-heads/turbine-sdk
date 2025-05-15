@@ -1,3 +1,4 @@
+import { Hex } from "viem";
 import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
 import { getRandomSalt, TurbineClient } from "../src/turbineClient";
 import {
@@ -70,5 +71,27 @@ describe("Integration test", () => {
         );
 
         expect(result).toBeDefined();
+    });
+
+    it("should successfully cancel an order", async () => {
+        const turbineClient = new TurbineClient();
+
+        // First create an order to cancel
+        const intent: OrderIntent = {
+            ...ORDER_INTENT,
+            salt: getRandomSalt(),
+        };
+
+        const orderHash = await withTurbineErrorHandling(() =>
+            turbineClient.addOrder(intent, WALLET_CLIENT, PUBLIC_CLIENT)
+        );
+
+        // Now cancel the order
+        const result = await withTurbineErrorHandling(() =>
+            turbineClient.cancelOrder(orderHash as Hex, WALLET_CLIENT)
+        );
+
+        expect(result).toBeDefined();
+        expect(result.order_hash).toBe(orderHash);
     });
 });
