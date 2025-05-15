@@ -60,14 +60,14 @@ describe("toTurbineError", () => {
 
     it("should convert missing field errors to appropriate TurbineError", () => {
         const missingFieldError = new Error(
-            "Response missing required order_hash field: {}"
+            "Response missing required orderHash field: {}"
         );
         const result = toTurbineError(missingFieldError);
 
         expect(result).toBeInstanceOf(TurbineError);
         expect(result.code).toBe("MISSING_FIELD");
         expect(result.originalMessage).toBe(
-            "Response missing required order_hash field: {}"
+            "Response missing required orderHash field: {}"
         );
         expect(result.message).toContain("Transaction was submitted but");
     });
