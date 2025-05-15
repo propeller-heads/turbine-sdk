@@ -7,6 +7,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
     WALLET_CLIENT,
 } from "./constants";
+import { withTurbineErrorHandling } from "./utils";
 
 describe("Integration test", () => {
     it("should successfully submit an order", async () => {
@@ -17,10 +18,8 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         };
 
-        const result = await turbineClient.addOrder(
-            intent,
-            WALLET_CLIENT,
-            PUBLIC_CLIENT
+        const result = await withTurbineErrorHandling(() =>
+            turbineClient.addOrder(intent, WALLET_CLIENT, PUBLIC_CLIENT)
         );
 
         expect(result).toBeDefined();
@@ -34,10 +33,8 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         }));
 
-        const result = await turbineClient.addOrders(
-            intents,
-            WALLET_CLIENT,
-            PUBLIC_CLIENT
+        const result = await withTurbineErrorHandling(() =>
+            turbineClient.addOrders(intents, WALLET_CLIENT, PUBLIC_CLIENT)
         );
 
         result.forEach((response) => {
@@ -53,10 +50,8 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         };
 
-        const result = await turbineClient.addLiquidity(
-            intent,
-            WALLET_CLIENT,
-            PUBLIC_CLIENT
+        const result = await withTurbineErrorHandling(() =>
+            turbineClient.addLiquidity(intent, WALLET_CLIENT, PUBLIC_CLIENT)
         );
 
         expect(result).toBeDefined();
@@ -70,10 +65,8 @@ describe("Integration test", () => {
             salt: getRandomSalt(),
         };
 
-        const result = await turbineClient.removeLiquidity(
-            intent,
-            WALLET_CLIENT,
-            PUBLIC_CLIENT
+        const result = await withTurbineErrorHandling(() =>
+            turbineClient.removeLiquidity(intent, WALLET_CLIENT, PUBLIC_CLIENT)
         );
 
         expect(result).toBeDefined();

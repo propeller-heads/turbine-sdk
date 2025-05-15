@@ -8,6 +8,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
     WALLET_CLIENT,
 } from "./constants";
+import { withTurbineErrorHandling } from "./utils";
 import { OrderIntent } from "../src/models";
 import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
 import { Hex } from "viem";
@@ -25,10 +26,8 @@ describe("TurbineClient", () => {
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(mockResponse);
 
-            const orderId = await client.addOrder(
-                ORDER_INTENT,
-                WALLET_CLIENT,
-                PUBLIC_CLIENT
+            const orderId = await withTurbineErrorHandling(() =>
+                client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
             );
 
             expect(orderId).toBe(mockOrderId);
@@ -51,10 +50,12 @@ describe("TurbineClient", () => {
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(mockResponse);
 
-            const orderIds = await client.addOrders(
-                [ORDER_INTENT, ORDER_INTENT],
-                WALLET_CLIENT,
-                PUBLIC_CLIENT
+            const orderIds = await withTurbineErrorHandling(() =>
+                client.addOrders(
+                    [ORDER_INTENT, ORDER_INTENT],
+                    WALLET_CLIENT,
+                    PUBLIC_CLIENT
+                )
             );
 
             expect(orderIds).toEqual(mockOrderIds);
@@ -74,10 +75,8 @@ describe("TurbineClient", () => {
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(mockResponse);
 
-            const liquidityId = await client.addLiquidity(
-                ADD_LIQUIDITY_INTENT,
-                WALLET_CLIENT,
-                PUBLIC_CLIENT
+            const liquidityId = await withTurbineErrorHandling(() =>
+                client.addLiquidity(ADD_LIQUIDITY_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
             );
 
             expect(liquidityId).toBe(mockIntentId);
@@ -97,10 +96,12 @@ describe("TurbineClient", () => {
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(mockResponse);
 
-            const liquidityId = await client.removeLiquidity(
-                REMOVE_LIQUIDITY_INTENT,
-                WALLET_CLIENT,
-                PUBLIC_CLIENT
+            const liquidityId = await withTurbineErrorHandling(() =>
+                client.removeLiquidity(
+                    REMOVE_LIQUIDITY_INTENT,
+                    WALLET_CLIENT,
+                    PUBLIC_CLIENT
+                )
             );
 
             expect(liquidityId).toBe(mockIntentId);
@@ -127,7 +128,9 @@ describe("TurbineClient", () => {
             salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
         } as const;
 
-        const signature = await turbineClient["signIntent"](orderIntent, WALLET_CLIENT);
+        const signature = await withTurbineErrorHandling(() =>
+            turbineClient["signIntent"](orderIntent, WALLET_CLIENT)
+        );
         const convertedSignature = convertSignature(signature);
 
         // Expected signature taken from Rust implementation of the same order
@@ -155,9 +158,8 @@ describe("TurbineClient", () => {
             // Use jest.spyOn instead of directly replacing fetch
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
-            const result = await client.cancelOrder(
-                mockOrderHash as Hex,
-                WALLET_CLIENT
+            const result = await withTurbineErrorHandling(() =>
+                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
             );
 
             expect(result).toEqual({
