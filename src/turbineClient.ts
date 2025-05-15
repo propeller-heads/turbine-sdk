@@ -248,7 +248,7 @@ export class TurbineClient {
             });
 
             const payload = {
-                order_hash: orderHash,
+                orderHash: orderHash,
                 signature: convertSignature(signature),
             };
 
