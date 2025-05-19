@@ -205,9 +205,9 @@ describe("TurbineClient", () => {
         const signature = await turbineClient["signIntent"](orderIntent, WALLET_CLIENT);
         const convertedSignature = convertSignature(signature);
 
-        // Expected signature taken from Rust implementation of the same order
+        // Expected signature taken from Rust implementation of the same order. See test_order_intent_signature in turbine repo.
         const expectedSignature = convertSignature(
-            "0x7a3fd8a46bdea8b744b4be06d2adc45c1067528793fcadf64bda69357b056a3f50b243dca7a1279a61c1e4724af9e943d65f5a0b60677210da70e4b7c68d20df1c" as Hex
+            "0x9a9bcfc4c3d3333207941c6e4d318f8cea91f834a8445b3e409976d6918729350196292c4bbeab2eeb7134824163f2bef582e5b7ab610aabb5a67c410cab13c41c" as Hex
         );
         expect(convertedSignature).toEqual(expectedSignature);
     });
