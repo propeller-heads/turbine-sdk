@@ -4,7 +4,7 @@ export const CHAIN_ID = 1;
 
 export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
-    process.env.TURBINE_SETTLER_CONTRACT || "0x7B39F073d2f2511a5e1ff664AeC5daee02044967"
+    process.env.TURBINE_SETTLER_CONTRACT || "0x346a33009161ed9085b75c9194a523322236f74e"
 );
 const TURBINE_SALT =
     "0xea6078b87659a262f2239bc31d5f870898575eed78c14d5feb90615aafb06587";
