@@ -12,7 +12,7 @@ export class Token {
     }
 
     public toOnchainAmount(amount: number): bigint {
-            return BigInt(Math.round(amount * 10 ** this.decimals));
+        return BigInt(Math.round(amount * 10 ** this.decimals));
     }
 
     public fromOnchainAmount(amount: bigint): number {
