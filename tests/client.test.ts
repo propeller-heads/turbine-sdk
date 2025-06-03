@@ -172,9 +172,7 @@ describe("TurbineClient", () => {
         it("should return mocked turbine pool", async () => {
             const client = new TurbineClient();
 
-            const pools = await withTurbineErrorHandling(() =>
-                client.getPools()
-            );
+            const pools = await withTurbineErrorHandling(() => client.getPools());
 
             expect(pools).toHaveLength(1);
             expect(pools[0]).toEqual(MOCKED_TURBINE_POOL);
