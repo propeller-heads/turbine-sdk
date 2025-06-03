@@ -36,3 +36,21 @@ export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Ma
  */
 export const W3_WEBSOCKET = process.env.W3_WEBSOCKET;
 export const W3_BLOCK_NUMBER_RPC_URL = process.env.W3_BLOCK_NUMBER_RPC_URL || undefined;
+
+// Mocked Turbine Pool for testing/development
+export const MOCKED_TURBINE_POOL = {
+    metadata: {
+        token0: getAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // USDC
+        token1: getAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
+        fee: 3000, // 0.3% in 1/100 of basis point
+        lpToken: getAddress("0x8893eFd5338C5159D43678A07F4796713fBD491B")
+    },
+    state: {
+        reserve0: 1000000, // Mock reserve for token0 (USDC)
+        reserve1: 500      // Mock reserve for token1 (WETH)
+    },
+    stats: {
+        weeklySellVolumeToken0: 10000000, // Mock weekly volume for token0
+        weeklySellVolumeToken1: 5000      // Mock weekly volume for token1
+    }
+};

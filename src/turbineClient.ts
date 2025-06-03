@@ -1,6 +1,6 @@
 import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
 import { addLiquidityIntentABI, orderIntentABI, removeLiquidityIntentABI } from "./abi";
-import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT } from "./config";
+import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT, MOCKED_TURBINE_POOL } from "./config";
 import {
     unsuccessfulResponseToTurbineError,
     toTurbineError,
@@ -15,6 +15,7 @@ import {
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
+    TurbinePool,
 } from "./models";
 import { getSignedAllowance } from "./permit2";
 import { NULL_ADDRESS } from "./constants";
@@ -289,6 +290,15 @@ export class TurbineClient {
         } catch (error) {
             throw toTurbineError(error);
         }
+    }
+
+    /**
+     * Get the registered pools from the Turbine Hook contract.
+     * @returns A Promise that resolves to an array of `TurbinePool` objects.
+     */
+    async getPools(): Promise<TurbinePool[]> {
+        // TODO: Implement this
+        return [MOCKED_TURBINE_POOL];
     }
 
     /* PRIVATE METHODS */

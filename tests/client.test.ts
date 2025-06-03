@@ -1,5 +1,6 @@
 import { describe, expect, jest } from "@jest/globals";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
+import { MOCKED_TURBINE_POOL } from "../src/config";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -164,6 +165,19 @@ describe("TurbineClient", () => {
                 orderHash: mockOrderHash,
             });
             expect(global.fetch).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("getPools", () => {
+        it("should return mocked turbine pool", async () => {
+            const client = new TurbineClient();
+
+            const pools = await withTurbineErrorHandling(() =>
+                client.getPools()
+            );
+
+            expect(pools).toHaveLength(1);
+            expect(pools[0]).toEqual(MOCKED_TURBINE_POOL);
         });
     });
 });

@@ -177,3 +177,20 @@ export interface RemoveLiquidityIntent {
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }
+
+export interface TurbinePool {
+    metadata: {
+        token0: Address
+        token1: Address
+        fee: number  // in 1/100 of basis point; i.e. 10000 = 1%
+        lpToken: Address
+      }
+      state: {
+        reserve0: number
+        reserve1: number
+      }
+      stats: {
+        weeklySellVolumeToken0: number
+        weeklySellVolumeToken1: number
+      }
+}
