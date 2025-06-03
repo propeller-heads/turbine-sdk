@@ -185,12 +185,13 @@ export interface TurbinePool {
         fee: number; // in 1/100 of basis point; i.e. 10000 = 1%
         lpToken: Address;
     };
+    // reserves and weekly sell volumes are in onchain amounts (in base units)
     state: {
-        reserve0: number;
-        reserve1: number;
+        reserve0: bigint;
+        reserve1: bigint;
     };
     stats: {
-        weeklySellVolumeToken0: number;
-        weeklySellVolumeToken1: number;
+        weeklySellVolumeToken0: bigint;
+        weeklySellVolumeToken1: bigint;
     };
 }
