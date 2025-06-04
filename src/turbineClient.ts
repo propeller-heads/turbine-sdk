@@ -1,4 +1,4 @@
-import { Account, Address, Hex, PublicClient, WalletClient } from "viem";
+import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { addLiquidityIntentABI, orderIntentABI, removeLiquidityIntentABI } from "./abi";
 import { TURBINE_API_URL, TURBINE_DOMAIN, TURBINE_SETTLER_CONTRACT } from "./config";
 import {
@@ -15,9 +15,10 @@ import {
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
+    TurbinePool,
 } from "./models";
 import { getSignedAllowance } from "./permit2";
-import { NULL_ADDRESS } from "./constants";
+import { NULL_ADDRESS, USDC, WBTC, WETH } from "./constants";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -289,6 +290,66 @@ export class TurbineClient {
         } catch (error) {
             throw toTurbineError(error);
         }
+    }
+
+    /**
+     * Get the registered pools from the Turbine Hook contract.
+     * @returns A Promise that resolves to an array of `TurbinePool` objects.
+     */
+    async getPools(): Promise<TurbinePool[]> {
+        // TODO: Implement this
+        let pool1: TurbinePool = {
+            metadata: {
+                token0: USDC.address,
+                token1: WETH.address,
+                fee: 30, // 0.3% in basis point
+                lpToken: getAddress("0x8893eFd5338C5159D43678A07F4796713fBD491B"),
+            },
+            state: {
+                reserve0: USDC.toOnchainAmount(1_000_000), // Mock reserve for token0 (USDC)
+                reserve1: WETH.toOnchainAmount(500), // Mock reserve for token1 (WETH)
+            },
+            stats: {
+                weeklySellVolumeToken0: USDC.toOnchainAmount(10_000_000), // Mock weekly volume for token0
+                weeklySellVolumeToken1: WETH.toOnchainAmount(5_000), // Mock weekly volume for token1
+            },
+        };
+
+        let pool2: TurbinePool = {
+            metadata: {
+                token0: USDC.address,
+                token1: WETH.address,
+                fee: 50, // 0.5% in basis point
+                lpToken: getAddress("0x1234567890123456789012345678901234567890"),
+            },
+            state: {
+                reserve0: USDC.toOnchainAmount(2_000_000), // Mock reserve for token0 (USDC)
+                reserve1: WETH.toOnchainAmount(1_000), // Mock reserve for token1 (WETH)
+            },
+            stats: {
+                weeklySellVolumeToken0: USDC.toOnchainAmount(20_000_000), // Mock weekly volume for token0
+                weeklySellVolumeToken1: WETH.toOnchainAmount(10_000), // Mock weekly volume for token1
+            },
+        };
+
+        let pool3: TurbinePool = {
+            metadata: {
+                token0: WBTC.address, // WBTC
+                token1: USDC.address, // USDC
+                fee: 10, // 0.1% in basis point
+                lpToken: getAddress("0x9876543210987654321098765432109876543210"),
+            },
+            state: {
+                reserve0: WBTC.toOnchainAmount(10), // Mock reserve for token0 (WBTC)
+                reserve1: USDC.toOnchainAmount(1_000_000), // Mock reserve for token1 (USDC)
+            },
+            stats: {
+                weeklySellVolumeToken0: WBTC.toOnchainAmount(100_000_000), // Mock weekly volume for token0
+                weeklySellVolumeToken1: USDC.toOnchainAmount(1_000_000_000), // Mock weekly volume for token1
+            },
+        };
+
+        return [pool1, pool2, pool3];
     }
 
     /* PRIVATE METHODS */

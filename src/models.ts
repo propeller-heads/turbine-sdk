@@ -177,3 +177,21 @@ export interface RemoveLiquidityIntent {
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }
+
+export interface TurbinePool {
+    metadata: {
+        token0: Address;
+        token1: Address;
+        fee: number; // in basis point; i.e. 100 = 1%
+        lpToken: Address;
+    };
+    // reserves and weekly sell volumes are in onchain amounts (in base units)
+    state: {
+        reserve0: bigint;
+        reserve1: bigint;
+    };
+    stats: {
+        weeklySellVolumeToken0: bigint;
+        weeklySellVolumeToken1: bigint;
+    };
+}

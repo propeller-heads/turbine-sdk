@@ -1,5 +1,6 @@
 import { describe, expect, jest } from "@jest/globals";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
+import { MOCKED_TURBINE_POOL } from "../src/config";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -10,8 +11,8 @@ import {
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 import { OrderIntent } from "../src/models";
-import { NULL_ADDRESS, USDC, USDT } from "../src/constants";
-import { Hex } from "viem";
+import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
+import { getAddress, Hex } from "viem";
 
 describe("TurbineClient", () => {
     describe("addOrder", () => {
@@ -164,6 +165,24 @@ describe("TurbineClient", () => {
                 orderHash: mockOrderHash,
             });
             expect(global.fetch).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe("getPools", () => {
+        it("should return mocked turbine pool", async () => {
+            const client = new TurbineClient();
+
+            const pools = await withTurbineErrorHandling(() => client.getPools());
+
+            expect(pools).toHaveLength(3);
+            expect(pools[0].metadata.token0).toEqual(USDC.address);
+            expect(pools[0].metadata.token1).toEqual(WETH.address);
+            expect(pools[0].metadata.fee).toEqual(30);
+            expect(pools[0].metadata.lpToken).toEqual(
+                getAddress("0x8893eFd5338C5159D43678A07F4796713fBD491B")
+            );
+            expect(pools[0].state.reserve0).toEqual(USDC.toOnchainAmount(1_000_000));
+            expect(pools[0].state.reserve1).toEqual(WETH.toOnchainAmount(500));
         });
     });
 });
