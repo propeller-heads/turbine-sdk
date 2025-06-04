@@ -182,7 +182,7 @@ export interface TurbinePool {
     metadata: {
         token0: Address;
         token1: Address;
-        fee: number; // in 1/100 of basis point; i.e. 10000 = 1%
+        fee: number; // in basis point; i.e. 100 = 1%
         lpToken: Address;
     };
     // reserves and weekly sell volumes are in onchain amounts (in base units)
