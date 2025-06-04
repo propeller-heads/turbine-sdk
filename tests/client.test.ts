@@ -177,7 +177,7 @@ describe("TurbineClient", () => {
             expect(pools).toHaveLength(3);
             expect(pools[0].metadata.token0).toEqual(USDC.address);
             expect(pools[0].metadata.token1).toEqual(WETH.address);
-            expect(pools[0].metadata.fee).toEqual(3000);
+            expect(pools[0].metadata.fee).toEqual(30);
             expect(pools[0].metadata.lpToken).toEqual(
                 getAddress("0x8893eFd5338C5159D43678A07F4796713fBD491B")
             );

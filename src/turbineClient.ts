@@ -302,7 +302,7 @@ export class TurbineClient {
             metadata: {
                 token0: USDC.address,
                 token1: WETH.address,
-                fee: 3000, // 0.3% in 1/100 of basis point
+                fee: 30, // 0.3% in basis point
                 lpToken: getAddress("0x8893eFd5338C5159D43678A07F4796713fBD491B"),
             },
             state: {
@@ -319,7 +319,7 @@ export class TurbineClient {
             metadata: {
                 token0: USDC.address,
                 token1: WETH.address,
-                fee: 5000, // 0.5% in 1/100 of basis point
+                fee: 50, // 0.5% in basis point
                 lpToken: getAddress("0x1234567890123456789012345678901234567890"),
             },
             state: {
@@ -336,7 +336,7 @@ export class TurbineClient {
             metadata: {
                 token0: WBTC.address, // WBTC
                 token1: USDC.address, // USDC
-                fee: 1000, // 0.1% in 1/100 of basis point
+                fee: 10, // 0.1% in basis point
                 lpToken: getAddress("0x9876543210987654321098765432109876543210"),
             },
             state: {
