@@ -6,6 +6,9 @@ export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:80
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
     process.env.TURBINE_SETTLER_CONTRACT || "0x346a33009161ed9085b75c9194a523322236f74e"
 );
+export const TURBINE_HOOK_CONTRACT: Address = getAddress(
+    process.env.TURBINE_HOOK_CONTRACT || "0x0000000000000000000000000000000000000000" // TODO: Deploy hook and update this
+);
 const TURBINE_SALT =
     "0xea6078b87659a262f2239bc31d5f870898575eed78c14d5feb90615aafb06587";
 export const TURBINE_DOMAIN = {

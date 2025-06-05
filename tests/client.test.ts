@@ -11,7 +11,7 @@ import {
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 import { OrderIntent } from "../src/models";
-import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
+import { NULL_ADDRESS, USDC, USDT, WETH, WBTC } from "../src/constants";
 import { getAddress, Hex } from "viem";
 
 describe("TurbineClient", () => {
@@ -172,7 +172,51 @@ describe("TurbineClient", () => {
         it("should return mocked turbine pool", async () => {
             const client = new TurbineClient();
 
-            const pools = await withTurbineErrorHandling(() => client.getPools());
+            // Mock the contract call to return test data
+            const mockContractData = [
+                {
+                    poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 30,
+                    lpToken: "0x8893eFd5338C5159D43678A07F4796713fBD491B",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WETH.toOnchainAmount(500),
+                    liquidity: BigInt("1000000000000000000000"),
+                },
+                {
+                    poolId: "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 50,
+                    lpToken: "0x1234567890123456789012345678901234567890",
+                    reserve0: USDC.toOnchainAmount(2_000_000),
+                    reserve1: WETH.toOnchainAmount(1_000),
+                    liquidity: BigInt("2000000000000000000000"),
+                },
+                {
+                    poolId: "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
+                    token0: USDC.address,
+                    token1: WBTC.address,
+                    fee: 10,
+                    lpToken: "0x9876543210987654321098765432109876543210",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WBTC.toOnchainAmount(10),
+                    liquidity: BigInt("500000000000000000000"),
+                },
+            ];
+
+            // Mock the readContract method using jest.spyOn
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockContractData as any);
+
+            const pools = await withTurbineErrorHandling(() =>
+                client.getPools(PUBLIC_CLIENT)
+            );
+
+            // Restore the mock
+            mockReadContract.mockRestore();
 
             expect(pools).toHaveLength(3);
             expect(pools[0].metadata.token0).toEqual(USDC.address);
@@ -183,6 +227,8 @@ describe("TurbineClient", () => {
             );
             expect(pools[0].state.reserve0).toEqual(USDC.toOnchainAmount(1_000_000));
             expect(pools[0].state.reserve1).toEqual(WETH.toOnchainAmount(500));
+            expect(pools[0].stats.weeklySellVolumeToken0).toEqual(0n);
+            expect(pools[0].stats.weeklySellVolumeToken1).toEqual(0n);
         });
     });
 });
