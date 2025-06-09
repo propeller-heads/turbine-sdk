@@ -94,4 +94,27 @@ describe("Integration test", () => {
         expect(result).toBeDefined();
         expect(result.orderHash).toBe(orderHash);
     });
+
+    it("should successfully get registered pools", async () => {
+        const turbineClient = new TurbineClient();
+
+        const pools = await withTurbineErrorHandling(() =>
+            turbineClient.getPools(PUBLIC_CLIENT)
+        );
+
+        expect(pools).toBeDefined();
+        expect(Array.isArray(pools)).toBe(true);
+        expect(pools.length > 0).toBe(true);
+
+        const pool = pools[0];
+        expect(pool.metadata).toBeDefined();
+        expect(pool.metadata.token0).toBe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
+        expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
+        expect(pool.metadata.fee).toBe(3000);
+        expect(pool.metadata.lpToken).toBe(
+            "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307"
+        );
+        expect(pool.state).toBeDefined();
+        expect(pool.stats).toBeDefined();
+    });
 });

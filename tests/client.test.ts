@@ -179,7 +179,7 @@ describe("TurbineClient", () => {
                     token0: USDC.address,
                     token1: WETH.address,
                     fee: 30,
-                    lpToken: "0x8893eFd5338C5159D43678A07F4796713fBD491B",
+                    lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
                     reserve0: USDC.toOnchainAmount(1_000_000),
                     reserve1: WETH.toOnchainAmount(500),
                     liquidity: BigInt("1000000000000000000000"),
@@ -223,7 +223,7 @@ describe("TurbineClient", () => {
             expect(pools[0].metadata.token1).toEqual(WETH.address);
             expect(pools[0].metadata.fee).toEqual(30);
             expect(pools[0].metadata.lpToken).toEqual(
-                getAddress("0x8893eFd5338C5159D43678A07F4796713fBD491B")
+                getAddress("0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307")
             );
             expect(pools[0].state.reserve0).toEqual(USDC.toOnchainAmount(1_000_000));
             expect(pools[0].state.reserve1).toEqual(WETH.toOnchainAmount(500));
