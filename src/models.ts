@@ -195,3 +195,14 @@ export interface TurbinePool {
         weeklySellVolumeToken1: bigint;
     };
 }
+
+export interface UserPosition {
+    poolMetadata: {
+        token0: Address;
+        token1: Address;
+        fee: number; // in basis point; i.e. 100 = 1%
+        lpToken: Address;
+    };
+    userAddress: Address;
+    lpTokenBalance: bigint;
+}

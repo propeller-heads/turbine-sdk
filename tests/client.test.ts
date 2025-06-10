@@ -231,4 +231,124 @@ describe("TurbineClient", () => {
             expect(pools[0].stats.weeklySellVolumeToken1).toEqual(0n);
         });
     });
+
+    describe("getUserPositions", () => {
+        it("should return user positions with mocked data", async () => {
+            const client = new TurbineClient();
+            const testUserAddress = "0x1234567890123456789012345678901234567890";
+
+            // Mock the contract call for getPools to return test data
+            const mockPoolsData = [
+                {
+                    poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 30,
+                    lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WETH.toOnchainAmount(500),
+                    liquidity: BigInt("1000000000000000000000"),
+                },
+                {
+                    poolId: "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
+                    token0: USDC.address,
+                    token1: WBTC.address,
+                    fee: 50,
+                    lpToken: "0x1234567890123456789012345678901234567890",
+                    reserve0: USDC.toOnchainAmount(2_000_000),
+                    reserve1: WBTC.toOnchainAmount(10),
+                    liquidity: BigInt("2000000000000000000000"),
+                },
+            ];
+
+            // Mock multicall results - user has balance in first pool but not second
+            const mockMulticallResults = [
+                {
+                    status: "success" as const,
+                    result: BigInt("1000000000000000000"), // 1 LP token
+                },
+                {
+                    status: "success" as const,
+                    result: BigInt("0"), // 0 LP tokens
+                },
+            ];
+
+            // Mock the readContract method for getPools
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockPoolsData as any);
+
+            // Mock the multicall method for balance checks
+            const mockMulticall = jest
+                .spyOn(PUBLIC_CLIENT, "multicall")
+                .mockResolvedValue(mockMulticallResults as any);
+
+            const positions = await withTurbineErrorHandling(() =>
+                client.getUserPositions(testUserAddress, PUBLIC_CLIENT)
+            );
+
+            // Restore the mocks
+            mockReadContract.mockRestore();
+            mockMulticall.mockRestore();
+
+            // Should only return positions where balance > 0
+            expect(positions).toHaveLength(1);
+            expect(positions[0].poolMetadata.token0).toEqual(USDC.address);
+            expect(positions[0].poolMetadata.token1).toEqual(WETH.address);
+            expect(positions[0].poolMetadata.fee).toEqual(30);
+            expect(positions[0].poolMetadata.lpToken).toEqual(
+                getAddress("0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307")
+            );
+            expect(positions[0].userAddress).toEqual(getAddress(testUserAddress));
+            expect(positions[0].lpTokenBalance).toEqual(BigInt("1000000000000000000"));
+        });
+
+        it("should handle multicall failures gracefully", async () => {
+            const client = new TurbineClient();
+            const testUserAddress = "0x1234567890123456789012345678901234567890";
+
+            // Mock the contract call for getPools to return test data
+            const mockPoolsData = [
+                {
+                    poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 30,
+                    lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WETH.toOnchainAmount(500),
+                    liquidity: BigInt("1000000000000000000000"),
+                },
+            ];
+
+            // Mock multicall results with failure
+            const mockMulticallResults = [
+                {
+                    status: "failure" as const,
+                    error: new Error("Contract call failed"),
+                },
+            ];
+
+            // Mock the readContract method for getPools
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockPoolsData as any);
+
+            // Mock the multicall method for balance checks
+            const mockMulticall = jest
+                .spyOn(PUBLIC_CLIENT, "multicall")
+                .mockResolvedValue(mockMulticallResults as any);
+
+            const positions = await withTurbineErrorHandling(() =>
+                client.getUserPositions(testUserAddress, PUBLIC_CLIENT)
+            );
+
+            // Restore the mocks
+            mockReadContract.mockRestore();
+            mockMulticall.mockRestore();
+
+            // Should return empty array when all calls fail
+            expect(positions).toHaveLength(0);
+        });
+    });
 });

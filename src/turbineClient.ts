@@ -1,6 +1,7 @@
 import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import {
     addLiquidityIntentABI,
+    balanceOfABI,
     orderIntentABI,
     removeLiquidityIntentABI,
     turbineHookABI,
@@ -26,6 +27,7 @@ import {
     RemoveLiquidity,
     RemoveLiquidityIntent,
     TurbinePool,
+    UserPosition,
 } from "./models";
 import { getSignedAllowance } from "./permit2";
 import { NULL_ADDRESS } from "./constants";
@@ -333,6 +335,63 @@ export class TurbineClient {
                     weeklySellVolumeToken1: 0n,
                 },
             }));
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Get user positions for all registered pools.
+     * @param userAddress The address of the user to get positions for
+     * @param publicClient The public client used for blockchain interactions
+     * @returns A Promise that resolves to an array of `UserPosition` objects.
+     */
+    async getUserPositions(
+        userAddress: Address,
+        publicClient: PublicClient
+    ): Promise<UserPosition[]> {
+        try {
+            // Get all pools first
+            const pools = await this.getPools(publicClient);
+
+            if (pools.length === 0) {
+                return [];
+            }
+
+            // Prepare multicall contracts for all LP token balance checks
+            const multicallContracts = pools.map((pool) => ({
+                address: pool.metadata.lpToken,
+                abi: balanceOfABI,
+                functionName: "balanceOf" as const,
+                args: [userAddress],
+            }));
+
+            // Execute all balance checks in a single multicall
+            const balanceResults = await publicClient.multicall({
+                contracts: multicallContracts,
+            });
+
+            // Process results and create user positions
+            const userPositions: UserPosition[] = [];
+            for (let i = 0; i < pools.length; i++) {
+                const pool = pools[i];
+                const balanceResult = balanceResults[i];
+
+                if (balanceResult.status === "success" && balanceResult.result > 0n) {
+                    userPositions.push({
+                        poolMetadata: pool.metadata,
+                        userAddress: getAddress(userAddress),
+                        lpTokenBalance: balanceResult.result as bigint,
+                    });
+                } else if (balanceResult.status === "failure") {
+                    // Log warning for failed balance check but continue processing other pools
+                    console.warn(
+                        `Failed to get balance for LP token ${pool.metadata.lpToken}: ${balanceResult.error?.message || "Unknown error"}`
+                    );
+                }
+            }
+
+            return userPositions;
         } catch (error) {
             throw toTurbineError(error);
         }
