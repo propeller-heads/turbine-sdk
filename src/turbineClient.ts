@@ -4,6 +4,7 @@ import {
     orderIntentABI,
     removeLiquidityIntentABI,
     turbineHookABI,
+    settledAmountsABI,
 } from "./abi";
 import {
     TURBINE_API_URL,
@@ -333,6 +334,52 @@ export class TurbineClient {
                     weeklySellVolumeToken1: 0n,
                 },
             }));
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Get the currently filled amount for a single order by its hash.
+     * @param orderId The hash of the order to check
+     * @param publicClient The public client used for blockchain interactions
+     * @returns A Promise that resolves to the filled amount
+     */
+    async getFilledAmount(
+        orderId: string,
+        publicClient: PublicClient
+    ): Promise<bigint> {
+        try {
+            const settledAmount = await publicClient.readContract({
+                address: this.settlerContract,
+                abi: settledAmountsABI,
+                functionName: "settledAmounts",
+                args: [orderId as Hex],
+            });
+            return settledAmount;
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Get the currently filled amounts for multiple orders by their hashes.
+     * @param orderIds An array of order hashes to check
+     * @param publicClient The public client used for blockchain interactions
+     * @returns A Promise that resolves to an array of filled amounts
+     */
+    async getFilledAmounts(
+        orderIds: string[],
+        publicClient: PublicClient
+    ): Promise<readonly bigint[]> {
+        try {
+            const settledAmounts = await publicClient.readContract({
+                address: this.settlerContract,
+                abi: settledAmountsABI,
+                functionName: "getSettledAmounts",
+                args: [orderIds as Hex[]],
+            });
+            return settledAmounts;
         } catch (error) {
             throw toTurbineError(error);
         }

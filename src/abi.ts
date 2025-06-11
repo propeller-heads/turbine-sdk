@@ -171,3 +171,40 @@ export const turbineHookABI = [
         type: "function",
     },
 ] as const;
+
+export const settledAmountsABI = [
+    {
+        inputs: [
+            {
+                name: "orderHash",
+                type: "bytes32",
+            },
+        ],
+        name: "settledAmounts",
+        outputs: [
+            {
+                name: "",
+                type: "uint256",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+    {
+        inputs: [
+            {
+                name: "orderHashes",
+                type: "bytes32[]",
+            },
+        ],
+        name: "getSettledAmounts",
+        outputs: [
+            {
+                name: "",
+                type: "uint256[]",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+] as const;
