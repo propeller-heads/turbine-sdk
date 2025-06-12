@@ -2,6 +2,7 @@ import { Hex } from "viem";
 import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
 import { getRandomSalt, TurbineClient } from "../src/turbineClient";
 import {
+    ACCOUNT,
     ADD_LIQUIDITY_INTENT,
     ORDER_INTENT,
     PUBLIC_CLIENT,
@@ -112,9 +113,20 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(3000);
         expect(pool.metadata.lpToken).toBe(
-            "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307"
+            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
+    });
+
+    it("should successfully get user positions", async () => {
+        const turbineClient = new TurbineClient();
+
+        const positions = await withTurbineErrorHandling(() =>
+            turbineClient.getUserPositions(ACCOUNT.address, PUBLIC_CLIENT)
+        );
+
+        expect(positions).toBeDefined();
+        expect(Array.isArray(positions)).toBe(true);
     });
 });
