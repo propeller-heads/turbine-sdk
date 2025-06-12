@@ -172,6 +172,27 @@ export const turbineHookABI = [
     },
 ] as const;
 
+export const balanceOfABI = [
+    {
+        constant: true,
+        inputs: [
+            {
+                name: "owner",
+                type: "address",
+            },
+        ],
+        name: "balanceOf",
+        outputs: [
+            {
+                name: "",
+                type: "uint256",
+            },
+        ],
+        stateMutability: "view",
+        type: "function",
+    },
+] as const;
+
 export const settledAmountsABI = [
     {
         inputs: [

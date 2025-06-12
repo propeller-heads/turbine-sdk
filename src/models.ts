@@ -22,6 +22,18 @@ export class Token {
     public fromOnchainAmount(amount: bigint): number {
         return Number(amount) / 10 ** this.decimals;
     }
+
+    equals(other: Token): boolean {
+        return (
+            this.address.toLowerCase() === other.address.toLowerCase() &&
+            this.decimals === other.decimals &&
+            this.symbol === other.symbol
+        );
+    }
+
+    toString(): string {
+        return this.symbol;
+    }
 }
 
 export interface AllowanceTransferPermitSingle {
@@ -189,9 +201,21 @@ export interface TurbinePool {
     state: {
         reserve0: bigint;
         reserve1: bigint;
+        liquidity: bigint;
     };
     stats: {
         weeklySellVolumeToken0: bigint;
         weeklySellVolumeToken1: bigint;
     };
+}
+
+export interface UserPosition {
+    poolMetadata: {
+        token0: Address;
+        token1: Address;
+        fee: number; // in basis point; i.e. 100 = 1%
+        lpToken: Address;
+    };
+    userAddress: Address;
+    lpTokenBalance: bigint;
 }
