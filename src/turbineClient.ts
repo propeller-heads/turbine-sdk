@@ -328,6 +328,7 @@ export class TurbineClient {
                 state: {
                     reserve0: BigInt(poolData.reserve0),
                     reserve1: BigInt(poolData.reserve1),
+                    liquidity: BigInt(poolData.liquidity),
                 },
                 stats: {
                     // Note: Weekly volume data is not available from the contract
