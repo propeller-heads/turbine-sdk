@@ -3,19 +3,19 @@ import {
     addLiquidityIntentABI,
     orderIntentABI,
     removeLiquidityIntentABI,
-    turbineHookABI,
     settledAmountsABI,
+    turbineHookABI,
 } from "./abi";
 import {
     TURBINE_API_URL,
     TURBINE_DOMAIN,
-    TURBINE_SETTLER_CONTRACT,
     TURBINE_HOOK_CONTRACT,
+    TURBINE_SETTLER_CONTRACT,
 } from "./config";
 import {
-    unsuccessfulResponseToTurbineError,
     toTurbineError,
     TurbineError,
+    unsuccessfulResponseToTurbineError,
 } from "./errorHandling";
 import {
     AddLiquidity,
@@ -340,46 +340,22 @@ export class TurbineClient {
     }
 
     /**
-     * Get the currently filled amount for a single order by its hash.
-     * @param orderId The hash of the order to check
-     * @param publicClient The public client used for blockchain interactions
-     * @returns A Promise that resolves to the filled amount
-     */
-    async getFilledAmount(
-        orderId: string,
-        publicClient: PublicClient
-    ): Promise<bigint> {
-        try {
-            const settledAmount = await publicClient.readContract({
-                address: this.settlerContract,
-                abi: settledAmountsABI,
-                functionName: "settledAmounts",
-                args: [orderId as Hex],
-            });
-            return settledAmount;
-        } catch (error) {
-            throw toTurbineError(error);
-        }
-    }
-
-    /**
-     * Get the currently filled amounts for multiple orders by their hashes.
+     * Get the currently settled amounts for multiple orders by their hashes.
      * @param orderIds An array of order hashes to check
      * @param publicClient The public client used for blockchain interactions
      * @returns A Promise that resolves to an array of filled amounts
      */
-    async getFilledAmounts(
+    async getSettledAmounts(
         orderIds: string[],
         publicClient: PublicClient
     ): Promise<readonly bigint[]> {
         try {
-            const settledAmounts = await publicClient.readContract({
+            return await publicClient.readContract({
                 address: this.settlerContract,
                 abi: settledAmountsABI,
                 functionName: "getSettledAmounts",
                 args: [orderIds as Hex[]],
             });
-            return settledAmounts;
         } catch (error) {
             throw toTurbineError(error);
         }

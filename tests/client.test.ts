@@ -232,36 +232,7 @@ describe("TurbineClient", () => {
         });
     });
 
-    describe("getFilledAmount", () => {
-        it("should return filled amount for a single order", async () => {
-            const client = new TurbineClient();
-            const mockOrderHash =
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const mockFilledAmount = BigInt("1000000000000000000");
-
-            // Mock the readContract method
-            const mockReadContract = jest
-                .spyOn(PUBLIC_CLIENT, "readContract")
-                .mockResolvedValue(mockFilledAmount);
-
-            const filledAmount = await withTurbineErrorHandling(() =>
-                client.getFilledAmount(mockOrderHash, PUBLIC_CLIENT)
-            );
-
-            expect(filledAmount).toEqual(mockFilledAmount);
-            expect(mockReadContract).toHaveBeenCalledWith({
-                address: client.settlerContract,
-                abi: expect.any(Array),
-                functionName: "settledAmounts",
-                args: [mockOrderHash],
-            });
-
-            // Restore the mock
-            mockReadContract.mockRestore();
-        });
-    });
-
-    describe("getFilledAmounts", () => {
+    describe("getSettledAmounts", () => {
         it("should return filled amounts for multiple orders", async () => {
             const client = new TurbineClient();
             const mockOrderHashes = [
@@ -281,7 +252,7 @@ describe("TurbineClient", () => {
                 .mockResolvedValue(mockFilledAmounts);
 
             const filledAmounts = await withTurbineErrorHandling(() =>
-                client.getFilledAmounts(mockOrderHashes, PUBLIC_CLIENT)
+                client.getSettledAmounts(mockOrderHashes, PUBLIC_CLIENT)
             );
 
             expect(filledAmounts).toEqual(mockFilledAmounts);
