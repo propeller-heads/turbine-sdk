@@ -4,19 +4,20 @@ import {
     balanceOfABI,
     orderIntentABI,
     removeLiquidityIntentABI,
+    settledAmountsABI,
     turbineHookABI,
 } from "./abi";
 import {
     TURBINE_API_URL,
     TURBINE_DOMAIN,
-    TURBINE_SETTLER_CONTRACT,
     TURBINE_HOOK_CONTRACT,
     MOCKED_TURBINE_POOL,
+    TURBINE_SETTLER_CONTRACT,
 } from "./config";
 import {
-    unsuccessfulResponseToTurbineError,
     toTurbineError,
     TurbineError,
+    unsuccessfulResponseToTurbineError,
 } from "./errorHandling";
 import {
     AddLiquidity,
@@ -337,6 +338,28 @@ export class TurbineClient {
                     weeklySellVolumeToken1: 0n,
                 },
             }));
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Get the currently settled amounts for multiple orders by their hashes.
+     * @param orderIds An array of order hashes to check
+     * @param publicClient The public client used for blockchain interactions
+     * @returns A Promise that resolves to an array of filled amounts
+     */
+    async getSettledAmounts(
+        orderIds: string[],
+        publicClient: PublicClient
+    ): Promise<readonly bigint[]> {
+        try {
+            return await publicClient.readContract({
+                address: this.settlerContract,
+                abi: settledAmountsABI,
+                functionName: "getSettledAmounts",
+                args: [orderIds as Hex[]],
+            });
         } catch (error) {
             throw toTurbineError(error);
         }

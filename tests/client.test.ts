@@ -358,4 +358,40 @@ describe("TurbineClient", () => {
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[1].result);
         });
     });
+
+    describe("getSettledAmounts", () => {
+        it("should return filled amounts for multiple orders", async () => {
+            const client = new TurbineClient();
+            const mockOrderHashes = [
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
+                "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
+            ];
+            const mockFilledAmounts = [
+                BigInt("1000000000000000000"), // 1 token
+                BigInt("500000000000000000"), // 0.5 token
+                BigInt("0"), // 0 token
+            ] as const;
+
+            // Mock the readContract method
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockFilledAmounts);
+
+            const filledAmounts = await withTurbineErrorHandling(() =>
+                client.getSettledAmounts(mockOrderHashes, PUBLIC_CLIENT)
+            );
+
+            expect(filledAmounts).toEqual(mockFilledAmounts);
+            expect(mockReadContract).toHaveBeenCalledWith({
+                address: client.settlerContract,
+                abi: expect.any(Array),
+                functionName: "getSettledAmounts",
+                args: [mockOrderHashes],
+            });
+
+            // Restore the mock
+            mockReadContract.mockRestore();
+        });
+    });
 });
