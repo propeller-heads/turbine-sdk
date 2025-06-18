@@ -39,8 +39,8 @@ export class TurbineClient {
     public settlerContract: Address;
 
     constructor(turbineApiUrl?: string, settlerContract?: Address) {
-        this.turbineApiUrl = turbineApiUrl ?? TURBINE_API_URL;
-        this.settlerContract = settlerContract ?? TURBINE_SETTLER_CONTRACT;
+        this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
+        this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
     }
 
     /* PUBLIC METHODS */
