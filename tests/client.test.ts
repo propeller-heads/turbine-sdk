@@ -1,6 +1,8 @@
 import { describe, expect, jest } from "@jest/globals";
+import { getAddress, Hex } from "viem";
+import { NULL_ADDRESS, USDC, USDT, WBTC, WETH } from "../src/constants";
+import { OrderIntent } from "../src/models";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
-import { MOCKED_TURBINE_POOL } from "../src/config";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -10,9 +12,6 @@ import {
     WALLET_CLIENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
-import { OrderIntent } from "../src/models";
-import { NULL_ADDRESS, USDC, USDT, WETH, WBTC } from "../src/constants";
-import { getAddress, Hex } from "viem";
 
 describe("TurbineClient", () => {
     describe("addOrder", () => {
@@ -392,6 +391,124 @@ describe("TurbineClient", () => {
 
             // Restore the mock
             mockReadContract.mockRestore();
+        });
+    });
+
+    describe("checkStatus", () => {
+        it("should return true when Turbine service is available (status 200)", async () => {
+            const client = new TurbineClient();
+            const mockResponse = new Response("OK", { status: 200 });
+
+            // Mock the fetch call
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            const result = await withTurbineErrorHandling(() => client.checkStatus());
+
+            expect(result).toBe(true);
+            expect(global.fetch).toHaveBeenCalledWith(
+                `${client.turbineApiUrl}/status`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            // Restore the mock
+            jest.restoreAllMocks();
+        });
+
+        it("should throw TurbineError when service returns non-200 status", async () => {
+            const client = new TurbineClient();
+            const mockResponse = new Response("Service Unavailable", { status: 503 });
+
+            // Mock the fetch call
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            await expect(client.checkStatus()).rejects.toThrow(
+                "Turbine is currently unavailable. Try again later."
+            );
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                `${client.turbineApiUrl}/status`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            // Restore the mock
+            jest.restoreAllMocks();
+        });
+
+        it("should throw TurbineError when service returns 404 status", async () => {
+            const client = new TurbineClient();
+            const mockResponse = new Response("Not Found", { status: 404 });
+
+            // Mock the fetch call
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            await expect(client.checkStatus()).rejects.toThrow(
+                "Turbine is currently unavailable. Try again later."
+            );
+
+            // Restore the mock
+            jest.restoreAllMocks();
+        });
+
+        it("should throw TurbineError when service returns 500 status", async () => {
+            const client = new TurbineClient();
+            const mockResponse = new Response("Internal Server Error", { status: 500 });
+
+            // Mock the fetch call
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            await expect(client.checkStatus()).rejects.toThrow(
+                "Turbine is currently unavailable. Try again later."
+            );
+
+            // Restore the mock
+            jest.restoreAllMocks();
+        });
+
+        it("should throw TurbineError when network request fails", async () => {
+            const client = new TurbineClient();
+            const networkError = new Error("Network error");
+
+            // Mock the fetch call to throw an error
+            jest.spyOn(global, "fetch").mockRejectedValue(networkError);
+
+            await expect(client.checkStatus()).rejects.toThrow(
+                "Turbine is currently unavailable. Try again later."
+            );
+
+            // Restore the mock
+            jest.restoreAllMocks();
+        });
+
+        it("should use custom turbineApiUrl when provided", async () => {
+            const customApiUrl = "https://custom-turbine-api.example.com";
+            const client = new TurbineClient(customApiUrl);
+            const mockResponse = new Response("OK", { status: 200 });
+
+            // Mock the fetch call
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            const result = await withTurbineErrorHandling(() => client.checkStatus());
+
+            expect(result).toBe(true);
+            expect(global.fetch).toHaveBeenCalledWith(`${customApiUrl}/status`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            // Restore the mock
+            jest.restoreAllMocks();
         });
     });
 });
