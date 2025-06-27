@@ -185,6 +185,25 @@ const orderHash = await turbineClient.cancelOrder(order, walletClient);
 console.log(`Order cancelled with ID: ${orderHash}`);
 ```
 
+## Example Scripts
+
+This SDK includes example script that demonstrates how to submit orders to Turbine.
+
+1. **Set environment variables**:
+
+    ```bash
+    export PRIVATE_KEY="your_private_key_here"
+    export TURBINE_API_URL="https://turbine.exchange/api"
+    export RPC_URL="your_rpc_url"
+    ```
+
+2. **Run the example script**:
+    ```bash
+    yarn submit-orders
+    ```
+
+Check the code to see the details of the submitted orders.
+
 ## Add liquidity to a Turbine pool via the SDK
 
 TODO: Add details about Turbine Liquidity provisioning
