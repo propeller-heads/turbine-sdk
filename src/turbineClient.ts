@@ -1,19 +1,19 @@
 import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import {
     addLiquidityIntentABI,
-    balanceOfABI,
     orderIntentABI,
     removeLiquidityIntentABI,
     settledAmountsABI,
     turbineHookABI,
 } from "./abi";
 import {
+    MOCKED_TURBINE_POOL,
     TURBINE_API_URL,
     TURBINE_DOMAIN,
     TURBINE_HOOK_CONTRACT,
-    MOCKED_TURBINE_POOL,
     TURBINE_SETTLER_CONTRACT,
 } from "./config";
+import { NULL_ADDRESS } from "./constants";
 import {
     toTurbineError,
     TurbineError,
@@ -32,7 +32,6 @@ import {
     UserPosition,
 } from "./models";
 import { getSignedAllowance } from "./permit2";
-import { NULL_ADDRESS } from "./constants";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -426,6 +425,40 @@ export class TurbineClient {
         // } catch (error) {
         //     throw toTurbineError(error);
         // }
+    }
+
+    /**
+     * Check if the Turbine service is available by querying the /status endpoint.
+     * @returns A Promise that resolves to true if the service is available, or throws an error if unavailable.
+     */
+    async checkStatus(): Promise<boolean> {
+        try {
+            const response = await fetch(`${this.turbineApiUrl}/status`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
+
+            if (response.status !== 200) {
+                throw new TurbineError(
+                    "SERVICE_UNAVAILABLE",
+                    `Turbine service returned status ${response.status}`,
+                    "Turbine is currently unavailable. Try again later."
+                );
+            }
+
+            return true;
+        } catch (error) {
+            if (error instanceof TurbineError) {
+                throw error;
+            }
+            throw new TurbineError(
+                "SERVICE_UNAVAILABLE",
+                `Failed to connect to Turbine service: ${error}`,
+                "Turbine is currently unavailable. Try again later."
+            );
+        }
     }
 
     /* PRIVATE METHODS */
