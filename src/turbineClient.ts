@@ -11,6 +11,7 @@ import {
     TURBINE_API_URL,
     TURBINE_DOMAIN,
     TURBINE_HOOK_CONTRACT,
+    TURBINE_LIQUIDITY_ROUTER_CONTRACT,
     TURBINE_SETTLER_CONTRACT,
 } from "./config";
 import { NULL_ADDRESS } from "./constants";
@@ -36,10 +37,17 @@ import { getSignedAllowance } from "./permit2";
 export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
+    public turbineLiquidityRouterContract: Address;
 
-    constructor(turbineApiUrl?: string, settlerContract?: Address) {
+    constructor(
+        turbineApiUrl?: string,
+        settlerContract?: Address,
+        turbineLiquidityRouterContract?: Address
+    ) {
         this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
+        this.turbineLiquidityRouterContract =
+            turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
     }
 
     /* PUBLIC METHODS */

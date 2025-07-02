@@ -6,6 +6,10 @@ export const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:80
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
     process.env.TURBINE_SETTLER_CONTRACT || "0x346a33009161ed9085b75c9194a523322236f74e"
 );
+export const TURBINE_LIQUIDITY_ROUTER_CONTRACT: Address = getAddress(
+    process.env.TURBINE_LIQUIDITY_ROUTER_CONTRACT ||
+        "0x751fe9126615077ac00f3b1c584637065a1aa3f0"
+);
 export const TURBINE_HOOK_CONTRACT: Address = getAddress(
     process.env.TURBINE_HOOK_CONTRACT || "0x23CE72f64743a067F2fFA0ba782190bAa4A4e088"
 );
