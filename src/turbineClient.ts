@@ -503,7 +503,7 @@ export class TurbineClient {
         let intentSignature = await this.signIntent(intent, walletClient);
 
         // At least one block time + speedbump (16 seconds) and at most two blocks time (24 seconds)
-        let deadline = BigInt(Date.now() + 20 * 1000); // 20 seconds from now
+        let deadline = BigInt(Math.floor(Date.now() / 1000) + 20); // 20 seconds from now
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
                 token: intent.token0,
@@ -545,7 +545,7 @@ export class TurbineClient {
     ): Promise<RemoveLiquidity> {
         let intentSignature = await this.signIntent(intent, walletClient);
 
-        let deadline = BigInt(Date.now() + 300_000); // 5 minutes from now
+        let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =
             await getSignedAllowance({
                 token: intent.lpToken,
