@@ -40,65 +40,70 @@ async function main() {
     // Get current timestamp
     const now = BigInt(Math.floor(Date.now() / 1000));
     const orderDuration = 300n; // 5 minutes
-    const USDCAmount = USDC.toOnchainAmount(25);
-    const WETHAmount = WETH.toOnchainAmount(0.01);
 
-    // Create order 1: Sell USDC for WETH
-    const order1: OrderIntent = {
-        owner: account.address,
-        sellToken: USDC.address,
-        buyToken: WETH.address,
-        sellAmount: USDCAmount,
-        minBuyAmount: (WETHAmount * 75n) / 100n, // 75% of WETHAmount
-        midPriceDelta: 2500, // 25%
-        startTime: now,
-        endTime: now + orderDuration,
-        partialFill: true,
-        callData: "0x",
-        callDataTarget: NULL_ADDRESS,
-        salt: getRandomSalt(),
-    };
+    const USDCAmount = USDC.toOnchainAmount(50);
+    const WETHAmount = WETH.toOnchainAmount(0.02);
 
-    // Create order 2: Sell WETH for USDC
-    const order2: OrderIntent = {
-        owner: account.address,
-        sellToken: WETH.address,
-        buyToken: USDC.address,
-        sellAmount: WETHAmount,
-        minBuyAmount: (USDCAmount * 75n) / 100n, // 75% of USDCAmount
-        midPriceDelta: 2500, // 25%
-        startTime: now,
-        endTime: now + orderDuration,
-        partialFill: true,
-        callData: "0x",
-        callDataTarget: NULL_ADDRESS,
-        salt: getRandomSalt(),
-    };
+    // Define your orders here - modify this array as needed
+    const orders: OrderIntent[] = [
+        // Order 1: Sell USDC for WETH
+        {
+            owner: account.address,
+            sellToken: USDC.address,
+            buyToken: WETH.address,
+            sellAmount: USDCAmount,
+            minBuyAmount: (WETHAmount * 75n) / 100n, // 75% of WETHAmount
+            midPriceDelta: 2500, // 25%
+            startTime: now,
+            endTime: now + orderDuration,
+            partialFill: true,
+            callData: "0x",
+            callDataTarget: NULL_ADDRESS,
+            salt: getRandomSalt(),
+        },
+        // Order 2: Sell WETH for USDC
+        {
+            owner: account.address,
+            sellToken: WETH.address,
+            buyToken: USDC.address,
+            sellAmount: WETHAmount,
+            minBuyAmount: (USDCAmount * 75n) / 100n, // 75% of USDCAmount
+            midPriceDelta: 2500, // 25%
+            startTime: now,
+            endTime: now + orderDuration,
+            partialFill: true,
+            callData: "0x",
+            callDataTarget: NULL_ADDRESS,
+            salt: getRandomSalt(),
+        },
+    ];
 
-    console.log("\n📋 Order Details:");
+    console.log(`\n📋 Order Details (${orders.length} orders):`);
+    orders.forEach((order, index) => {
+        const sellToken = order.sellToken === USDC.address ? USDC : WETH;
+        const buyToken = order.buyToken === USDC.address ? USDC : WETH;
+        console.log(
+            `Order ${index + 1}: Sell ${sellToken.fromOnchainAmount(order.sellAmount)} ${sellToken.symbol} for ${buyToken.symbol}`
+        );
+    });
     console.log(
-        `Order 1: Sell ${USDC.fromOnchainAmount(order1.sellAmount)} ${USDC.symbol} for ${WETH.symbol}`
-    );
-    console.log(
-        `Order 2: Sell ${WETH.fromOnchainAmount(order2.sellAmount)} ${WETH.symbol} for ${USDC.symbol}`
-    );
-    console.log(
-        `Both orders valid until: ${new Date(Number(order1.endTime) * 1000).toISOString()}`
+        `All orders valid until: ${new Date(Number(orders[0].endTime) * 1000).toISOString()}`
     );
 
     try {
         // Submit orders
-        console.log("\n🔄 Submitting orders to Turbine...");
+        console.log(`\n🔄 Submitting ${orders.length} orders to Turbine...`);
 
         const orderHashes = await turbineClient.addOrders(
-            [order1, order2],
+            orders,
             walletClient,
             publicClient
         );
 
         console.log("\n✅ Orders submitted successfully!");
-        console.log(`Order 1 Hash: ${orderHashes[0]}`);
-        console.log(`Order 2 Hash: ${orderHashes[1]}`);
+        orderHashes.forEach((hash, index) => {
+            console.log(`Order ${index + 1} Hash: ${hash}`);
+        });
     } catch (error) {
         console.error("\n❌ Error submitting orders:");
         console.error(error);
