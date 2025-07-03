@@ -11,6 +11,7 @@ import {
     TURBINE_API_URL,
     TURBINE_DOMAIN,
     TURBINE_HOOK_CONTRACT,
+    TURBINE_LIQUIDITY_ROUTER_CONTRACT,
     TURBINE_SETTLER_CONTRACT,
 } from "./config";
 import { NULL_ADDRESS } from "./constants";
@@ -36,10 +37,17 @@ import { getSignedAllowance } from "./permit2";
 export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
+    public turbineLiquidityRouterContract: Address;
 
-    constructor(turbineApiUrl?: string, settlerContract?: Address) {
+    constructor(
+        turbineApiUrl?: string,
+        settlerContract?: Address,
+        turbineLiquidityRouterContract?: Address
+    ) {
         this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
+        this.turbineLiquidityRouterContract =
+            turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
     }
 
     /* PUBLIC METHODS */
@@ -503,7 +511,7 @@ export class TurbineClient {
         let intentSignature = await this.signIntent(intent, walletClient);
 
         // At least one block time + speedbump (16 seconds) and at most two blocks time (24 seconds)
-        let deadline = BigInt(Date.now() + 20 * 1000); // 20 seconds from now
+        let deadline = BigInt(Math.floor(Date.now() / 1000) + 20); // 20 seconds from now
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
                 token: intent.token0,
@@ -511,7 +519,7 @@ export class TurbineClient {
                 publicClient,
                 amount: BigInt(intent.maxToken0),
                 deadline: Number(deadline),
-                spender: this.settlerContract,
+                spender: this.turbineLiquidityRouterContract,
             });
         let { permit: permit1, permitSignature: permitSignature1 } =
             await getSignedAllowance({
@@ -520,7 +528,7 @@ export class TurbineClient {
                 publicClient,
                 amount: BigInt(intent.maxToken1),
                 deadline: Number(deadline),
-                spender: this.settlerContract,
+                spender: this.turbineLiquidityRouterContract,
             });
         return {
             signedIntent: {
@@ -545,7 +553,7 @@ export class TurbineClient {
     ): Promise<RemoveLiquidity> {
         let intentSignature = await this.signIntent(intent, walletClient);
 
-        let deadline = BigInt(Date.now() + 300_000); // 5 minutes from now
+        let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =
             await getSignedAllowance({
                 token: intent.lpToken,
