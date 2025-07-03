@@ -519,7 +519,7 @@ export class TurbineClient {
                 publicClient,
                 amount: BigInt(intent.maxToken0),
                 deadline: Number(deadline),
-                spender: this.settlerContract,
+                spender: this.turbineLiquidityRouterContract,
             });
         let { permit: permit1, permitSignature: permitSignature1 } =
             await getSignedAllowance({
@@ -528,7 +528,7 @@ export class TurbineClient {
                 publicClient,
                 amount: BigInt(intent.maxToken1),
                 deadline: Number(deadline),
-                spender: this.settlerContract,
+                spender: this.turbineLiquidityRouterContract,
             });
         return {
             signedIntent: {
