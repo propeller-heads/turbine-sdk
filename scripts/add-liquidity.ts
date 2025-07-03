@@ -34,8 +34,8 @@ async function main() {
 
     const turbineClient = new TurbineClient(TURBINE_API_URL);
 
-    console.log(`�� Account: ${account.address}`);
-    console.log(`�� Turbine API: ${TURBINE_API_URL}`);
+    console.log(`👤 Account: ${account.address}`);
+    console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
 
     // Pool configuration
     const pool = {
@@ -60,7 +60,7 @@ async function main() {
         salt: getRandomSalt(),
     };
 
-    console.log("\n�� Liquidity Addition Details:");
+    console.log("\n📊 Liquidity Addition Details:");
     console.log(`Pool: ${USDC.symbol}/${WETH.symbol} (${pool.fee / 10000}% fee)`);
     console.log(
         `Token0 (${USDC.symbol}): ${USDC.fromOnchainAmount(maxUSDCAmount)} ${USDC.symbol}`

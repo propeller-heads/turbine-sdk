@@ -1,6 +1,6 @@
-# Turbine Order Submission Script
+# Turbine Scripts
 
-This script demonstrates how to use the TurbineClient to submit orders to the Turbine protocol.
+This directory contains scripts for interacting with the Turbine protocol.
 
 ## Prerequisites
 
@@ -25,6 +25,8 @@ export RPC_URL="https://your-rpc-endpoint.com"
 
 ## Usage
 
+### Submit Orders
+
 Run the script using npm/yarn:
 
 ```bash
@@ -38,7 +40,7 @@ yarn submit-orders
 npx ts-node scripts/submit-orders.ts
 ```
 
-## What the Script Does
+#### What the Script Does
 
 The script submits two orders to Turbine:
 
@@ -52,3 +54,22 @@ Both orders are configured as:
 -   Market orders (no minimum buy amount)
 -   25% mid-price delta
 -   Valid for 5 minutes
+
+### Add Liquidity
+
+Run the script:
+
+```bash
+# Using yarn
+yarn add-liquidity
+```
+
+#### What the Script Does
+
+The script adds liquidity to the Turbine pool.
+
+1. **Adds 10 USDC and 0.004 WETH ≈ $10** to the USDC/WETH pool with 0.3% fee.
+
+Check the code to update the amounts.
+
+The script will print the liquidity addition details and the intent hash.
