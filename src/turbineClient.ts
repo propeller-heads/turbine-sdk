@@ -479,6 +479,12 @@ export class TurbineClient {
         try {
             const payload = {
                 orderHashes: orderHashes,
+                signature: {
+                    // TODO: Actually sign the order hashes
+                    r: "55294974102241709596244973337260302767685863956303318224048979012101391870527",
+                    s: "36499995030038813128181899076504281506224746154994857975949401945262063952095",
+                    yParity: true,
+                },
             };
 
             const response = await fetch(`${this.turbineApiUrl}/order_statuses`, {

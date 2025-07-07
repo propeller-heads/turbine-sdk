@@ -584,11 +584,11 @@ describe("TurbineClient", () => {
             expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
 
             expect(global.fetch).toHaveBeenCalledWith(
-                expect.stringContaining("/get_order_statuses"),
+                expect.stringContaining("/order_statuses"),
                 expect.objectContaining({
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ orderHashes }),
+                    body: expect.stringContaining(JSON.stringify(orderHashes)),
                 })
             );
         });
