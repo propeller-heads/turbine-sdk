@@ -215,3 +215,54 @@ export interface UserPosition {
     userAddress: Address;
     lpTokenBalance: bigint;
 }
+
+/**
+ * Represents the limit price of an order
+ */
+export interface Price {
+    numerator: bigint;
+    denominator: bigint;
+}
+
+/**
+ * Represents an order as returned by the order status endpoint
+ */
+export interface OrderStatusOrder {
+    hash: Hex;
+    owner: Address;
+    sellToken: Address;
+    buyToken: Address;
+    startTime: bigint;
+    endTime: bigint;
+    partialFill: boolean;
+    salt: Hex;
+    createdTimestamp: string;
+    callData: Hex;
+    callDataTarget: Address;
+    sellAmount: bigint;
+    executedSellAmount: bigint;
+    midPriceDelta: number;
+    limitPrice: Price;
+}
+
+/**
+ * Represents a single, possibly partial, execution of an order
+ */
+export interface OrderExecution {
+    batchId: number;
+    clearedAt: number;
+    soldAmount: bigint;
+    boughtAmount: bigint;
+}
+
+/**
+ * Represents the status of an order
+ */
+export interface OrderStatus {
+    hash: Hex;
+    order: OrderStatusOrder;
+    state: string; // e.g., "Active", "Invalid", etc.
+    execution: OrderExecution[];
+    executedSellAmount: bigint;
+    executedBuyAmount: bigint;
+}

@@ -26,6 +26,7 @@ import {
     AddOrder,
     AddSmartOrder,
     OrderIntent,
+    OrderStatus,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
@@ -469,6 +470,58 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Get the status of multiple orders by their hashes.
+     * @param orderHashes An array of order hashes to check
+     * @returns A Promise that resolves to an array of `OrderStatus` objects.
+     */
+    async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
+        try {
+            const payload = {
+                orderHashes: orderHashes,
+            };
+
+            const response = await fetch(`${this.turbineApiUrl}/order_statuses`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const responseText = await response.text();
+
+            if (!response.ok) {
+                throw unsuccessfulResponseToTurbineError(response, responseText);
+            }
+
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                throw new TurbineError(
+                    "PARSE_ERROR",
+                    `Failed to parse response as JSON: ${e}`,
+                    "Failed to process the server response. Please try again later."
+                );
+            }
+
+            if (!Array.isArray(responseJson)) {
+                throw new TurbineError(
+                    "INVALID_RESPONSE",
+                    `Expected array response but got: ${JSON.stringify(responseJson)}`,
+                    "Received unexpected response format from server. Please try again later."
+                );
+            }
+
+            return responseJson.map((orderStatus: any) =>
+                this.parseOrderStatus(orderStatus)
+            );
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
     /* PRIVATE METHODS */
 
     private async createAddOrderData(
@@ -677,6 +730,47 @@ export class TurbineClient {
 
     private isRemoveLiquidityIntent(intent: any): intent is RemoveLiquidityIntent {
         return "token0" in intent && "token1" in intent && "lpToken" in intent;
+    }
+
+    /**
+     * Parse an order status from the API response format to our TypeScript interface.
+     * Converts snake_case to camelCase and string numbers to BigInts.
+     * @param orderStatus The raw order status from the API
+     * @returns The parsed OrderStatus object
+     */
+    private parseOrderStatus(orderStatus: any): OrderStatus {
+        return {
+            hash: orderStatus.hash,
+            order: {
+                hash: orderStatus.order.hash,
+                owner: getAddress(orderStatus.order.owner),
+                sellToken: getAddress(orderStatus.order.sell_token),
+                buyToken: getAddress(orderStatus.order.buy_token),
+                startTime: BigInt(orderStatus.order.start_time),
+                endTime: BigInt(orderStatus.order.end_time),
+                partialFill: orderStatus.order.partial_fill,
+                salt: orderStatus.order.salt,
+                createdTimestamp: orderStatus.order.created_timestamp,
+                callData: orderStatus.order.calldata,
+                callDataTarget: getAddress(orderStatus.order.calldata_target),
+                sellAmount: BigInt(orderStatus.order.sell_amount),
+                executedSellAmount: BigInt(orderStatus.order.executed_sell_amount),
+                midPriceDelta: Number(orderStatus.order.mid_price_delta),
+                limitPrice: {
+                    numerator: BigInt(orderStatus.order.limit_price.numerator),
+                    denominator: BigInt(orderStatus.order.limit_price.denominator),
+                },
+            },
+            state: orderStatus.state,
+            execution: orderStatus.execution.map((exec: any) => ({
+                batchId: Number(exec.batch_id),
+                clearedAt: Number(exec.cleared_at),
+                soldAmount: BigInt(exec.sold_amount),
+                boughtAmount: BigInt(exec.bought_amount),
+            })),
+            executedSellAmount: BigInt(orderStatus.executed_sell_amount),
+            executedBuyAmount: BigInt(orderStatus.executed_buy_amount),
+        };
     }
 }
 
