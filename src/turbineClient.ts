@@ -508,7 +508,7 @@ export class TurbineClient {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(payload, bigIntReplacer),
             });
 
             const responseText = await response.text();
