@@ -35,6 +35,19 @@ import {
 } from "./models";
 import { getSignedAllowance } from "./permit2";
 
+interface TypedData {
+    domain: {
+        verifyingContract: Address;
+        name: string;
+        version: string;
+        chainId: number;
+        salt: Hex;
+    };
+    types: any;
+    primaryType: string;
+    message: Record<string, unknown>;
+}
+
 export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
@@ -265,8 +278,8 @@ export class TurbineClient {
     ): Promise<{ orderHash: string; message: string }> {
         try {
             // Sign the order hash to prove ownership
-            const signature = await walletClient.signMessage({
-                message: { raw: orderHash },
+            const signature = await walletClient.signTypedData({
+                ...this.getOrderHashTypedData(orderHash),
                 account: walletClient.account!,
             });
 
@@ -644,21 +657,23 @@ export class TurbineClient {
         };
     }
 
+    private getOrderHashTypedData(orderHash: Hex): TypedData {
+        return {
+            domain: this.getTurbineDomain(),
+            types: {
+                OrderHash: [{ name: "order_hash", type: "bytes32" }],
+            },
+            primaryType: "OrderHash",
+            message: {
+                order_hash: orderHash,
+            },
+        };
+    }
+
     private getIntentTypedData(
         intent: OrderIntent | AddLiquidityIntent | RemoveLiquidityIntent
     ) {
-        let typedData: {
-            domain: {
-                verifyingContract: Address;
-                name: string;
-                version: string;
-                chainId: number;
-                salt: Hex;
-            };
-            types: any;
-            primaryType: string;
-            message: Record<string, unknown>;
-        } = {
+        let typedData: TypedData = {
             domain: this.getTurbineDomain(),
             types: {},
             primaryType: "",
