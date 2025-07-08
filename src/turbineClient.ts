@@ -486,18 +486,21 @@ export class TurbineClient {
     /**
      * Get the status of multiple orders by their hashes.
      * @param orderHashes An array of order hashes to check
+     * @param walletClient The wallet client used for signing the order hashes
      * @returns A Promise that resolves to an array of `OrderStatus` objects.
      */
-    async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
+    async getOrderStatuses(
+        orderHashes: Hex[],
+        walletClient: WalletClient
+    ): Promise<OrderStatus[]> {
         try {
+            const signature = await walletClient.signTypedData({
+                ...this.getOrderHashesTypedData(orderHashes),
+                account: walletClient.account!,
+            });
             const payload = {
                 orderHashes: orderHashes,
-                signature: {
-                    // TODO: Actually sign the order hashes
-                    r: "55294974102241709596244973337260302767685863956303318224048979012101391870527",
-                    s: "36499995030038813128181899076504281506224746154994857975949401945262063952095",
-                    yParity: true,
-                },
+                signature: convertSignature(signature),
             };
 
             const response = await fetch(`${this.turbineApiUrl}/order_statuses`, {
@@ -666,6 +669,19 @@ export class TurbineClient {
             primaryType: "OrderHash",
             message: {
                 order_hash: orderHash,
+            },
+        };
+    }
+
+    private getOrderHashesTypedData(orderHashes: Hex[]): TypedData {
+        return {
+            domain: this.getTurbineDomain(),
+            types: {
+                OrderHashes: [{ name: "order_hashes", type: "bytes32[]" }],
+            },
+            primaryType: "OrderHashes",
+            message: {
+                order_hashes: orderHashes,
             },
         };
     }
