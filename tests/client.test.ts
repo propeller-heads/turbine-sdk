@@ -511,4 +511,86 @@ describe("TurbineClient", () => {
             jest.restoreAllMocks();
         });
     });
+
+    describe("getOrderStatuses", () => {
+        it("should call Turbine API and return order statuses", async () => {
+            const mockOrderStatuses = [
+                {
+                    hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+                    order: {
+                        hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b",
+                        sell_token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                        buy_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        start_time: "1751642853",
+                        end_time: "1751643153",
+                        partial_fill: true,
+                        salt: "0x45091d251dda08eb0211bdefbcbb04cdce1c863c4afd3875b2997ab539ddbf16",
+                        created_timestamp: "2025-07-04T15:27:33.894719321",
+                        calldata: "0x",
+                        calldata_target: "0x0000000000000000000000000000000000000000",
+                        sell_amount: "50000000",
+                        executed_sell_amount: "0",
+                        mid_price_delta: "2500",
+                        limit_price: {
+                            numerator: "300000000",
+                            denominator: "1",
+                        },
+                    },
+                    state: "Invalid",
+                    execution: [
+                        {
+                            batch_id: "123",
+                            cleared_at: "1751642853",
+                            sold_amount: "1000000",
+                            bought_amount: "950000",
+                        },
+                    ],
+                    executed_sell_amount: "1000000",
+                    executed_buy_amount: "950000",
+                },
+            ];
+
+            const client = new TurbineClient();
+
+            const mockResponse = new Response(JSON.stringify(mockOrderStatuses), {
+                status: 200,
+            });
+            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+
+            const orderHashes: Hex[] = [
+                "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+            ];
+
+            const result = await withTurbineErrorHandling(() =>
+                client.getOrderStatuses(orderHashes)
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].hash).toBe(
+                "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce"
+            );
+            expect(result[0].state).toBe("Invalid");
+            expect(result[0].order.owner).toBe(
+                getAddress("0x9719df0e4151581b9d59801b8f236fdf3f510d9b")
+            );
+            expect(result[0].order.sellAmount).toBe(BigInt("50000000"));
+            expect(result[0].order.limitPrice.numerator).toBe(BigInt("300000000"));
+            expect(result[0].executedSellAmount).toBe(BigInt("1000000"));
+            expect(result[0].execution).toHaveLength(1);
+            expect(result[0].execution[0].batchId).toBe(123);
+            expect(result[0].execution[0].clearedAt).toBe(1751642853);
+            expect(result[0].execution[0].soldAmount).toBe(BigInt("1000000"));
+            expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
+
+            expect(global.fetch).toHaveBeenCalledWith(
+                expect.stringContaining("/order_statuses"),
+                expect.objectContaining({
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: expect.stringContaining(JSON.stringify(orderHashes)),
+                })
+            );
+        });
+    });
 });
