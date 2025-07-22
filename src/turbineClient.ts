@@ -1,6 +1,7 @@
 import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import {
     addLiquidityIntentABI,
+    balanceOfABI,
     orderIntentABI,
     removeLiquidityIntentABI,
     settledAmountsABI,
@@ -396,57 +397,50 @@ export class TurbineClient {
         userAddress: Address,
         publicClient: PublicClient
     ): Promise<UserPosition[]> {
-        // Return mocked positions for now
-        // TODO: Remove this and uncomment the real implementation once we have users with positions
-        return [
-            {
-                poolMetadata: MOCKED_TURBINE_POOL.metadata,
-                userAddress: getAddress("0xC78c504B91598E6ca72059C4Ea4d2dE8f3e77E38"),
-                lpTokenBalance: 100000000000000000000n,
-            },
-        ];
+        try {
+            const pools = await this.getPools(publicClient);
+            if (pools.length === 0) {
+                return [];
+            }
 
-        // try {
-        //     const pools = await this.getPools(publicClient);
-        //     if (pools.length === 0) {
-        //         return [];
-        //     }
+            // Execute all balance checks in a single multicall
+            const multicallContracts = pools.map((pool) => ({
+                address: pool.metadata.lpToken,
+                abi: balanceOfABI,
+                functionName: "balanceOf" as const,
+                args: [userAddress],
+            }));
+            const balanceResults = await publicClient.multicall({
+                contracts: multicallContracts,
+            });
 
-        //     // Execute all balance checks in a single multicall
-        //     const multicallContracts = pools.map((pool) => ({
-        //         address: pool.metadata.lpToken,
-        //         abi: balanceOfABI,
-        //         functionName: "balanceOf" as const,
-        //         args: [userAddress],
-        //     }));
-        //     const balanceResults = await publicClient.multicall({
-        //         contracts: multicallContracts,
-        //     });
+            // Process results and create user positions
+            const userPositions: UserPosition[] = [];
+            for (let i = 0; i < pools.length; i++) {
+                const pool = pools[i];
+                const balanceResult = balanceResults[i];
 
-        //     // Process results and create user positions
-        //     const userPositions: UserPosition[] = [];
-        //     for (let i = 0; i < pools.length; i++) {
-        //         const pool = pools[i];
-        //         const balanceResult = balanceResults[i];
+                if (balanceResult.status === "success" && balanceResult.result > 0n) {
+                    console.debug(
+                        `Found position for lp token ${pool.metadata.lpToken} with balance ${balanceResult.result}`
+                    );
+                    userPositions.push({
+                        poolMetadata: pool.metadata,
+                        userAddress: getAddress(userAddress),
+                        lpTokenBalance: balanceResult.result as bigint,
+                    });
+                } else if (balanceResult.status === "failure") {
+                    // Log warning for failed balance check but continue processing other pools
+                    console.warn(
+                        `Failed to get balance for LP token ${pool.metadata.lpToken}: ${balanceResult.error?.message || "Unknown error"}`
+                    );
+                }
+            }
 
-        //         if (balanceResult.status === "success" && balanceResult.result > 0n) {
-        //             userPositions.push({
-        //                 poolMetadata: pool.metadata,
-        //                 userAddress: getAddress(userAddress),
-        //                 lpTokenBalance: balanceResult.result as bigint,
-        //             });
-        //         } else if (balanceResult.status === "failure") {
-        //             // Log warning for failed balance check but continue processing other pools
-        //             console.warn(
-        //                 `Failed to get balance for LP token ${pool.metadata.lpToken}: ${balanceResult.error?.message || "Unknown error"}`
-        //             );
-        //         }
-        //     }
-
-        //     return userPositions;
-        // } catch (error) {
-        //     throw toTurbineError(error);
-        // }
+            return userPositions;
+        } catch (error) {
+            throw toTurbineError(error);
+        }
     }
 
     /**
