@@ -299,19 +299,28 @@ describe("TurbineClient", () => {
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[0].result);
         });
 
-        // TODO: Uncomment this test once we stop returning mocked positions
-        it.skip("should handle multicall failures gracefully", async () => {
+        it("should handle multicall failures gracefully", async () => {
             const client = new TurbineClient();
             const testUserAddress = "0x1234567890123456789012345678901234567890";
 
             // Mock the contract call for getPools to return test data
             const mockPoolsData = [
                 {
-                    poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    poolId: "0x1111111111abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                     token0: USDC.address,
                     token1: WETH.address,
-                    fee: 30,
-                    lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
+                    fee: 3000,
+                    lpToken: "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WETH.toOnchainAmount(500),
+                    liquidity: BigInt("1000000000000000000000"),
+                },
+                {
+                    poolId: "0x2222222222abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 4000,
+                    lpToken: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
                     reserve0: USDC.toOnchainAmount(1_000_000),
                     reserve1: WETH.toOnchainAmount(500),
                     liquidity: BigInt("1000000000000000000000"),
@@ -350,10 +359,10 @@ describe("TurbineClient", () => {
 
             // Should gracefully handle multicall failures and return positions with liquidity
             expect(positions).toHaveLength(1);
-            expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[0].token0);
-            expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[0].token1);
-            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee);
-            expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[0].lpToken);
+            expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[1].token0);
+            expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[1].token1);
+            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[1].fee / 100);
+            expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[1].lpToken);
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[1].result);
         });
     });
