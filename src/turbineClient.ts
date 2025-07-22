@@ -344,7 +344,7 @@ export class TurbineClient {
                 metadata: {
                     token0: getAddress(poolData.token0),
                     token1: getAddress(poolData.token1),
-                    fee: poolData.fee,
+                    fee: poolData.fee / 100, // original fee is in hundredths of basis points
                     lpToken: getAddress(poolData.lpToken),
                 },
                 state: {

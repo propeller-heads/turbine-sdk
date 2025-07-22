@@ -241,7 +241,7 @@ describe("TurbineClient", () => {
                     poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                     token0: USDC.address,
                     token1: WETH.address,
-                    fee: 30,
+                    fee: 3000,
                     lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
                     reserve0: USDC.toOnchainAmount(1_000_000),
                     reserve1: WETH.toOnchainAmount(500),
@@ -293,7 +293,7 @@ describe("TurbineClient", () => {
             expect(positions).toHaveLength(1);
             expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[0].token0);
             expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[0].token1);
-            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee);
+            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee / 100);
             expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[0].lpToken);
             expect(positions[0].userAddress).toEqual(getAddress(testUserAddress));
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[0].result);
