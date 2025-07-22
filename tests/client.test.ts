@@ -220,7 +220,7 @@ describe("TurbineClient", () => {
             expect(pools).toHaveLength(3);
             expect(pools[0].metadata.token0).toEqual(mockContractData[0].token0);
             expect(pools[0].metadata.token1).toEqual(mockContractData[0].token1);
-            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee);
+            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee / 100);
             expect(pools[0].metadata.lpToken).toEqual(mockContractData[0].lpToken);
             expect(pools[0].state.reserve0).toEqual(mockContractData[0].reserve0);
             expect(pools[0].state.reserve1).toEqual(mockContractData[0].reserve1);
