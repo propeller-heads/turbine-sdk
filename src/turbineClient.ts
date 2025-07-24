@@ -574,6 +574,10 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<AddLiquidity> {
+        intent = {
+            ...intent,
+            fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
+        };
         let intentSignature = await this.signIntent(intent, walletClient);
 
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 24); // 24 seconds from now
@@ -616,6 +620,10 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<RemoveLiquidity> {
+        intent = {
+            ...intent,
+            fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
+        };
         let intentSignature = await this.signIntent(intent, walletClient);
 
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
