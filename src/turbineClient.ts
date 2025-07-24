@@ -580,7 +580,7 @@ export class TurbineClient {
         };
         let intentSignature = await this.signIntent(intent, walletClient);
 
-        let deadline = BigInt(Math.floor(Date.now() / 1000) + 24); // 24 seconds from now
+        let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
                 token: intent.token0,
