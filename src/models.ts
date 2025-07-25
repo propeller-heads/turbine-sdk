@@ -138,7 +138,7 @@ export interface AddLiquidityIntent {
     token0: Address;
     /** token1 of the pool to which the liquidity is provided */
     token1: Address;
-    /** fee of the pool to which the liquidity is provided, in 1/100 of bip (3000=0.3%) */
+    /** fee of the pool to which the liquidity is provided, in BIPs (30=0.3%) */
     fee: number;
     /** Maximum amount of token0 of the pool that the user is willing to provide */
     maxToken0: number;
@@ -176,7 +176,7 @@ export interface RemoveLiquidityIntent {
     token0: Address;
     /** token1 of the pool to which the liquidity is withdrawing */
     token1: Address;
-    /** fee of the pool to which the liquidity is withdrawing, in 1/100 of bip (3000=0.3%) */
+    /** fee of the pool to which the liquidity is withdrawing, in BIPs (30=0.3%) */
     fee: number;
     /** Address of the LP token that the user wants to burn. */
     lpToken: Address;
