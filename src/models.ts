@@ -250,7 +250,8 @@ export interface OrderStatusOrder {
  */
 export interface OrderExecution {
     batchId: number;
-    clearedAt: number;
+    txHash: Hex;
+    clearedAt: Date;
     soldAmount: bigint;
     boughtAmount: bigint;
 }

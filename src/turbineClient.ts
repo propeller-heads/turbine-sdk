@@ -786,13 +786,14 @@ export class TurbineClient {
             state: orderStatus.state,
             execution: orderStatus.execution.map((exec: any) => ({
                 batchId: Number(exec.batch_id),
-                clearedAt: Number(exec.cleared_at),
+                txHash: exec.tx_hash,
+                clearedAt: new Date(exec.cleared_at * 1000),
                 soldAmount: BigInt(exec.sold_amount),
                 boughtAmount: BigInt(exec.bought_amount),
             })),
             executedSellAmount: BigInt(orderStatus.executed_sell_amount),
             executedBuyAmount: BigInt(orderStatus.executed_buy_amount),
-        };
+        } as OrderStatus;
     }
 }
 
