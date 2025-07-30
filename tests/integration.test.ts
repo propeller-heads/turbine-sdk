@@ -111,7 +111,7 @@ describe("Integration test", () => {
         expect(pool.metadata).toBeDefined();
         expect(pool.metadata.token0).toBe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
-        expect(pool.metadata.fee).toBe(3000);
+        expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
             "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
         );
