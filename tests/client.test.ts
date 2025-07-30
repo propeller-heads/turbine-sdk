@@ -588,7 +588,9 @@ describe("TurbineClient", () => {
             expect(result[0].executedSellAmount).toBe(BigInt("1000000"));
             expect(result[0].execution).toHaveLength(1);
             expect(result[0].execution[0].batchId).toBe(123);
-            expect(result[0].execution[0].clearedAt).toEqual(new Date(1751642853 * 1000));
+            expect(result[0].execution[0].clearedAt).toEqual(
+                new Date(1751642853 * 1000)
+            );
             expect(result[0].execution[0].soldAmount).toBe(BigInt("1000000"));
             expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
 
