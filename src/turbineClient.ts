@@ -83,6 +83,8 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
+        this.requireAuthentication("submitting orders");
+
         try {
             const payload = await this.createAddOrderData(
                 intent,
@@ -133,6 +135,8 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string[]> {
+        this.requireAuthentication("submitting orders");
+
         try {
             const payloads = await Promise.all(
                 intents.map((intent) =>
@@ -183,6 +187,8 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
+        this.requireAuthentication("adding liquidity");
+
         try {
             const payload = await this.createAddLiquidityData(
                 intent,
@@ -233,6 +239,8 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
+        this.requireAuthentication("removing liquidity");
+
         try {
             const payload = await this.createRemoveLiquidityData(
                 intent,
@@ -280,7 +288,10 @@ export class TurbineClient {
     async cancelOrder(
         orderHash: Hex,
         walletClient: WalletClient
-    ): Promise<{ orderHash: string; message: string }> {try {
+    ): Promise<{ orderHash: string; message: string }> {
+        this.requireAuthentication("cancelling orders");
+
+        try {
             const payload: CancelOrderPayload = {
                 orderHash: orderHash,
             };
@@ -472,6 +483,8 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of `OrderStatus` objects.
      */
     async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
+        this.requireAuthentication("querying order statuses");
+
         try {
             const payload: GetOrderStatusesPayload = {
                 orderHashes: orderHashes,
@@ -832,6 +845,10 @@ export class TurbineClient {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
         };
+
+        if (this.sessionCookie) {
+            headers["Cookie"] = this.sessionCookie;
+        }
 
         const response = await fetch(`${this.turbineApiUrl}/${endpoint}`, {
             method: "POST",
