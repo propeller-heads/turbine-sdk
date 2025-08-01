@@ -1,4 +1,5 @@
 import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
+import { createSiweMessage, generateSiweNonce } from "viem/siwe";
 import {
     addLiquidityIntentABI,
     balanceOfABI,
@@ -53,6 +54,7 @@ export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
+    private sessionCookie?: string;
 
     constructor(
         turbineApiUrl?: string,
@@ -713,6 +715,125 @@ export class TurbineClient {
             ...typedData,
             account: account ?? client.account!,
         });
+    }
+
+    /**
+     * Authenticate with the Turbine API using a wallet client.
+     * Generates a SIWE message, signs it with the wallet, and submits to the API.
+     * @param walletClient The wallet client to use for signing  
+     * @param account The account to authenticate with
+     * @param domain Optional domain to use in the SIWE message (defaults to swap.propellerheads.xyz)
+     */
+    async authenticate(
+        walletClient: WalletClient,
+        account: Account,
+        domain?: string
+    ): Promise<void> {
+        try {
+            const nonce = generateSiweNonce();
+
+            const message = createSiweMessage({
+                address: account.address,
+                chainId: walletClient.chain!.id,
+                domain: domain || "swap.propellerheads.xyz",
+                statement: "Sign in with Ethereum to submit orders to Turbine",
+                nonce,
+                uri: this.turbineApiUrl,
+                version: "1",
+            });
+
+            const signature = await walletClient.signMessage({
+                message: message,
+                account: account,
+            });
+
+            const response = await fetch(`${this.turbineApiUrl}/verify`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ message, signature }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new TurbineError(
+                    "AUTHENTICATION_FAILED",
+                    `Authentication failed: ${errorText}`,
+                    "Failed to authenticate with the Turbine API. Please try again."
+                );
+            }
+
+            const setCookieHeader = response.headers.get("set-cookie");
+            if (setCookieHeader) {
+                this.sessionCookie = this.parseCookieHeader(setCookieHeader);
+            }
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Get the current authentication status.
+     * @returns A Promise that resolves to the authentication status
+     */
+    async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
+        try {
+            const headers: Record<string, string> = {};
+            if (this.sessionCookie) {
+                headers["Cookie"] = this.sessionCookie;
+            }
+
+            const response = await fetch(`${this.turbineApiUrl}/me`, {
+                method: "GET",
+                headers,
+            });
+
+            if (response.ok) {
+                return await response.json();
+            }
+            return { authenticated: false };
+        } catch (error) {
+            return { authenticated: false };
+        }
+    }
+
+    /**
+     * Logout and clear the session.
+     */
+    async logout(): Promise<void> {
+        try {
+            const headers: Record<string, string> = {};
+            if (this.sessionCookie) {
+                headers["Cookie"] = this.sessionCookie;
+            }
+
+            await fetch(`${this.turbineApiUrl}/logout`, {
+                method: "POST",
+                headers,
+            });
+
+            this.sessionCookie = undefined;
+        } catch (error) {
+            // Clear session even if logout request fails
+            this.sessionCookie = undefined;
+            throw toTurbineError(error);
+        }
+    }
+
+    private parseCookieHeader(setCookieHeader: string): string {
+        const match = setCookieHeader.match(/id=([^;]+)/);
+        return match ? `id=${match[1]}` : "";
+    }
+
+    private requireAuthentication(action: string): void {
+        if (!this.sessionCookie) {
+            throw new TurbineError(
+                "AUTHENTICATION_REQUIRED",
+                `Must authenticate before ${action}`,
+                `Please authenticate with your wallet before ${action}.`
+            );
+        }
     }
 
     /**
