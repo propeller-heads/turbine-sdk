@@ -27,6 +27,8 @@ import {
     AddLiquidityIntent,
     AddOrder,
     AddSmartOrder,
+    CancelOrderPayload,
+    GetOrderStatusesPayload,
     OrderIntent,
     OrderStatus,
     PrimitiveSignature,
@@ -278,27 +280,12 @@ export class TurbineClient {
     async cancelOrder(
         orderHash: Hex,
         walletClient: WalletClient
-    ): Promise<{ orderHash: string; message: string }> {
-        try {
-            // Sign the order hash to prove ownership
-            const signature = await walletClient.signTypedData({
-                ...this.getOrderHashTypedData(orderHash),
-                account: walletClient.account!,
-            });
-
-            const payload = {
+    ): Promise<{ orderHash: string; message: string }> {try {
+            const payload: CancelOrderPayload = {
                 orderHash: orderHash,
-                signature: convertSignature(signature),
             };
 
-            const response = await fetch(`${this.turbineApiUrl}/cancel_order`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload, bigIntReplacer),
-            });
-
+            const response = await this.callApiEndpoint(payload, "cancel_order");
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -486,24 +473,11 @@ export class TurbineClient {
      */
     async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
         try {
-            const payload = {
+            const payload: GetOrderStatusesPayload = {
                 orderHashes: orderHashes,
-                signature: {
-                    // TODO: Actually sign the order hashes
-                    r: "55294974102241709596244973337260302767685863956303318224048979012101391870527",
-                    s: "36499995030038813128181899076504281506224746154994857975949401945262063952095",
-                    yParity: true,
-                },
             };
 
-            const response = await fetch(`${this.turbineApiUrl}/order_statuses`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
-
+            const response = await this.callApiEndpoint(payload, "order_statuses");
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -839,7 +813,7 @@ export class TurbineClient {
     /**
      * Calls the Turbine API endpoint with the given payload.
      * @param payload The payload to send to the endpoint
-     * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity"
+     * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity", "cancel_order", "order_statuses"
      * @returns A Promise that resolves to the response from the endpoint
      */
     protected async callApiEndpoint(
@@ -848,16 +822,20 @@ export class TurbineClient {
             | AddSmartOrder
             | (AddOrder | AddSmartOrder)[]
             | AddLiquidity
-            | RemoveLiquidity,
+            | RemoveLiquidity
+            | CancelOrderPayload
+            | GetOrderStatusesPayload,
         endpoint: string
     ) {
         const body = JSON.stringify(payload, bigIntReplacer);
 
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
+
         const response = await fetch(`${this.turbineApiUrl}/${endpoint}`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers,
             body,
         });
         return response;

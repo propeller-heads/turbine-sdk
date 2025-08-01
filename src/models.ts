@@ -267,3 +267,17 @@ export interface OrderStatus {
     executedSellAmount: bigint;
     executedBuyAmount: bigint;
 }
+
+/**
+ * Payload for cancelling an order
+ */
+export interface CancelOrderPayload {
+    orderHash: Hex;
+}
+
+/**
+ * Payload for getting order statuses
+ */
+export interface GetOrderStatusesPayload {
+    orderHashes: Hex[];
+}
