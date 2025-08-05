@@ -735,7 +735,8 @@ export class TurbineClient {
             }
 
             const nonceData = await nonceResponse.json();
-            const nonce = nonceData.nonce;
+            // The API returns the nonce as a JSON string, so it's the raw value
+            const nonce = typeof nonceData === 'string' ? nonceData : nonceData.nonce;
 
             // Extract session ID from nonce response headers
             const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
@@ -748,7 +749,7 @@ export class TurbineClient {
             const message = createSiweMessage({
                 address: account.address,
                 chainId: walletClient.chain!.id,
-                domain: domain || "swap.propellerheads.xyz",
+                domain: domain || "dev-swap.propellerheads.xyz",
                 statement: "Sign in with Ethereum to submit orders to Turbine",
                 nonce,
                 uri: this.turbineApiUrl,
@@ -759,6 +760,9 @@ export class TurbineClient {
                 message: message,
                 account: account,
             });
+
+            // Convert signature to structured format expected by Turbine API
+            const structuredSignature = this.parseSignature(signature);
 
             // Call /verify endpoint with the signed message and initial session ID
             const verifyHeaders: Record<string, string> = {
@@ -771,7 +775,7 @@ export class TurbineClient {
             const verifyResponse = await fetch(`${this.turbineApiUrl}/verify`, {
                 method: "POST",
                 headers: verifyHeaders,
-                body: JSON.stringify({ message, signature }),
+                body: JSON.stringify({ message, signature: structuredSignature }),
             });
 
             if (!verifyResponse.ok) {
@@ -943,6 +947,26 @@ export class TurbineClient {
             executedSellAmount: BigInt(orderStatus.executed_sell_amount),
             executedBuyAmount: BigInt(orderStatus.executed_buy_amount),
         } as OrderStatus;
+    }
+
+    /**
+     * Convert viem signature hex string to structured format expected by Turbine API
+     */
+    private parseSignature(signature: Hex): any {
+        // Parse the 65-byte signature: 32 bytes r + 32 bytes s + 1 byte v
+        const r = signature.slice(0, 66); // 0x + 32 bytes
+        const s = `0x${signature.slice(66, 130)}`; // 32 bytes
+        const v = parseInt(signature.slice(130, 132), 16); // 1 byte
+        
+        // Convert v (27/28) to yParity (0/1)
+        const yParity = v === 28 ? "0x1" : "0x0";
+        
+        return {
+            r: r,
+            s: s,
+            yParity: yParity,
+            v: `0x${v.toString(16)}`
+        };
     }
 }
 

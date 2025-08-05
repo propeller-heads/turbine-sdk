@@ -13,11 +13,24 @@ import {
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 
+// Helper function to mock authentication
+function mockAuthentication(client: TurbineClient) {
+    // Directly set the session cookie to simulate successful authentication
+    (client as any).sessionCookie = "id=test-session-123";
+}
+
 describe("TurbineClient", () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
             const mockOrderId = "test-order-id-123";
             const client = new TurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client);
 
             const mockResponse = new Response(
                 JSON.stringify({ orderHash: mockOrderId })
@@ -39,6 +52,9 @@ describe("TurbineClient", () => {
         it("should call Turbine API and return array of order IDs", async () => {
             const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
             const client = new TurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client);
 
             const mockResponse = new Response(
                 JSON.stringify([
@@ -68,6 +84,9 @@ describe("TurbineClient", () => {
             const mockIntentId = "test-intent-id-123";
             const client = new TurbineClient();
 
+            // Mock authentication
+            mockAuthentication(client);
+
             const mockResponse = new Response(
                 JSON.stringify({ intentHash: mockIntentId })
             );
@@ -88,6 +107,9 @@ describe("TurbineClient", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
             const client = new TurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client);
 
             const mockResponse = new Response(
                 JSON.stringify({ intentHash: mockIntentId })
@@ -145,6 +167,9 @@ describe("TurbineClient", () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             const client = new TurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client);
 
             // Mock the fetch response directly
             const mockResponse = new Response(
@@ -562,6 +587,9 @@ describe("TurbineClient", () => {
 
             const client = new TurbineClient();
 
+            // Mock authentication
+            mockAuthentication(client);
+
             const mockResponse = new Response(JSON.stringify(mockOrderStatuses), {
                 status: 200,
             });
@@ -598,7 +626,10 @@ describe("TurbineClient", () => {
                 expect.stringContaining("/order_statuses"),
                 expect.objectContaining({
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Cookie": "id=test-session-123"
+                    },
                     body: expect.stringContaining(JSON.stringify(orderHashes)),
                 })
             );
