@@ -531,13 +531,10 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<AddOrder | AddSmartOrder> {
-        let intentSignature = await this.signIntent(intent, walletClient);
-
         // Skip permit data for smart orders
         if (this.is_smart_order(intent)) {
             return {
                 order: intent,
-                orderSignature: convertSignature(intentSignature),
             };
         }
 
@@ -550,7 +547,6 @@ export class TurbineClient {
         });
         return {
             order: intent,
-            orderSignature: convertSignature(intentSignature),
             signedPermit: {
                 signature: convertSignature(permitSignature),
                 permit: permit,
@@ -589,10 +585,7 @@ export class TurbineClient {
                 spender: this.turbineLiquidityRouterContract,
             });
         return {
-            signedIntent: {
-                intent: intent,
-                signature: convertSignature(intentSignature),
-            },
+            addLiquidity: intent,
             permitToken0: {
                 signature: convertSignature(permitSignature0),
                 permit: permit0,
@@ -625,10 +618,7 @@ export class TurbineClient {
                 deadline: Number(deadline),
             });
         return {
-            signedIntent: {
-                intent: intent,
-                signature: convertSignature(intentSignature),
-            },
+            removeLiquidity: intent,
             permitLpToken: {
                 signature: convertSignature(permitSignature),
                 permit: permit,
