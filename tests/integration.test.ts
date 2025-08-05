@@ -39,7 +39,9 @@ describe("Integration test", () => {
             });
 
             expect(authStatus.authenticated).toBe(true);
-            expect(authStatus.address?.toLowerCase()).toBe(ACCOUNT.address.toLowerCase());
+            expect(authStatus.address?.toLowerCase()).toBe(
+                ACCOUNT.address.toLowerCase()
+            );
         });
 
         it("should handle logout properly", async () => {

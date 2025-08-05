@@ -626,9 +626,9 @@ describe("TurbineClient", () => {
                 expect.stringContaining("/order_statuses"),
                 expect.objectContaining({
                     method: "POST",
-                    headers: { 
+                    headers: {
                         "Content-Type": "application/json",
-                        "Cookie": "id=test-session-123"
+                        Cookie: "id=test-session-123",
                     },
                     body: expect.stringContaining(JSON.stringify(orderHashes)),
                 })
