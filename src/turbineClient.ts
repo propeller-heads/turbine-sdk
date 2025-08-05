@@ -1,5 +1,5 @@
 import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
-import { createSiweMessage, generateSiweNonce } from "viem/siwe";
+import { createSiweMessage } from "viem/siwe";
 import {
     addLiquidityIntentABI,
     balanceOfABI,
@@ -706,7 +706,7 @@ export class TurbineClient {
 
     /**
      * Authenticate with the Turbine API using a wallet client.
-     * Generates a SIWE message, signs it with the wallet, and submits to the API.
+     * First calls /nonce to get nonce and session ID, then calls /verify with the signed message.
      * @param walletClient The wallet client to use for signing  
      * @param account The account to authenticate with
      * @param domain Optional domain to use in the SIWE message (defaults to swap.propellerheads.xyz)
@@ -717,8 +717,34 @@ export class TurbineClient {
         domain?: string
     ): Promise<void> {
         try {
-            const nonce = generateSiweNonce();
+            // Call /nonce endpoint to get nonce and initial session ID
+            const nonceResponse = await fetch(`${this.turbineApiUrl}/nonce`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            });
 
+            if (!nonceResponse.ok) {
+                const errorText = await nonceResponse.text();
+                throw new TurbineError(
+                    "NONCE_REQUEST_FAILED",
+                    `Failed to get nonce: ${errorText}`,
+                    "Failed to initialize authentication with the Turbine API. Please try again."
+                );
+            }
+
+            const nonceData = await nonceResponse.json();
+            const nonce = nonceData.nonce;
+
+            // Extract session ID from nonce response headers
+            const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
+            let initialSessionCookie = "";
+            if (initialSetCookieHeader) {
+                initialSessionCookie = this.parseCookieHeader(initialSetCookieHeader);
+            }
+
+            // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
                 address: account.address,
                 chainId: walletClient.chain!.id,
@@ -734,16 +760,22 @@ export class TurbineClient {
                 account: account,
             });
 
-            const response = await fetch(`${this.turbineApiUrl}/verify`, {
+            // Call /verify endpoint with the signed message and initial session ID
+            const verifyHeaders: Record<string, string> = {
+                "Content-Type": "application/json",
+            };
+            if (initialSessionCookie) {
+                verifyHeaders["Cookie"] = initialSessionCookie;
+            }
+
+            const verifyResponse = await fetch(`${this.turbineApiUrl}/verify`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: verifyHeaders,
                 body: JSON.stringify({ message, signature }),
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
+            if (!verifyResponse.ok) {
+                const errorText = await verifyResponse.text();
                 throw new TurbineError(
                     "AUTHENTICATION_FAILED",
                     `Authentication failed: ${errorText}`,
@@ -751,9 +783,10 @@ export class TurbineClient {
                 );
             }
 
-            const setCookieHeader = response.headers.get("set-cookie");
-            if (setCookieHeader) {
-                this.sessionCookie = this.parseCookieHeader(setCookieHeader);
+            // Extract the new cycled session ID from verify response
+            const verifySetCookieHeader = verifyResponse.headers.get("set-cookie");
+            if (verifySetCookieHeader) {
+                this.sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
             }
         } catch (error) {
             throw toTurbineError(error);
