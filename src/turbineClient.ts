@@ -634,6 +634,7 @@ export class TurbineClient {
                 publicClient,
                 amount: BigInt(intent.lpTokenAmount),
                 deadline: Number(deadline),
+                spender: this.turbineLiquidityRouterContract,
             });
         return {
             signedIntent: {
