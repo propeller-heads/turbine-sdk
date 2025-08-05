@@ -697,7 +697,7 @@ export class TurbineClient {
     /**
      * Authenticate with the Turbine API using a wallet client.
      * First calls /nonce to get nonce and session ID, then calls /verify with the signed message.
-     * @param walletClient The wallet client to use for signing  
+     * @param walletClient The wallet client to use for signing
      * @param account The account to authenticate with
      * @param domain Optional domain to use in the SIWE message (defaults to swap.propellerheads.xyz)
      */
@@ -726,7 +726,7 @@ export class TurbineClient {
 
             const nonceData = await nonceResponse.json();
             // The API returns the nonce as a JSON string, so it's the raw value
-            const nonce = typeof nonceData === 'string' ? nonceData : nonceData.nonce;
+            const nonce = typeof nonceData === "string" ? nonceData : nonceData.nonce;
 
             // Extract session ID from nonce response headers
             const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
@@ -947,15 +947,15 @@ export class TurbineClient {
         const r = signature.slice(0, 66); // 0x + 32 bytes
         const s = `0x${signature.slice(66, 130)}`; // 32 bytes
         const v = parseInt(signature.slice(130, 132), 16); // 1 byte
-        
+
         // Convert v (27/28) to yParity (0/1)
         const yParity = v === 28 ? "0x1" : "0x0";
-        
+
         return {
             r: r,
             s: s,
             yParity: yParity,
-            v: `0x${v.toString(16)}`
+            v: `0x${v.toString(16)}`,
         };
     }
 }
