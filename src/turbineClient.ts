@@ -724,9 +724,8 @@ export class TurbineClient {
                 );
             }
 
-            const nonceData = await nonceResponse.json();
-            // The API returns the nonce as a JSON string, so it's the raw value
-            const nonce = typeof nonceData === "string" ? nonceData : nonceData.nonce;
+            // The API returns the nonce as a JSON string directly
+            const nonce: string = (await nonceResponse.json()) as string;
 
             // Extract session ID from nonce response headers
             const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
@@ -804,7 +803,10 @@ export class TurbineClient {
             });
 
             if (response.ok) {
-                return await response.json();
+                return (await response.json()) as {
+                    authenticated: boolean;
+                    address?: string;
+                };
             }
             return { authenticated: false };
         } catch (error) {
