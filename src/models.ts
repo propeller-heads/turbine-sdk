@@ -141,9 +141,9 @@ export interface AddLiquidityIntent {
     /** fee of the pool to which the liquidity is provided, in BIPs (30=0.3%) */
     fee: number;
     /** Maximum amount of token0 of the pool that the user is willing to provide */
-    maxToken0: number;
+    maxToken0: bigint;
     /** Maximum amount of token1 of the pool that the user is willing to provide */
-    maxToken1: number;
+    maxToken1: bigint;
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }
@@ -181,7 +181,7 @@ export interface RemoveLiquidityIntent {
     /** Address of the LP token that the user wants to burn. */
     lpToken: Address;
     /** Quantity of LP tokens that the user wants to burn. */
-    lpTokenAmount: number;
+    lpTokenAmount: bigint;
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }
