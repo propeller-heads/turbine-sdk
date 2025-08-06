@@ -591,7 +591,6 @@ export class TurbineClient {
             ...intent,
             fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
         };
-        let intentSignature = await this.signIntent(intent, walletClient);
 
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit0, permitSignature: permitSignature0 } =
@@ -634,7 +633,6 @@ export class TurbineClient {
             ...intent,
             fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
         };
-        let intentSignature = await this.signIntent(intent, walletClient);
 
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =

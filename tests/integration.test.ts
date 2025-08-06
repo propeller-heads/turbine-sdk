@@ -35,7 +35,7 @@ describe("Integration test", () => {
 
             // Test the /me endpoint
             const authStatus = await withTurbineErrorHandling(async () => {
-                return await turbineClient.getAuthStatus();
+                return await turbineClient.getAuthStatus(ACCOUNT.address);
             });
 
             expect(authStatus.authenticated).toBe(true);
@@ -54,18 +54,18 @@ describe("Integration test", () => {
 
             // Verify we're authenticated
             const authStatusBefore = await withTurbineErrorHandling(async () => {
-                return await turbineClient.getAuthStatus();
+                return await turbineClient.getAuthStatus(ACCOUNT.address);
             });
             expect(authStatusBefore.authenticated).toBe(true);
 
             // Logout
             await withTurbineErrorHandling(async () => {
-                await turbineClient.logout();
+                await turbineClient.logout(ACCOUNT.address);
             });
 
             // Verify we're no longer authenticated
             const authStatusAfter = await withTurbineErrorHandling(async () => {
-                return await turbineClient.getAuthStatus();
+                return await turbineClient.getAuthStatus(ACCOUNT.address);
             });
             expect(authStatusAfter.authenticated).toBe(false);
         });
@@ -234,7 +234,7 @@ describe("Integration test", () => {
 
         // Now get the order status
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.getOrderStatuses([orderHash as Hex])
+            turbineClient.getOrderStatuses([orderHash as Hex], ACCOUNT.address)
         );
 
         expect(result).toBeDefined();

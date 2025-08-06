@@ -1,5 +1,5 @@
 import { describe, expect, jest } from "@jest/globals";
-import { getAddress, Hex } from "viem";
+import { Address, getAddress, Hex } from "viem";
 import { NULL_ADDRESS, USDC, USDT, WBTC, WETH } from "../src/constants";
 import { OrderIntent } from "../src/models";
 import { convertSignature, TurbineClient } from "../src/turbineClient";
@@ -14,9 +14,9 @@ import {
 import { withTurbineErrorHandling } from "./utils";
 
 // Helper function to mock authentication
-function mockAuthentication(client: TurbineClient) {
+function mockAuthentication(client: TurbineClient, address: Address) {
     // Directly set the session cookie to simulate successful authentication
-    (client as any).sessionCookie = "id=test-session-123";
+    (client as any).sessionCookies.set(address, "id=test-session-123");
 }
 
 describe("TurbineClient", () => {
@@ -30,7 +30,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             // Mock authentication
-            mockAuthentication(client);
+            mockAuthentication(client, ACCOUNT.address);
 
             const mockResponse = new Response(
                 JSON.stringify({ orderHash: mockOrderId })
@@ -54,7 +54,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             // Mock authentication
-            mockAuthentication(client);
+            mockAuthentication(client, ACCOUNT.address);
 
             const mockResponse = new Response(
                 JSON.stringify([
@@ -85,7 +85,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             // Mock authentication
-            mockAuthentication(client);
+            mockAuthentication(client, ACCOUNT.address);
 
             const mockResponse = new Response(
                 JSON.stringify({ intentHash: mockIntentId })
@@ -109,7 +109,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             // Mock authentication
-            mockAuthentication(client);
+            mockAuthentication(client, ACCOUNT.address);
 
             const mockResponse = new Response(
                 JSON.stringify({ intentHash: mockIntentId })
@@ -169,7 +169,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             // Mock authentication
-            mockAuthentication(client);
+            mockAuthentication(client, ACCOUNT.address);
 
             // Mock the fetch response directly
             const mockResponse = new Response(
@@ -588,7 +588,7 @@ describe("TurbineClient", () => {
             const client = new TurbineClient();
 
             // Mock authentication
-            mockAuthentication(client);
+            mockAuthentication(client, ACCOUNT.address);
 
             const mockResponse = new Response(JSON.stringify(mockOrderStatuses), {
                 status: 200,
@@ -600,7 +600,7 @@ describe("TurbineClient", () => {
             ];
 
             const result = await withTurbineErrorHandling(() =>
-                client.getOrderStatuses(orderHashes)
+                client.getOrderStatuses(orderHashes, ACCOUNT.address)
             );
 
             expect(result).toHaveLength(1);
