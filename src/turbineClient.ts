@@ -697,13 +697,13 @@ export class TurbineClient {
     /**
      * Authenticate with the Turbine API using a wallet client.
      * First calls /nonce to get nonce and session ID, then calls /verify with the signed message.
-     * @param walletClient The wallet client to use for signing
-     * @param account The account to authenticate with
+     * @param client The wallet client to use for signing
+     * @param account Optional account to use for signing. If not provided, the default account of the client is used.
      * @param domain Optional domain to use in the SIWE message (defaults to swap.propellerheads.xyz)
      */
     async authenticate(
-        walletClient: WalletClient,
-        account: Account,
+        client: WalletClient,
+        account?: Account,
         domain?: string
     ): Promise<void> {
         try {
@@ -737,8 +737,8 @@ export class TurbineClient {
 
             // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
-                address: account.address,
-                chainId: walletClient.chain!.id,
+                address: account?.address ?? client.account!.address,
+                chainId: client.chain!.id,
                 domain: domain || "dev-swap.propellerheads.xyz",
                 statement: "Sign in with Ethereum to submit orders to Turbine",
                 nonce,
@@ -746,9 +746,9 @@ export class TurbineClient {
                 version: "1",
             });
 
-            const signature = await walletClient.signMessage({
+            const signature = await client.signMessage({
                 message: message,
-                account: account,
+                account: account ?? client.account!,
             });
 
             // Convert signature to structured format expected by Turbine API
