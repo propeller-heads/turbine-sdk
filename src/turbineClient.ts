@@ -56,7 +56,7 @@ export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
-    private sessionCookie?: string;
+    private sessionCookies: Map<Address, string> = new Map();
 
     constructor(
         turbineApiUrl?: string,
@@ -83,7 +83,7 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
-        this.requireAuthentication("submitting orders");
+        this.requireAuthentication(walletClient.account!.address, "submitting orders");
 
         try {
             const payload = await this.createAddOrderData(
@@ -91,7 +91,7 @@ export class TurbineClient {
                 walletClient,
                 publicClient
             );
-            const response = await this.callApiEndpoint(payload, "add_order");
+            const response = await this.callApiEndpoint(payload, "add_order", walletClient.account!.address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -135,7 +135,7 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string[]> {
-        this.requireAuthentication("submitting orders");
+        this.requireAuthentication(walletClient.account!.address, "submitting orders");
 
         try {
             const payloads = await Promise.all(
@@ -143,7 +143,7 @@ export class TurbineClient {
                     this.createAddOrderData(intent, walletClient, publicClient)
                 )
             );
-            const response = await this.callApiEndpoint(payloads, "add_orders");
+            const response = await this.callApiEndpoint(payloads, "add_orders", walletClient.account!.address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -187,7 +187,7 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
-        this.requireAuthentication("adding liquidity");
+        this.requireAuthentication(walletClient.account!.address, "adding liquidity");
 
         try {
             const payload = await this.createAddLiquidityData(
@@ -195,7 +195,7 @@ export class TurbineClient {
                 walletClient,
                 publicClient
             );
-            const response = await this.callApiEndpoint(payload, "add_liquidity");
+            const response = await this.callApiEndpoint(payload, "add_liquidity", walletClient.account!.address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -239,7 +239,7 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient
     ): Promise<string> {
-        this.requireAuthentication("removing liquidity");
+        this.requireAuthentication(walletClient.account!.address, "removing liquidity");
 
         try {
             const payload = await this.createRemoveLiquidityData(
@@ -247,7 +247,7 @@ export class TurbineClient {
                 walletClient,
                 publicClient
             );
-            const response = await this.callApiEndpoint(payload, "remove_liquidity");
+            const response = await this.callApiEndpoint(payload, "remove_liquidity", walletClient.account!.address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -289,14 +289,14 @@ export class TurbineClient {
         orderHash: Hex,
         walletClient: WalletClient
     ): Promise<{ orderHash: string; message: string }> {
-        this.requireAuthentication("cancelling orders");
+        this.requireAuthentication(walletClient.account!.address, "cancelling orders");
 
         try {
             const payload: CancelOrderPayload = {
                 orderHash: orderHash,
             };
 
-            const response = await this.callApiEndpoint(payload, "cancel_order");
+            const response = await this.callApiEndpoint(payload, "cancel_order", walletClient.account!.address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -480,17 +480,18 @@ export class TurbineClient {
     /**
      * Get the status of multiple orders by their hashes.
      * @param orderHashes An array of order hashes to check
+     * @param address The address to use for authentication
      * @returns A Promise that resolves to an array of `OrderStatus` objects.
      */
-    async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
-        this.requireAuthentication("querying order statuses");
+    async getOrderStatuses(orderHashes: Hex[], address: Address): Promise<OrderStatus[]> {
+        this.requireAuthentication(address, "querying order statuses");
 
         try {
             const payload: GetOrderStatusesPayload = {
                 orderHashes: orderHashes,
             };
 
-            const response = await this.callApiEndpoint(payload, "order_statuses");
+            const response = await this.callApiEndpoint(payload, "order_statuses", address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -776,10 +777,11 @@ export class TurbineClient {
                 );
             }
 
-            // Extract the new cycled session ID from verify response
+            // Extract the new cycled session ID from verify response and store by address
             const verifySetCookieHeader = verifyResponse.headers.get("set-cookie");
             if (verifySetCookieHeader) {
-                this.sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
+                const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
+                this.sessionCookies.set(account?.address ?? client.account!.address, sessionCookie);
             }
         } catch (error) {
             throw toTurbineError(error);
@@ -787,14 +789,16 @@ export class TurbineClient {
     }
 
     /**
-     * Get the current authentication status.
+     * Get the current authentication status for a specific address.
+     * @param address The address to check authentication status for
      * @returns A Promise that resolves to the authentication status
      */
-    async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
+    async getAuthStatus(address: Address): Promise<{ authenticated: boolean; address?: string }> {
         try {
             const headers: Record<string, string> = {};
-            if (this.sessionCookie) {
-                headers["Cookie"] = this.sessionCookie;
+            const sessionCookie = this.getSessionCookie(address);
+            if (sessionCookie) {
+                headers["Cookie"] = sessionCookie;
             }
 
             const response = await fetch(`${this.turbineApiUrl}/me`, {
@@ -815,13 +819,15 @@ export class TurbineClient {
     }
 
     /**
-     * Logout and clear the session.
+     * Logout and clear the session for a specific address.
+     * @param address The address to logout
      */
-    async logout(): Promise<void> {
+    async logout(address: Address): Promise<void> {
         try {
             const headers: Record<string, string> = {};
-            if (this.sessionCookie) {
-                headers["Cookie"] = this.sessionCookie;
+            const sessionCookie = this.getSessionCookie(address);
+            if (sessionCookie) {
+                headers["Cookie"] = sessionCookie;
             }
 
             await fetch(`${this.turbineApiUrl}/logout`, {
@@ -829,12 +835,20 @@ export class TurbineClient {
                 headers,
             });
 
-            this.sessionCookie = undefined;
+            this.sessionCookies.delete(address);
         } catch (error) {
             // Clear session even if logout request fails
-            this.sessionCookie = undefined;
+            this.sessionCookies.delete(address);
             throw toTurbineError(error);
         }
+    }
+
+    /**
+     * Logout all sessions and clear all stored session cookies.
+     */
+    async logoutAll(): Promise<void> {
+        const addresses = Array.from(this.sessionCookies.keys());
+        await Promise.all(addresses.map(address => this.logout(address)));
     }
 
     private parseCookieHeader(setCookieHeader: string): string {
@@ -842,20 +856,25 @@ export class TurbineClient {
         return match ? `id=${match[1]}` : "";
     }
 
-    private requireAuthentication(action: string): void {
-        if (!this.sessionCookie) {
+    private requireAuthentication(address: Address, action: string): void {
+        if (!this.sessionCookies.has(address)) {
             throw new TurbineError(
                 "AUTHENTICATION_REQUIRED",
-                `Must authenticate before ${action}`,
+                `Must authenticate address ${address} before ${action}`,
                 `Please authenticate with your wallet before ${action}.`
             );
         }
+    }
+
+    private getSessionCookie(address: Address): string | undefined {
+        return this.sessionCookies.get(address);
     }
 
     /**
      * Calls the Turbine API endpoint with the given payload.
      * @param payload The payload to send to the endpoint
      * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity", "cancel_order", "order_statuses"
+     * @param address The address to use for session authentication
      * @returns A Promise that resolves to the response from the endpoint
      */
     protected async callApiEndpoint(
@@ -867,7 +886,8 @@ export class TurbineClient {
             | RemoveLiquidity
             | CancelOrderPayload
             | GetOrderStatusesPayload,
-        endpoint: string
+        endpoint: string,
+        address: Address
     ) {
         const body = JSON.stringify(payload, bigIntReplacer);
 
@@ -875,8 +895,9 @@ export class TurbineClient {
             "Content-Type": "application/json",
         };
 
-        if (this.sessionCookie) {
-            headers["Cookie"] = this.sessionCookie;
+        const sessionCookie = this.getSessionCookie(address);
+        if (sessionCookie) {
+            headers["Cookie"] = sessionCookie;
         }
 
         const response = await fetch(`${this.turbineApiUrl}/${endpoint}`, {
