@@ -745,6 +745,10 @@ export class TurbineClient {
     ): Promise<void> {
         try {
             // Call /nonce endpoint to get nonce and initial session ID
+            console.log("🔐 Calling /nonce endpoint...");
+            console.log("🔐 isBrowser():", this.isBrowser());
+            console.log("🔐 API URL:", `${this.turbineApiUrl}/nonce`);
+            
             const nonceResponse = await fetch(`${this.turbineApiUrl}/nonce`, {
                 method: "GET",
                 headers: {
@@ -752,6 +756,14 @@ export class TurbineClient {
                 },
                 credentials: "include",
             });
+
+            console.log("🔐 /nonce response status:", nonceResponse.status);
+            console.log("🔐 /nonce response headers:", Object.fromEntries(nonceResponse.headers.entries()));
+            
+            // In browser, check if cookies were set by inspecting document.cookie
+            if (this.isBrowser()) {
+                console.log("🔐 Browser cookies after /nonce:", document.cookie);
+            }
 
             if (!nonceResponse.ok) {
                 const errorText = await nonceResponse.text();
@@ -764,14 +776,17 @@ export class TurbineClient {
 
             // The API returns the nonce as a JSON string directly
             const nonce: string = (await nonceResponse.json()) as string;
+            console.log("🔐 Received nonce:", nonce);
 
             // Extract session ID from nonce response headers (only in non-browser environments)
             let initialSessionCookie = "";
             if (!this.isBrowser()) {
                 const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
+                console.log("🔐 Non-browser set-cookie header:", initialSetCookieHeader);
                 if (initialSetCookieHeader) {
                     initialSessionCookie =
                         this.parseCookieHeader(initialSetCookieHeader);
+                    console.log("🔐 Parsed initial session cookie:", initialSessionCookie);
                 }
             }
 
@@ -802,15 +817,34 @@ export class TurbineClient {
                 verifyHeaders["Cookie"] = initialSessionCookie;
             }
 
-            const verifyResponse = await fetch(`${this.turbineApiUrl}/verify`, {
+            const verifyOptions = {
                 method: "POST",
                 headers: verifyHeaders,
                 body: JSON.stringify({ message, signature: structuredSignature }),
-                credentials: "include",
-            });
+                credentials: "include" as RequestCredentials,
+            };
+            console.log("🔐 About to call /verify endpoint...");
+            console.log("🔐 Verify headers:", verifyHeaders);
+            console.log("🔐 Verify options:", verifyOptions);
+            
+            // In browser, check cookies before verify request
+            if (this.isBrowser()) {
+                console.log("🔐 Browser cookies before /verify:", document.cookie);
+            }
+            
+            const verifyResponse = await fetch(`${this.turbineApiUrl}/verify`, verifyOptions);
+
+            console.log("🔐 /verify response status:", verifyResponse.status);
+            console.log("🔐 /verify response headers:", Object.fromEntries(verifyResponse.headers.entries()));
+            
+            // In browser, check cookies after verify response
+            if (this.isBrowser()) {
+                console.log("🔐 Browser cookies after /verify:", document.cookie);
+            }
 
             if (!verifyResponse.ok) {
                 const errorText = await verifyResponse.text();
+                console.log("🔐 /verify failed with error:", errorText);
                 throw new TurbineError(
                     "AUTHENTICATION_FAILED",
                     `Authentication failed: ${errorText}`,
@@ -818,16 +852,23 @@ export class TurbineClient {
                 );
             }
 
+            console.log("🔐 /verify request successful!");
+
             // Extract the new cycled session ID from verify response and store by address (only in non-browser environments)
             if (!this.isBrowser()) {
                 const verifySetCookieHeader = verifyResponse.headers.get("set-cookie");
+                console.log("🔐 Non-browser verify set-cookie header:", verifySetCookieHeader);
                 if (verifySetCookieHeader) {
                     const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
+                    console.log("🔐 Parsed verify session cookie:", sessionCookie);
                     this.sessionCookies.set(
                         account?.address ?? client.account!.address,
                         sessionCookie
                     );
+                    console.log("🔐 Stored session cookie for address:", account?.address ?? client.account!.address);
                 }
+            } else {
+                console.log("🔐 Browser mode: relying on automatic cookie management");
             }
         } catch (error) {
             throw toTurbineError(error);
@@ -911,13 +952,31 @@ export class TurbineClient {
     }
 
     private requireAuthentication(address: Address, action: string): void {
+        console.log("🔐 requireAuthentication called for action:", action);
+        console.log("🔐 Address:", address);
+        console.log("🔐 isBrowser():", this.isBrowser());
+        console.log("🔐 sessionCookies.has(address):", this.sessionCookies.has(address));
+        console.log("🔐 sessionCookies size:", this.sessionCookies.size);
+        
+        if (this.isBrowser()) {
+            console.log("🔐 Browser mode: checking document.cookie");
+            console.log("🔐 document.cookie:", document.cookie);
+            // In browser mode, we rely on automatic cookie management
+            // Skip the sessionCookies check and let the browser handle cookies
+            return;
+        }
+        
         if (!this.sessionCookies.has(address)) {
+            console.log("🔐 No session cookie found for address:", address);
+            console.log("🔐 Available session cookies:", Array.from(this.sessionCookies.keys()));
             throw new TurbineError(
                 "AUTHENTICATION_REQUIRED",
                 `Must authenticate address ${address} before ${action}`,
                 `Please authenticate with your wallet before ${action}.`
             );
         }
+        
+        console.log("🔐 Session cookie found for address:", address);
     }
 
     private getSessionCookie(address: Address): string | undefined {
