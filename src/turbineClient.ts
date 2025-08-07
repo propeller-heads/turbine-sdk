@@ -554,6 +554,16 @@ export class TurbineClient {
 
     /* PRIVATE METHODS */
 
+    private isBrowser(): boolean {
+        try {
+            return (
+                typeof window !== "undefined" && typeof window.document !== "undefined"
+            );
+        } catch (e) {
+            return false;
+        }
+    }
+
     private async createAddOrderData(
         intent: OrderIntent,
         walletClient: WalletClient,
@@ -740,6 +750,7 @@ export class TurbineClient {
                 headers: {
                     "Content-Type": "application/json",
                 },
+                credentials: this.isBrowser() ? "include" : undefined,
             });
 
             if (!nonceResponse.ok) {
@@ -754,11 +765,14 @@ export class TurbineClient {
             // The API returns the nonce as a JSON string directly
             const nonce: string = (await nonceResponse.json()) as string;
 
-            // Extract session ID from nonce response headers
-            const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
+            // Extract session ID from nonce response headers (only in non-browser environments)
             let initialSessionCookie = "";
-            if (initialSetCookieHeader) {
-                initialSessionCookie = this.parseCookieHeader(initialSetCookieHeader);
+            if (!this.isBrowser()) {
+                const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
+                if (initialSetCookieHeader) {
+                    initialSessionCookie =
+                        this.parseCookieHeader(initialSetCookieHeader);
+                }
             }
 
             // Create and sign SIWE message with the received nonce
@@ -784,7 +798,7 @@ export class TurbineClient {
             const verifyHeaders: Record<string, string> = {
                 "Content-Type": "application/json",
             };
-            if (initialSessionCookie) {
+            if (!this.isBrowser() && initialSessionCookie) {
                 verifyHeaders["Cookie"] = initialSessionCookie;
             }
 
@@ -792,6 +806,7 @@ export class TurbineClient {
                 method: "POST",
                 headers: verifyHeaders,
                 body: JSON.stringify({ message, signature: structuredSignature }),
+                credentials: this.isBrowser() ? "include" : undefined,
             });
 
             if (!verifyResponse.ok) {
@@ -803,14 +818,16 @@ export class TurbineClient {
                 );
             }
 
-            // Extract the new cycled session ID from verify response and store by address
-            const verifySetCookieHeader = verifyResponse.headers.get("set-cookie");
-            if (verifySetCookieHeader) {
-                const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
-                this.sessionCookies.set(
-                    account?.address ?? client.account!.address,
-                    sessionCookie
-                );
+            // Extract the new cycled session ID from verify response and store by address (only in non-browser environments)
+            if (!this.isBrowser()) {
+                const verifySetCookieHeader = verifyResponse.headers.get("set-cookie");
+                if (verifySetCookieHeader) {
+                    const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
+                    this.sessionCookies.set(
+                        account?.address ?? client.account!.address,
+                        sessionCookie
+                    );
+                }
             }
         } catch (error) {
             throw toTurbineError(error);
@@ -827,14 +844,17 @@ export class TurbineClient {
     ): Promise<{ authenticated: boolean; address?: string }> {
         try {
             const headers: Record<string, string> = {};
-            const sessionCookie = this.getSessionCookie(address);
-            if (sessionCookie) {
-                headers["Cookie"] = sessionCookie;
+            if (!this.isBrowser()) {
+                const sessionCookie = this.getSessionCookie(address);
+                if (sessionCookie) {
+                    headers["Cookie"] = sessionCookie;
+                }
             }
 
             const response = await fetch(`${this.turbineApiUrl}/me`, {
                 method: "GET",
                 headers,
+                credentials: this.isBrowser() ? "include" : undefined,
             });
 
             if (response.ok) {
@@ -856,14 +876,17 @@ export class TurbineClient {
     async logout(address: Address): Promise<void> {
         try {
             const headers: Record<string, string> = {};
-            const sessionCookie = this.getSessionCookie(address);
-            if (sessionCookie) {
-                headers["Cookie"] = sessionCookie;
+            if (!this.isBrowser()) {
+                const sessionCookie = this.getSessionCookie(address);
+                if (sessionCookie) {
+                    headers["Cookie"] = sessionCookie;
+                }
             }
 
             await fetch(`${this.turbineApiUrl}/logout`, {
                 method: "POST",
                 headers,
+                credentials: this.isBrowser() ? "include" : undefined,
             });
 
             this.sessionCookies.delete(address);
@@ -926,15 +949,18 @@ export class TurbineClient {
             "Content-Type": "application/json",
         };
 
-        const sessionCookie = this.getSessionCookie(address);
-        if (sessionCookie) {
-            headers["Cookie"] = sessionCookie;
+        if (!this.isBrowser()) {
+            const sessionCookie = this.getSessionCookie(address);
+            if (sessionCookie) {
+                headers["Cookie"] = sessionCookie;
+            }
         }
 
         const response = await fetch(`${this.turbineApiUrl}/${endpoint}`, {
             method: "POST",
             headers,
             body,
+            credentials: this.isBrowser() ? "include" : undefined,
         });
         return response;
     }
