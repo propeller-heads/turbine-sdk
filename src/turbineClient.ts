@@ -750,7 +750,7 @@ export class TurbineClient {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                credentials: this.isBrowser() ? "include" : undefined,
+                credentials: "include",
             });
 
             if (!nonceResponse.ok) {
@@ -806,7 +806,7 @@ export class TurbineClient {
                 method: "POST",
                 headers: verifyHeaders,
                 body: JSON.stringify({ message, signature: structuredSignature }),
-                credentials: this.isBrowser() ? "include" : undefined,
+                credentials: "include",
             });
 
             if (!verifyResponse.ok) {
@@ -854,7 +854,7 @@ export class TurbineClient {
             const response = await fetch(`${this.turbineApiUrl}/me`, {
                 method: "GET",
                 headers,
-                credentials: this.isBrowser() ? "include" : undefined,
+                credentials: "include",
             });
 
             if (response.ok) {
@@ -886,7 +886,7 @@ export class TurbineClient {
             await fetch(`${this.turbineApiUrl}/logout`, {
                 method: "POST",
                 headers,
-                credentials: this.isBrowser() ? "include" : undefined,
+                credentials: "include",
             });
 
             this.sessionCookies.delete(address);
@@ -960,7 +960,7 @@ export class TurbineClient {
             method: "POST",
             headers,
             body,
-            credentials: this.isBrowser() ? "include" : undefined,
+            credentials: "include",
         });
         return response;
     }
