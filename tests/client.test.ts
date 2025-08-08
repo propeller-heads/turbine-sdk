@@ -15,8 +15,8 @@ import { withTurbineErrorHandling } from "./utils";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
-    // Directly set the session cookie to simulate successful authentication
-    (client as any).sessionCookies.set(address, "id=test-session-123");
+    // Directly set the user session to simulate successful authentication
+    (client as any).userSession = { address, sessionId: "id=test-session-123" };
 }
 
 describe("TurbineClient", () => {
@@ -182,7 +182,7 @@ describe("TurbineClient", () => {
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             const result = await withTurbineErrorHandling(() =>
-                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
+                client.cancelOrder(mockOrderHash as Hex)
             );
 
             expect(result).toEqual({
@@ -600,7 +600,7 @@ describe("TurbineClient", () => {
             ];
 
             const result = await withTurbineErrorHandling(() =>
-                client.getOrderStatuses(orderHashes, ACCOUNT.address)
+                client.getOrderStatuses(orderHashes)
             );
 
             expect(result).toHaveLength(1);

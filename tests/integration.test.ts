@@ -35,7 +35,7 @@ describe("Integration test", () => {
 
             // Test the /me endpoint
             const authStatus = await withTurbineErrorHandling(async () => {
-                return await turbineClient.getAuthStatus(ACCOUNT.address);
+                return await turbineClient.getAuthStatus();
             });
 
             expect(authStatus.authenticated).toBe(true);
@@ -54,18 +54,18 @@ describe("Integration test", () => {
 
             // Verify we're authenticated
             const authStatusBefore = await withTurbineErrorHandling(async () => {
-                return await turbineClient.getAuthStatus(ACCOUNT.address);
+                return await turbineClient.getAuthStatus();
             });
             expect(authStatusBefore.authenticated).toBe(true);
 
             // Logout
             await withTurbineErrorHandling(async () => {
-                await turbineClient.logout(ACCOUNT.address);
+                await turbineClient.logout();
             });
 
             // Verify we're no longer authenticated
             const authStatusAfter = await withTurbineErrorHandling(async () => {
-                return await turbineClient.getAuthStatus(ACCOUNT.address);
+                return await turbineClient.getAuthStatus();
             });
             expect(authStatusAfter.authenticated).toBe(false);
         });
@@ -173,7 +173,7 @@ describe("Integration test", () => {
 
         // Now cancel the order
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.cancelOrder(orderHash as Hex, WALLET_CLIENT)
+            turbineClient.cancelOrder(orderHash as Hex)
         );
 
         expect(result).toBeDefined();
@@ -234,7 +234,7 @@ describe("Integration test", () => {
 
         // Now get the order status
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.getOrderStatuses([orderHash as Hex], ACCOUNT.address)
+            turbineClient.getOrderStatuses([orderHash as Hex])
         );
 
         expect(result).toBeDefined();
