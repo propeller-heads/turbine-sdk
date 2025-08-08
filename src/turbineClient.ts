@@ -93,11 +93,7 @@ export class TurbineClient {
                 walletClient,
                 publicClient
             );
-            const response = await this.callApiEndpoint(
-                payload,
-                "add_order",
-                address
-            );
+            const response = await this.callApiEndpoint(payload, "add_order", address);
             const responseText = await response.text();
 
             if (!response.ok) {
@@ -302,9 +298,7 @@ export class TurbineClient {
      * @param orderHash The hash of the order to cancel
      * @returns A Promise that resolves to the response message from the API.
      */
-    async cancelOrder(
-        orderHash: Hex
-    ): Promise<{ orderHash: string; message: string }> {
+    async cancelOrder(orderHash: Hex): Promise<{ orderHash: string; message: string }> {
         const address = this.getAuthenticatedAddress();
 
         try {
@@ -502,9 +496,7 @@ export class TurbineClient {
      * @param orderHashes An array of order hashes to check
      * @returns A Promise that resolves to an array of `OrderStatus` objects.
      */
-    async getOrderStatuses(
-        orderHashes: Hex[]
-    ): Promise<OrderStatus[]> {
+    async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
         const address = this.getAuthenticatedAddress();
 
         try {
@@ -827,14 +819,14 @@ export class TurbineClient {
                     const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
                     this.userSession = {
                         address: account?.address ?? client.account!.address,
-                        sessionId: sessionCookie
+                        sessionId: sessionCookie,
                     };
                 }
             } else {
                 // In browser mode, just remember the authenticated address
                 this.userSession = {
                     address: account?.address ?? client.account!.address,
-                    sessionId: "" // Browser handles cookies automatically
+                    sessionId: "", // Browser handles cookies automatically
                 };
             }
         } catch (error) {
@@ -917,12 +909,14 @@ export class TurbineClient {
                 "Please authenticate with your wallet before making requests."
             );
         }
-        
+
         return this.userSession.address;
     }
 
     private getSessionCookie(address: Address): string | undefined {
-        return this.userSession?.address === address ? this.userSession.sessionId : undefined;
+        return this.userSession?.address === address
+            ? this.userSession.sessionId
+            : undefined;
     }
 
     /**
