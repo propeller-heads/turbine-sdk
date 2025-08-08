@@ -264,18 +264,16 @@ describe("TurbineClient Error Handling", () => {
             );
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
-            await expect(
-                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-            ).rejects.toThrow(TurbineError);
+            await expect(client.cancelOrder(mockOrderHash as Hex)).rejects.toThrow(
+                TurbineError
+            );
 
-            await client
-                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-                .catch((error) => {
-                    expect(error).toBeInstanceOf(TurbineError);
-                    expect(error.code).toBeTruthy();
-                    expect(error.originalMessage).toBeTruthy();
-                    expect(error.message).toBeTruthy();
-                });
+            await client.cancelOrder(mockOrderHash as Hex).catch((error) => {
+                expect(error).toBeInstanceOf(TurbineError);
+                expect(error.code).toBeTruthy();
+                expect(error.originalMessage).toBeTruthy();
+                expect(error.message).toBeTruthy();
+            });
         });
 
         it("should throw TurbineError in case of malformed API response", async () => {
@@ -288,7 +286,7 @@ describe("TurbineClient Error Handling", () => {
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             const error = await client
-                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
+                .cancelOrder(mockOrderHash as Hex)
                 .catch((e) => e);
 
             expect(error).toBeInstanceOf(TurbineError);
@@ -309,18 +307,16 @@ describe("TurbineClient Error Handling", () => {
             });
             jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
-            await expect(
-                client.cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-            ).rejects.toThrow(TurbineError);
+            await expect(client.cancelOrder(mockOrderHash as Hex)).rejects.toThrow(
+                TurbineError
+            );
 
-            await client
-                .cancelOrder(mockOrderHash as Hex, WALLET_CLIENT)
-                .catch((error) => {
-                    expect(error).toBeInstanceOf(TurbineError);
-                    expect(error.code).toBeTruthy();
-                    expect(error.originalMessage).toBeTruthy();
-                    expect(error.message).toBeTruthy();
-                });
+            await client.cancelOrder(mockOrderHash as Hex).catch((error) => {
+                expect(error).toBeInstanceOf(TurbineError);
+                expect(error.code).toBeTruthy();
+                expect(error.originalMessage).toBeTruthy();
+                expect(error.message).toBeTruthy();
+            });
         });
     });
 });

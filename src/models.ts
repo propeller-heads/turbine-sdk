@@ -59,7 +59,6 @@ export interface SignedPermit {
  */
 export interface AddOrder {
     order: OrderIntent;
-    orderSignature: PrimitiveSignature;
     signedPermit: SignedPermit;
 }
 
@@ -68,7 +67,6 @@ export interface AddOrder {
  */
 export interface AddSmartOrder {
     order: OrderIntent;
-    orderSignature: PrimitiveSignature;
 }
 
 /**
@@ -115,17 +113,12 @@ export interface OrderIntent {
  * liquidity to the system, including the intent, its signature, and the permit data for approvals.
  */
 export interface AddLiquidity {
-    /** The intent to add liquidity with cryptographic signature validating it */
-    signedIntent: SignedAddLiquidityIntent;
+    /** The intent to add liquidity */
+    addLiquidity: AddLiquidityIntent;
     /** The permit signature and permit data for token0 */
     permitToken0: SignedPermit;
     /** The permit signature and permit data for token1 */
     permitToken1: SignedPermit;
-}
-
-export interface SignedAddLiquidityIntent {
-    intent: AddLiquidityIntent;
-    signature: PrimitiveSignature;
 }
 
 /**
@@ -155,15 +148,10 @@ export interface AddLiquidityIntent {
  * liquidity to the system, including the intent, its signature, and the permit data for approvals.
  */
 export interface RemoveLiquidity {
-    /** The intent to remove liquidity with cryptographic signature validating it */
-    signedIntent: SignedRemoveLiquidityIntent;
+    /** The intent to remove liquidity */
+    removeLiquidity: RemoveLiquidityIntent;
     /** The permit signature and permit data for the lp token */
     permitLpToken: SignedPermit;
-}
-
-export interface SignedRemoveLiquidityIntent {
-    intent: RemoveLiquidityIntent;
-    signature: PrimitiveSignature;
 }
 
 /**
@@ -266,4 +254,18 @@ export interface OrderStatus {
     execution: OrderExecution[];
     executedSellAmount: bigint;
     executedBuyAmount: bigint;
+}
+
+/**
+ * Payload for cancelling an order
+ */
+export interface CancelOrderPayload {
+    orderHash: Hex;
+}
+
+/**
+ * Payload for getting order statuses
+ */
+export interface GetOrderStatusesPayload {
+    orderHashes: Hex[];
 }
