@@ -39,6 +39,8 @@ import {
 } from "./models";
 import { getSignedAllowance } from "./permit2";
 
+const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
+
 interface TypedData {
     domain: {
         verifyingContract: Address;
@@ -298,14 +300,14 @@ export class TurbineClient {
     /**
      * Cancel an order from the Turbine API.
      * @param orderHash The hash of the order to cancel
-     * @param walletClient The wallet client used for signing the cancellation request
+     * @param address The address of the account cancelling the order
      * @returns A Promise that resolves to the response message from the API.
      */
     async cancelOrder(
         orderHash: Hex,
-        walletClient: WalletClient
+        address: Address
     ): Promise<{ orderHash: string; message: string }> {
-        this.requireAuthentication(walletClient.account!.address, "cancelling orders");
+        this.requireAuthentication(address, "cancelling orders");
 
         try {
             const payload: CancelOrderPayload = {
@@ -315,7 +317,7 @@ export class TurbineClient {
             const response = await this.callApiEndpoint(
                 payload,
                 "cancel_order",
-                walletClient.account!.address
+                address
             );
             const responseText = await response.text();
 
@@ -736,7 +738,7 @@ export class TurbineClient {
      * First calls /nonce to get nonce and session ID, then calls /verify with the signed message.
      * @param client The wallet client to use for signing
      * @param account Optional account to use for signing. If not provided, the default account of the client is used.
-     * @param domain Optional domain to use in the SIWE message (defaults to swap.propellerheads.xyz)
+     * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
     async authenticate(
         client: WalletClient,
@@ -769,18 +771,22 @@ export class TurbineClient {
             let initialSessionCookie = "";
             if (!this.isBrowser()) {
                 const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
-                if (initialSetCookieHeader) {
-                    initialSessionCookie =
-                        this.parseCookieHeader(initialSetCookieHeader);
+                if (!initialSetCookieHeader) {
+                    throw new TurbineError(
+                        "MISSING_SET_COOKIE_HEADER",
+                        "Failed to retrieve set-cookie header from nonce response.",
+                        "Failed to initialize authentication with the Turbine API. Please try again."
+                    );
                 }
+                initialSessionCookie = this.parseCookieHeader(initialSetCookieHeader);
             }
 
             // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
                 address: account?.address ?? client.account!.address,
                 chainId: client.chain!.id,
-                domain: domain || "dev-swap.propellerheads.xyz",
-                statement: "Sign in with Ethereum to submit orders to Turbine",
+                domain: domain || DEFAULT_SIWE_DOMAIN,
+                statement: "Sign in to Turbine with your Ethereum wallet",
                 nonce,
                 uri: this.turbineApiUrl,
                 version: "1",
@@ -863,8 +869,10 @@ export class TurbineClient {
                     address?: string;
                 };
             }
+            console.error("Failed to get auth status");
             return { authenticated: false };
         } catch (error) {
+            console.error("Error getting auth status:", error);
             return { authenticated: false };
         }
     }
