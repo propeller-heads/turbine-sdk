@@ -13,15 +13,6 @@ export const TURBINE_LIQUIDITY_ROUTER_CONTRACT: Address = getAddress(
 export const TURBINE_HOOK_CONTRACT: Address = getAddress(
     process.env.TURBINE_HOOK_CONTRACT || "0x23CE72f64743a067F2fFA0ba782190bAa4A4e088"
 );
-const TURBINE_SALT =
-    "0xea6078b87659a262f2239bc31d5f870898575eed78c14d5feb90615aafb06587";
-export const TURBINE_DOMAIN = {
-    name: "Turbine",
-    version: "0.1.0",
-    chainId: CHAIN_ID,
-    verifyingContract: TURBINE_SETTLER_CONTRACT,
-    salt: TURBINE_SALT as Hex,
-} as const;
 
 export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet
 

@@ -1,17 +1,8 @@
 import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
+import { balanceOfABI, settledAmountsABI, turbineHookABI } from "./abi";
 import {
-    addLiquidityIntentABI,
-    balanceOfABI,
-    orderIntentABI,
-    removeLiquidityIntentABI,
-    settledAmountsABI,
-    turbineHookABI,
-} from "./abi";
-import {
-    MOCKED_TURBINE_POOL,
     TURBINE_API_URL,
-    TURBINE_DOMAIN,
     TURBINE_HOOK_CONTRACT,
     TURBINE_LIQUIDITY_ROUTER_CONTRACT,
     TURBINE_SETTLER_CONTRACT,
@@ -655,70 +646,6 @@ export class TurbineClient {
 
     private is_smart_order(intent: OrderIntent): Boolean {
         return intent.callDataTarget != NULL_ADDRESS && intent.callData != "0x";
-    }
-
-    private getTurbineDomain() {
-        return {
-            ...TURBINE_DOMAIN,
-            verifyingContract: this.settlerContract,
-        };
-    }
-
-    private getOrderHashTypedData(orderHash: Hex): TypedData {
-        return {
-            domain: this.getTurbineDomain(),
-            types: {
-                OrderHash: [{ name: "order_hash", type: "bytes32" }],
-            },
-            primaryType: "OrderHash",
-            message: {
-                order_hash: orderHash,
-            },
-        };
-    }
-
-    private getIntentTypedData(
-        intent: OrderIntent | AddLiquidityIntent | RemoveLiquidityIntent
-    ) {
-        let typedData: TypedData = {
-            domain: this.getTurbineDomain(),
-            types: {},
-            primaryType: "",
-            message: intent as unknown as Record<string, unknown>,
-        };
-
-        if (this.isOrderIntent(intent)) {
-            typedData.types["OrderIntent"] = orderIntentABI.components;
-            typedData.primaryType = "OrderIntent";
-        } else if (this.isAddLiquidityIntent(intent)) {
-            typedData.types["AddLiquidityIntent"] = addLiquidityIntentABI.components;
-            typedData.primaryType = "AddLiquidityIntent";
-        } else if (this.isRemoveLiquidityIntent(intent)) {
-            typedData.types["RemoveLiquidityIntent"] =
-                removeLiquidityIntentABI.components;
-            typedData.primaryType = "RemoveLiquidityIntent";
-        }
-
-        return typedData;
-    }
-
-    /**
-     * Signs the intent using the wallet client.
-     * @param intent The order intent, add liquidity intent, or remove liquidity intent to sign
-     * @param client The wallet client used for signing
-     * @param account Optional account to use for signing. If not provided, the default account of the client is used.
-     * @returns A Promise that resolves to a hex string containing the signed intent.
-     */
-    private async signIntent(
-        intent: OrderIntent | AddLiquidityIntent | RemoveLiquidityIntent,
-        client: WalletClient,
-        account?: Account | Hex
-    ): Promise<Hex> {
-        let typedData = this.getIntentTypedData(intent);
-        return await client.signTypedData({
-            ...typedData,
-            account: account ?? client.account!,
-        });
     }
 
     /**
