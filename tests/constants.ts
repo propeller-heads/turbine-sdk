@@ -1,9 +1,4 @@
-import {
-    createPublicClient,
-    createWalletClient,
-    Hex,
-    http,
-} from "viem";
+import { createPublicClient, createWalletClient, Hex, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { RPC_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";

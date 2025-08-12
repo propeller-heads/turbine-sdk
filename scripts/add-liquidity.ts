@@ -1,9 +1,13 @@
 #!/usr/bin/env ts-node
 
-import { createPublicClient, createWalletClient, http, Hex } from "viem";
+import { http, Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
-import { TurbineClient, getRandomSalt } from "../src/turbineClient";
+import {
+    TurbineClient,
+    getRandomSalt,
+    createPublicWalletClient,
+} from "../src/turbineClient";
 import { AddLiquidityIntent } from "../src/models";
 import { USDC, WETH } from "../src/constants";
 import { RPC_URL } from "../src/config";
@@ -22,17 +26,13 @@ async function main() {
 
     // Set up clients
     const account = privateKeyToAccount(PRIVATE_KEY);
-    const walletClient = createWalletClient({
-        account,
-        chain: mainnet,
-        transport: http(RPC_URL),
-    });
-    const publicClient = createPublicClient({
+    const client = createPublicWalletClient({
+        account: account,
         chain: mainnet,
         transport: http(RPC_URL),
     });
 
-    const turbineClient = new TurbineClient(TURBINE_API_URL);
+    const turbineClient = new TurbineClient(client, TURBINE_API_URL);
 
     console.log(`👤 Account: ${account.address}`);
     console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
@@ -74,11 +74,7 @@ async function main() {
         // Submit liquidity addition
         console.log("\n🔄 Submitting liquidity addition to Turbine...");
 
-        const intentHash = await turbineClient.addLiquidity(
-            liquidityIntent,
-            walletClient,
-            publicClient
-        );
+        const intentHash = await turbineClient.addLiquidity(liquidityIntent);
 
         console.log("\n✅ Liquidity addition submitted successfully!");
         console.log(`Intent Hash: ${intentHash}`);

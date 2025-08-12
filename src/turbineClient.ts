@@ -293,9 +293,9 @@ export class TurbineClient {
      * @param publicClient The public client used for blockchain interactions
      * @returns A Promise that resolves to an array of `TurbinePool` objects.
      */
-    async getPools(publicClient: PublicClient): Promise<TurbinePool[]> {
+    async getPools(): Promise<TurbinePool[]> {
         try {
-            const poolsData = await publicClient.readContract({
+            const poolsData = await this.client.readContract({
                 address: TURBINE_HOOK_CONTRACT,
                 abi: turbineHookABI,
                 functionName: "getRegisteredPools",
@@ -331,12 +331,9 @@ export class TurbineClient {
      * @param publicClient The public client used for blockchain interactions
      * @returns A Promise that resolves to an array of filled amounts
      */
-    async getSettledAmounts(
-        orderIds: string[],
-        publicClient: PublicClient
-    ): Promise<readonly bigint[]> {
+    async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
         try {
-            return await publicClient.readContract({
+            return await this.client.readContract({
                 address: this.settlerContract,
                 abi: settledAmountsABI,
                 functionName: "getSettledAmounts",
@@ -353,12 +350,9 @@ export class TurbineClient {
      * @param publicClient The public client used for blockchain interactions
      * @returns A Promise that resolves to an array of `UserPosition` objects.
      */
-    async getUserPositions(
-        userAddress: Address,
-        publicClient: PublicClient
-    ): Promise<UserPosition[]> {
+    async getUserPositions(userAddress: Address): Promise<UserPosition[]> {
         try {
-            const pools = await this.getPools(publicClient);
+            const pools = await this.getPools();
             if (pools.length === 0) {
                 return [];
             }
@@ -370,7 +364,7 @@ export class TurbineClient {
                 functionName: "balanceOf" as const,
                 args: [userAddress],
             }));
-            const balanceResults = await publicClient.multicall({
+            const balanceResults = await this.client.multicall({
                 contracts: multicallContracts,
             });
 
