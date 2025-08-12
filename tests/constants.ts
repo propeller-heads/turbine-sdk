@@ -1,9 +1,15 @@
-import { createPublicClient, createWalletClient, Hex, http } from "viem";
+import {
+    createPublicClient,
+    createWalletClient,
+    Hex,
+    http,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { RPC_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
 import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
 import { mainnet } from "viem/chains";
+import { createPublicWalletClient } from "../src/createPublicWalletClient";
 
 export const PREFUNDED_PK: Hex =
     "0x91ab9a7e53c220e6210460b65a7a3bb2ca181412a8a7b43ff336b3df1737ce12";
@@ -18,6 +24,12 @@ export const WALLET_CLIENT = createWalletClient({
     transport: http(RPC_URL),
 });
 export const PUBLIC_CLIENT = createPublicClient({
+    chain: mainnet,
+    transport: http(RPC_URL),
+});
+
+export const PUBLIC_WALLET_CLIENT = createPublicWalletClient({
+    account: ACCOUNT,
     chain: mainnet,
     transport: http(RPC_URL),
 });

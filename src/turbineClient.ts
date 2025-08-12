@@ -1,4 +1,4 @@
-import { Account, Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
+import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
 import { balanceOfABI, settledAmountsABI, turbineHookABI } from "./abi";
 import {
@@ -29,33 +29,26 @@ import {
     UserPosition,
 } from "./models";
 import { getSignedAllowance } from "./permit2";
+import { PublicWalletClient } from "./createPublicWalletClient";
+
+export { createPublicWalletClient } from "./createPublicWalletClient";
 
 const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
-
-interface TypedData {
-    domain: {
-        verifyingContract: Address;
-        name: string;
-        version: string;
-        chainId: number;
-        salt: Hex;
-    };
-    types: any;
-    primaryType: string;
-    message: Record<string, unknown>;
-}
 
 export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
+    public client: PublicWalletClient;
     private userSession: { address: Address; sessionId: string } | null = null;
 
     constructor(
+        client: PublicWalletClient,
         turbineApiUrl?: string,
         settlerContract?: Address,
         turbineLiquidityRouterContract?: Address
     ) {
+        this.client = client;
         this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
         this.turbineLiquidityRouterContract =
@@ -67,23 +60,13 @@ export class TurbineClient {
     /**
      * Add an order to the Turbine API.
      * @param intent An `OrderIntent` object containing the details of the trade to be executed
-     * @param walletClient The wallet client used for signing the order intent
-     * @param publicClient The public client used for blockchain interactions and permit2 allowance
      * @returns A Promise that resolves to a string containing the submitted order hash.
      */
-    async addOrder(
-        intent: OrderIntent,
-        walletClient: WalletClient,
-        publicClient: PublicClient
-    ): Promise<string> {
+    async addOrder(intent: OrderIntent): Promise<string> {
         const address = this.getAuthenticatedAddress();
 
         try {
-            const payload = await this.createAddOrderData(
-                intent,
-                walletClient,
-                publicClient
-            );
+            const payload = await this.createAddOrderData(intent);
             const response = await this.callApiEndpoint(payload, "add_order", address);
             const responseText = await response.text();
 
@@ -119,22 +102,14 @@ export class TurbineClient {
     /**
      * Add an array of orders to the Turbine API.
      * @param intents An array of `OrderIntent` objects containing the details of the trades to be executed
-     * @param walletClient The wallet client used for signing the order intents
-     * @param publicClient The public client used for blockchain interactions and permit2 allowances
      * @returns A Promise that resolves to an array of strings containing the submitted order hashes.
      */
-    async addOrders(
-        intents: OrderIntent[],
-        walletClient: WalletClient,
-        publicClient: PublicClient
-    ): Promise<string[]> {
+    async addOrders(intents: OrderIntent[]): Promise<string[]> {
         const address = this.getAuthenticatedAddress();
 
         try {
             const payloads = await Promise.all(
-                intents.map((intent) =>
-                    this.createAddOrderData(intent, walletClient, publicClient)
-                )
+                intents.map((intent) => this.createAddOrderData(intent))
             );
             const response = await this.callApiEndpoint(
                 payloads,
@@ -175,23 +150,13 @@ export class TurbineClient {
     /**
      * Add a liquidity addition intent to the Turbine API.
      * @param intent The intent to add liquidity
-     * @param walletClient The wallet client used for signing the intent
-     * @param publicClient The public client used for blockchain interactions and permit2 allowances
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
-    async addLiquidity(
-        intent: AddLiquidityIntent,
-        walletClient: WalletClient,
-        publicClient: PublicClient
-    ): Promise<string> {
+    async addLiquidity(intent: AddLiquidityIntent): Promise<string> {
         const address = this.getAuthenticatedAddress();
 
         try {
-            const payload = await this.createAddLiquidityData(
-                intent,
-                walletClient,
-                publicClient
-            );
+            const payload = await this.createAddLiquidityData(intent);
             const response = await this.callApiEndpoint(
                 payload,
                 "add_liquidity",
@@ -231,23 +196,13 @@ export class TurbineClient {
     /**
      * Add a liquidity removal intent to the Turbine API.
      * @param intent The intent to remove liquidity
-     * @param walletClient The wallet client used for signing the intent
-     * @param publicClient The public client used for blockchain interactions and permit2 allowances
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
-    async removeLiquidity(
-        intent: RemoveLiquidityIntent,
-        walletClient: WalletClient,
-        publicClient: PublicClient
-    ): Promise<string> {
+    async removeLiquidity(intent: RemoveLiquidityIntent): Promise<string> {
         const address = this.getAuthenticatedAddress();
 
         try {
-            const payload = await this.createRemoveLiquidityData(
-                intent,
-                walletClient,
-                publicClient
-            );
+            const payload = await this.createRemoveLiquidityData(intent);
             const response = await this.callApiEndpoint(
                 payload,
                 "remove_liquidity",
@@ -546,9 +501,7 @@ export class TurbineClient {
     }
 
     private async createAddOrderData(
-        intent: OrderIntent,
-        walletClient: WalletClient,
-        publicClient: PublicClient
+        intent: OrderIntent
     ): Promise<AddOrder | AddSmartOrder> {
         // Skip permit data for smart orders
         if (this.is_smart_order(intent)) {
@@ -559,8 +512,8 @@ export class TurbineClient {
 
         let { permit, permitSignature } = await getSignedAllowance({
             token: intent.sellToken,
-            walletClient,
-            publicClient,
+            walletClient: this.client,
+            publicClient: this.client as PublicClient,
             deadline: Number(intent.endTime),
             spender: this.settlerContract,
         });
@@ -574,9 +527,7 @@ export class TurbineClient {
     }
 
     private async createAddLiquidityData(
-        intent: AddLiquidityIntent,
-        walletClient: WalletClient,
-        publicClient: PublicClient
+        intent: AddLiquidityIntent
     ): Promise<AddLiquidity> {
         intent = {
             ...intent,
@@ -587,8 +538,8 @@ export class TurbineClient {
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
                 token: intent.token0,
-                walletClient,
-                publicClient,
+                walletClient: this.client,
+                publicClient: this.client as PublicClient,
                 amount: intent.maxToken0,
                 deadline: Number(deadline),
                 spender: this.turbineLiquidityRouterContract,
@@ -596,8 +547,8 @@ export class TurbineClient {
         let { permit: permit1, permitSignature: permitSignature1 } =
             await getSignedAllowance({
                 token: intent.token1,
-                walletClient,
-                publicClient,
+                walletClient: this.client,
+                publicClient: this.client as PublicClient,
                 amount: intent.maxToken1,
                 deadline: Number(deadline),
                 spender: this.turbineLiquidityRouterContract,
@@ -616,9 +567,7 @@ export class TurbineClient {
     }
 
     private async createRemoveLiquidityData(
-        intent: RemoveLiquidityIntent,
-        walletClient: WalletClient,
-        publicClient: PublicClient
+        intent: RemoveLiquidityIntent
     ): Promise<RemoveLiquidity> {
         intent = {
             ...intent,
@@ -629,8 +578,8 @@ export class TurbineClient {
         let { permit: permit, permitSignature: permitSignature } =
             await getSignedAllowance({
                 token: intent.lpToken,
-                walletClient,
-                publicClient,
+                walletClient: this.client,
+                publicClient: this.client as PublicClient,
                 amount: intent.lpTokenAmount,
                 deadline: Number(deadline),
                 spender: this.turbineLiquidityRouterContract,
@@ -651,15 +600,13 @@ export class TurbineClient {
     /**
      * Authenticate with the Turbine API using a wallet client.
      * First calls /nonce to get nonce and session ID, then calls /verify with the signed message.
-     * @param client The wallet client to use for signing
-     * @param account Optional account to use for signing. If not provided, the default account of the client is used.
      * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
-    async authenticate(
-        client: WalletClient,
-        account?: Account,
-        domain?: string
-    ): Promise<void> {
+    async authenticate(domain?: string): Promise<void> {
+        const chainId = await this.client.getChainId();
+        const addresses = await this.client.getAddresses();
+        const address = addresses[0];
+
         try {
             // Call /nonce endpoint to get nonce and initial session ID
             const nonceResponse = await fetch(`${this.turbineApiUrl}/nonce`, {
@@ -698,8 +645,8 @@ export class TurbineClient {
 
             // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
-                address: account?.address ?? client.account!.address,
-                chainId: client.chain!.id,
+                address: address,
+                chainId: chainId,
                 domain: domain || DEFAULT_SIWE_DOMAIN,
                 statement: "Sign in to Turbine with your Ethereum wallet",
                 nonce,
@@ -707,9 +654,9 @@ export class TurbineClient {
                 version: "1",
             });
 
-            const signature = await client.signMessage({
+            const signature = await (this.client as WalletClient).signMessage({
                 message: message,
-                account: account ?? client.account!,
+                account: this.client.account!,
             });
 
             // Convert signature to structured format expected by Turbine API
@@ -745,14 +692,14 @@ export class TurbineClient {
                 if (verifySetCookieHeader) {
                     const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
                     this.userSession = {
-                        address: account?.address ?? client.account!.address,
+                        address: address,
                         sessionId: sessionCookie,
                     };
                 }
             } else {
                 // In browser mode, just remember the authenticated address
                 this.userSession = {
-                    address: account?.address ?? client.account!.address,
+                    address: address,
                     sessionId: "", // Browser handles cookies automatically
                 };
             }
