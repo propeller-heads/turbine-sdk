@@ -1,4 +1,5 @@
 import { describe, expect, jest, it } from "@jest/globals";
+import axios from "axios";
 import {
     toTurbineError,
     TurbineError,
@@ -247,10 +248,19 @@ describe("TurbineClient Error Handling", () => {
             const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
 
             // Mock the response
-            const mockResponse = new Response(
-                JSON.stringify({ error: "something went wrong" })
+            const mockResponse = {
+                ok: true,
+                status: 200,
+                statusText: "OK",
+                text: async () => JSON.stringify({ error: "something went wrong" }),
+                json: async () => ({ error: "something went wrong" }),
+                headers: { get: () => null },
+            } as unknown as Response;
+
+            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
             );
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             await expect(client.cancelOrder(mockOrderHash as Hex)).rejects.toThrow(
                 TurbineError
@@ -270,8 +280,19 @@ describe("TurbineClient Error Handling", () => {
             const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
 
             // Mock with invalid JSON
-            const mockResponse = new Response("happy chrysler");
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            const mockResponse = {
+                ok: true,
+                status: 200,
+                statusText: "OK",
+                text: async () => "happy chrysler",
+                json: async () => "happy chrysler",
+                headers: { get: () => null },
+            } as unknown as Response;
+
+            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             const error = await client
                 .cancelOrder(mockOrderHash as Hex)
@@ -289,11 +310,19 @@ describe("TurbineClient Error Handling", () => {
             const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
 
             // Mock a failed response
-            const mockResponse = new Response("Order not found", {
+            const mockResponse = {
+                ok: false,
                 status: 404,
                 statusText: "Not Found",
-            });
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+                text: async () => "Order not found",
+                json: async () => "Order not found",
+                headers: { get: () => null },
+            } as unknown as Response;
+
+            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(client.cancelOrder(mockOrderHash as Hex)).rejects.toThrow(
                 TurbineError

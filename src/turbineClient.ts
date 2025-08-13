@@ -1,5 +1,6 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
+import axios, { AxiosInstance } from "axios";
 import { balanceOfABI, settledAmountsABI, turbineHookABI } from "./abi";
 import {
     TURBINE_API_URL,
@@ -8,11 +9,7 @@ import {
     TURBINE_SETTLER_CONTRACT,
 } from "./config";
 import { NULL_ADDRESS } from "./constants";
-import {
-    toTurbineError,
-    TurbineError,
-    unsuccessfulResponseToTurbineError,
-} from "./errorHandling";
+import { toTurbineError, TurbineError } from "./errorHandling";
 import {
     AddLiquidity,
     AddLiquidityIntent,
@@ -36,11 +33,12 @@ export { createPublicWalletClient } from "./createPublicWalletClient";
 const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
 
 export class TurbineClient {
-    public turbineApiUrl: string;
+    private turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
     public client: PublicWalletClient;
-    private userSession: { address: Address; sessionId: string } | null = null;
+    private axiosInstance: AxiosInstance;
+    private sessionCookie?: string;
 
     constructor(
         client: PublicWalletClient,
@@ -53,6 +51,57 @@ export class TurbineClient {
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
         this.turbineLiquidityRouterContract =
             turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
+
+        // Set default withCredentials to true for all axios requests
+        // TODO: Better would be to set `withCredentials = true` in the axios instance creation, but it doesn't work for some reason.
+        axios.defaults.withCredentials = true;
+
+        // Create axios instance with cookie handling
+        this.axiosInstance = axios.create({
+            baseURL: this.turbineApiUrl,
+
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+
+        // Add request interceptor for cookie handling
+        this.axiosInstance.interceptors.request.use((config) => {
+            // Add session cookie if we have one
+            config = this.addSessionCookieToHeaders(config);
+            return config;
+        });
+
+        // Add response interceptor to automatically extract and store cookies
+        this.axiosInstance.interceptors.response.use((response) => {
+            // Extract and store cookies from all responses
+            this.extractAndStoreCookie(response);
+            return response;
+        });
+    }
+
+    /* PRIVATE HELPER METHODS */
+
+    /**
+     * Extracts and stores session cookie from response headers
+     */
+    private extractAndStoreCookie(response: any): void {
+        const setCookieHeaders = response.headers["set-cookie"];
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+            // Extract just the cookie value (before first semicolon)
+            const cookieHeader = setCookieHeaders[0];
+            this.sessionCookie = cookieHeader.split(";")[0];
+        }
+    }
+
+    /**
+     * Adds the stored session cookie to request headers if available
+     */
+    private addSessionCookieToHeaders(config: any): any {
+        if (this.sessionCookie) {
+            config.headers.Cookie = this.sessionCookie;
+        }
+        return config;
     }
 
     /* PUBLIC METHODS */
@@ -63,27 +112,28 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted order hash.
      */
     async addOrder(intent: OrderIntent): Promise<string> {
-        const address = this.getAuthenticatedAddress();
+        const address = await this.ensureAuthenticated();
+        if (getAddress(address) !== getAddress(intent.owner)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to add order",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
 
         try {
             const payload = await this.createAddOrderData(intent);
-            const response = await this.callApiEndpoint(payload, "add_order", address);
-            const responseText = await response.text();
+            const response = await this.callApiEndpoint(payload, "add_order");
 
-            if (!response.ok) {
-                throw unsuccessfulResponseToTurbineError(response, responseText);
-            }
-
-            let responseJson;
-            try {
-                responseJson = JSON.parse(responseText);
-            } catch (e) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
-                    "PARSE_ERROR",
-                    `Failed to parse response as JSON: ${e}`,
-                    "Failed to process the server response. Please try again later."
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit order. Please try again later."
                 );
             }
+
+            const responseJson = response.data;
 
             if (!responseJson || !responseJson["orderHash"]) {
                 throw new TurbineError(
@@ -105,33 +155,32 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of strings containing the submitted order hashes.
      */
     async addOrders(intents: OrderIntent[]): Promise<string[]> {
-        const address = this.getAuthenticatedAddress();
+        const address = await this.ensureAuthenticated();
+        if (
+            intents.some((intent) => getAddress(intent.owner) !== getAddress(address))
+        ) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to add orders",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
 
         try {
             const payloads = await Promise.all(
                 intents.map((intent) => this.createAddOrderData(intent))
             );
-            const response = await this.callApiEndpoint(
-                payloads,
-                "add_orders",
-                address
-            );
-            const responseText = await response.text();
+            const response = await this.callApiEndpoint(payloads, "add_orders");
 
-            if (!response.ok) {
-                throw unsuccessfulResponseToTurbineError(response, responseText);
-            }
-
-            let responseJson;
-            try {
-                responseJson = JSON.parse(responseText);
-            } catch (e) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
-                    "PARSE_ERROR",
-                    `Failed to parse response as JSON: ${e}`,
-                    "Failed to process the server response. Please try again later."
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit orders. Please try again later."
                 );
             }
+
+            const responseJson = response.data;
 
             if (!responseJson || !responseJson.length) {
                 throw new TurbineError(
@@ -153,31 +202,28 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidity(intent: AddLiquidityIntent): Promise<string> {
-        const address = this.getAuthenticatedAddress();
+        const address = await this.ensureAuthenticated();
+        if (getAddress(intent.owner) !== getAddress(address)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to add liquidity",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
 
         try {
             const payload = await this.createAddLiquidityData(intent);
-            const response = await this.callApiEndpoint(
-                payload,
-                "add_liquidity",
-                address
-            );
-            const responseText = await response.text();
+            const response = await this.callApiEndpoint(payload, "add_liquidity");
 
-            if (!response.ok) {
-                throw unsuccessfulResponseToTurbineError(response, responseText);
-            }
-
-            let responseJson;
-            try {
-                responseJson = JSON.parse(responseText);
-            } catch (e) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
-                    "PARSE_ERROR",
-                    `Failed to parse response as JSON: ${e}`,
-                    "Failed to process the server response. Please try again later."
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit liquidity addition. Please try again later."
                 );
             }
+
+            const responseJson = response.data;
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
@@ -199,31 +245,28 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async removeLiquidity(intent: RemoveLiquidityIntent): Promise<string> {
-        const address = this.getAuthenticatedAddress();
+        const address = await this.ensureAuthenticated();
+        if (getAddress(intent.owner) !== getAddress(address)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to remove liquidity",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
 
         try {
             const payload = await this.createRemoveLiquidityData(intent);
-            const response = await this.callApiEndpoint(
-                payload,
-                "remove_liquidity",
-                address
-            );
-            const responseText = await response.text();
+            const response = await this.callApiEndpoint(payload, "remove_liquidity");
 
-            if (!response.ok) {
-                throw unsuccessfulResponseToTurbineError(response, responseText);
-            }
-
-            let responseJson;
-            try {
-                responseJson = JSON.parse(responseText);
-            } catch (e) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
-                    "PARSE_ERROR",
-                    `Failed to parse response as JSON: ${e}`,
-                    "Failed to process the server response. Please try again later."
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit liquidity removal. Please try again later."
                 );
             }
+
+            const responseJson = response.data;
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
@@ -245,34 +288,24 @@ export class TurbineClient {
      * @returns A Promise that resolves to the response message from the API.
      */
     async cancelOrder(orderHash: Hex): Promise<{ orderHash: string; message: string }> {
-        const address = this.getAuthenticatedAddress();
+        await this.ensureAuthenticated();
 
         try {
             const payload: CancelOrderPayload = {
                 orderHash: orderHash,
             };
 
-            const response = await this.callApiEndpoint(
-                payload,
-                "cancel_order",
-                address
-            );
-            const responseText = await response.text();
+            const response = await this.callApiEndpoint(payload, "cancel_order");
 
-            if (!response.ok) {
-                throw unsuccessfulResponseToTurbineError(response, responseText);
-            }
-
-            let responseJson;
-            try {
-                responseJson = JSON.parse(responseText);
-            } catch (e) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
-                    "PARSE_ERROR",
-                    `Failed to parse response as JSON: ${e}`,
-                    "Failed to process the server response. Please try again later."
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to cancel order. Please try again later."
                 );
             }
+
+            const responseJson = response.data;
 
             if (!responseJson || !responseJson.orderHash) {
                 throw new TurbineError(
@@ -375,9 +408,6 @@ export class TurbineClient {
                 const balanceResult = balanceResults[i];
 
                 if (balanceResult.status === "success" && balanceResult.result > 0n) {
-                    console.debug(
-                        `Found position for lp token ${pool.metadata.lpToken} with balance ${balanceResult.result}`
-                    );
                     userPositions.push({
                         poolMetadata: pool.metadata,
                         userAddress: getAddress(userAddress),
@@ -403,29 +433,15 @@ export class TurbineClient {
      */
     async checkStatus(): Promise<boolean> {
         try {
-            const response = await fetch(`${this.turbineApiUrl}/status`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
-
-            if (response.status !== 200) {
-                throw new TurbineError(
-                    "SERVICE_UNAVAILABLE",
-                    `Turbine service returned status ${response.status}`,
-                    "Turbine is currently unavailable. Try again later."
-                );
-            }
-
+            await this.axiosInstance.get("/status");
             return true;
-        } catch (error) {
+        } catch (error: any) {
             if (error instanceof TurbineError) {
                 throw error;
             }
             throw new TurbineError(
                 "SERVICE_UNAVAILABLE",
-                `Failed to connect to Turbine service: ${error}`,
+                `Failed to connect to Turbine service: ${error.message}`,
                 "Turbine is currently unavailable. Try again later."
             );
         }
@@ -437,34 +453,24 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of `OrderStatus` objects.
      */
     async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
-        const address = this.getAuthenticatedAddress();
+        await this.ensureAuthenticated();
 
         try {
             const payload: GetOrderStatusesPayload = {
                 orderHashes: orderHashes,
             };
 
-            const response = await this.callApiEndpoint(
-                payload,
-                "order_statuses",
-                address
-            );
-            const responseText = await response.text();
+            const response = await this.callApiEndpoint(payload, "order_statuses");
 
-            if (!response.ok) {
-                throw unsuccessfulResponseToTurbineError(response, responseText);
-            }
-
-            let responseJson;
-            try {
-                responseJson = JSON.parse(responseText);
-            } catch (e) {
+            if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
-                    "PARSE_ERROR",
-                    `Failed to parse response as JSON: ${e}`,
-                    "Failed to process the server response. Please try again later."
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to get order statuses. Please try again later."
                 );
             }
+
+            const responseJson = response.data;
 
             if (!Array.isArray(responseJson)) {
                 throw new TurbineError(
@@ -483,16 +489,6 @@ export class TurbineClient {
     }
 
     /* PRIVATE METHODS */
-
-    private isBrowser(): boolean {
-        try {
-            return (
-                typeof window !== "undefined" && typeof window.document !== "undefined"
-            );
-        } catch (e) {
-            return false;
-        }
-    }
 
     private async createAddOrderData(
         intent: OrderIntent
@@ -593,7 +589,8 @@ export class TurbineClient {
 
     /**
      * Authenticate with the Turbine API using a wallet client.
-     * First calls /nonce to get nonce and session ID, then calls /verify with the signed message.
+     * First calls /nonce to get nonce, then calls /verify with the signed message.
+     * Cookies are automatically handled by axios.
      * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
     async authenticate(domain?: string): Promise<void> {
@@ -602,40 +599,9 @@ export class TurbineClient {
         const address = addresses[0];
 
         try {
-            // Call /nonce endpoint to get nonce and initial session ID
-            const nonceResponse = await fetch(`${this.turbineApiUrl}/nonce`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include",
-            });
-
-            if (!nonceResponse.ok) {
-                const errorText = await nonceResponse.text();
-                throw new TurbineError(
-                    "NONCE_REQUEST_FAILED",
-                    `Failed to get nonce: ${errorText}`,
-                    "Failed to initialize authentication with the Turbine API. Please try again."
-                );
-            }
-
-            // The API returns the nonce as a JSON string directly
-            const nonce: string = (await nonceResponse.json()) as string;
-
-            // Extract session ID from nonce response headers (only in non-browser environments)
-            let initialSessionCookie = "";
-            if (!this.isBrowser()) {
-                const initialSetCookieHeader = nonceResponse.headers.get("set-cookie");
-                if (!initialSetCookieHeader) {
-                    throw new TurbineError(
-                        "MISSING_SET_COOKIE_HEADER",
-                        "Failed to retrieve set-cookie header from nonce response.",
-                        "Failed to initialize authentication with the Turbine API. Please try again."
-                    );
-                }
-                initialSessionCookie = this.parseCookieHeader(initialSetCookieHeader);
-            }
+            // Get nonce - session cookies handled automatically by interceptors
+            const nonceResponse = await this.axiosInstance.get("/nonce");
+            const nonce: string = nonceResponse.data;
 
             // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
@@ -656,143 +622,115 @@ export class TurbineClient {
             // Convert signature to structured format expected by Turbine API
             const structuredSignature = this.parseSignature(signature);
 
-            // Call /verify endpoint with the signed message and initial session ID
-            const verifyHeaders: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
-            if (!this.isBrowser() && initialSessionCookie) {
-                verifyHeaders["Cookie"] = initialSessionCookie;
-            }
-
-            const verifyResponse = await fetch(`${this.turbineApiUrl}/verify`, {
-                method: "POST",
-                headers: verifyHeaders,
-                body: JSON.stringify({ message, signature: structuredSignature }),
-                credentials: "include",
+            // Verify with signed message - session cookies handled automatically by interceptors
+            await this.axiosInstance.post("/verify", {
+                message,
+                signature: structuredSignature,
             });
-
-            if (!verifyResponse.ok) {
-                const errorText = await verifyResponse.text();
-                throw new TurbineError(
-                    "AUTHENTICATION_FAILED",
-                    `Authentication failed: ${errorText}`,
-                    "Failed to authenticate with the Turbine API. Please try again."
-                );
-            }
-
-            // Extract the new cycled session ID from verify response and store for current user (only in non-browser environments)
-            if (!this.isBrowser()) {
-                const verifySetCookieHeader = verifyResponse.headers.get("set-cookie");
-                if (verifySetCookieHeader) {
-                    const sessionCookie = this.parseCookieHeader(verifySetCookieHeader);
-                    this.userSession = {
-                        address: address,
-                        sessionId: sessionCookie,
-                    };
-                }
-            } else {
-                // In browser mode, just remember the authenticated address
-                this.userSession = {
-                    address: address,
-                    sessionId: "", // Browser handles cookies automatically
-                };
-            }
-        } catch (error) {
+        } catch (error: any) {
             throw toTurbineError(error);
         }
     }
 
     /**
      * Get the current authentication status for the authenticated user.
+     * Cookies are automatically handled by axios.
      * @returns A Promise that resolves to the authentication status
      */
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
         try {
-            const headers: Record<string, string> = {};
-            if (!this.isBrowser() && this.userSession) {
-                headers["Cookie"] = this.userSession.sessionId;
-            }
-
-            const response = await fetch(`${this.turbineApiUrl}/me`, {
-                method: "GET",
-                headers,
-                credentials: "include",
-            });
-
-            if (response.ok) {
-                return (await response.json()) as {
-                    authenticated: boolean;
-                    address?: string;
-                };
-            }
-            console.error("Failed to get auth status");
-            return { authenticated: false };
+            const response = await this.axiosInstance.get("/me");
+            return response.data;
         } catch (error) {
-            console.error("Error getting auth status:", error);
             return { authenticated: false };
         }
     }
 
     /**
      * Logout and clear the current session.
+     * Cookies are automatically handled by axios.
      */
     async logout(): Promise<void> {
         try {
-            const headers: Record<string, string> = {};
-            if (!this.isBrowser() && this.userSession) {
-                headers["Cookie"] = this.userSession.sessionId;
-            }
-
-            await fetch(`${this.turbineApiUrl}/logout`, {
-                method: "POST",
-                headers,
-                credentials: "include",
-            });
-
-            this.userSession = null;
+            await this.axiosInstance.post("/logout");
         } catch (error) {
-            // Clear session even if logout request fails
-            this.userSession = null;
+            // Server handles session cleanup, so we don't need to do anything locally
             throw toTurbineError(error);
         }
     }
 
     /**
-     * Logout and clear the current session.
+     * Ensures that the user is authenticated with the Turbine API.
+     *
+     * This method checks the current authentication status by making a request to the `/me` endpoint.
+     * If the user is not authenticated, it automatically attempts to authenticate them.
+     * If authentication is successful, it returns the authenticated user's address.
+     *
+     * @throws {TurbineError} If authentication fails or if there is an error checking authentication status.
+     * @returns {Promise<Address>} The authenticated user's address.
      */
-    async logoutAll(): Promise<void> {
-        await this.logout();
-    }
+    private async ensureAuthenticated(): Promise<Address> {
+        try {
+            const response = await this.axiosInstance.get("/me");
+            const authStatus = response.data;
 
-    private parseCookieHeader(setCookieHeader: string): string {
-        const match = setCookieHeader.match(/id=([^;]+)/);
-        return match ? `id=${match[1]}` : "";
-    }
+            if (!authStatus.authenticated || !authStatus.address) {
+                // Automatically authenticate the user
+                await this.authenticate();
 
-    private getAuthenticatedAddress(): Address {
-        if (!this.userSession) {
+                // Check authentication status again after authenticating
+                const retryResponse = await this.axiosInstance.get("/me");
+                const retryAuthStatus = retryResponse.data;
+
+                if (!retryAuthStatus.authenticated || !retryAuthStatus.address) {
+                    throw new TurbineError(
+                        "AUTHENTICATION_FAILED",
+                        "Authentication failed after automatic authentication attempt",
+                        "Unable to authenticate with your wallet. Please try again."
+                    );
+                }
+
+                return retryAuthStatus.address;
+            }
+
+            return authStatus.address;
+        } catch (error: any) {
+            // If the error is already a TurbineError from authentication, re-throw it
+            if (error instanceof TurbineError) {
+                throw error;
+            }
+
+            // If /me endpoint is returning 500, try to authenticate automatically
+            if (error.response?.status === 500) {
+                try {
+                    await this.authenticate();
+
+                    // Check authentication status after authenticating
+                    const retryResponse = await this.axiosInstance.get("/me");
+                    const retryAuthStatus = retryResponse.data;
+
+                    if (retryAuthStatus.authenticated && retryAuthStatus.address) {
+                        return retryAuthStatus.address;
+                    }
+                } catch (authError) {
+                    // Authentication failed, fall through to generic error
+                }
+            }
+
             throw new TurbineError(
-                "AUTHENTICATION_REQUIRED",
-                "Must authenticate before making requests",
-                "Please authenticate with your wallet before making requests."
+                "AUTHENTICATION_ERROR",
+                "Failed to ensure authentication",
+                "Unable to authenticate with your wallet. Please try again."
             );
         }
-
-        return this.userSession.address;
-    }
-
-    private getSessionCookie(address: Address): string | undefined {
-        return this.userSession?.address === address
-            ? this.userSession.sessionId
-            : undefined;
     }
 
     /**
      * Calls the Turbine API endpoint with the given payload.
+     * Cookies are automatically handled by axios.
      * @param payload The payload to send to the endpoint
      * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity", "cancel_order", "order_statuses"
-     * @param address The address to use for session authentication
-     * @returns A Promise that resolves to the response from the endpoint
+     * @returns A Promise that resolves to an axios response
      */
     protected async callApiEndpoint(
         payload:
@@ -803,41 +741,11 @@ export class TurbineClient {
             | RemoveLiquidity
             | CancelOrderPayload
             | GetOrderStatusesPayload,
-        endpoint: string,
-        address: Address
+        endpoint: string
     ) {
-        const body = JSON.stringify(payload, bigIntReplacer);
-
-        const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-        };
-
-        if (!this.isBrowser()) {
-            const sessionCookie = this.getSessionCookie(address);
-            if (sessionCookie) {
-                headers["Cookie"] = sessionCookie;
-            }
-        }
-
-        const response = await fetch(`${this.turbineApiUrl}/${endpoint}`, {
-            method: "POST",
-            headers,
-            body,
-            credentials: "include",
+        return await this.axiosInstance.post(`/${endpoint}`, payload, {
+            transformRequest: [(data: any) => JSON.stringify(data, bigIntReplacer)],
         });
-        return response;
-    }
-
-    private isOrderIntent(intent: any): intent is OrderIntent {
-        return "sellToken" in intent && "buyToken" in intent;
-    }
-
-    private isAddLiquidityIntent(intent: any): intent is AddLiquidityIntent {
-        return "token0" in intent && "token1" in intent && "maxToken0" in intent;
-    }
-
-    private isRemoveLiquidityIntent(intent: any): intent is RemoveLiquidityIntent {
-        return "token0" in intent && "token1" in intent && "lpToken" in intent;
     }
 
     /**

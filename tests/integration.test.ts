@@ -7,7 +7,6 @@ import {
     ORDER_INTENT,
     PUBLIC_WALLET_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
-    WALLET_CLIENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 
@@ -74,11 +73,6 @@ describe("Integration test", () => {
     it("should successfully submit an order", async () => {
         const turbineClient = new TurbineClient(PUBLIC_WALLET_CLIENT);
 
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate();
-        });
-
         const intent: OrderIntent = {
             ...ORDER_INTENT,
             salt: getRandomSalt(),
@@ -93,11 +87,6 @@ describe("Integration test", () => {
 
     it("should successfully submit an order array", async () => {
         const turbineClient = new TurbineClient(PUBLIC_WALLET_CLIENT);
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate();
-        });
 
         const intents: OrderIntent[] = Array.from({ length: 5 }, () => ({
             ...ORDER_INTENT,
@@ -116,11 +105,6 @@ describe("Integration test", () => {
     it("should successfully submit an add liquidity intent", async () => {
         const turbineClient = new TurbineClient(PUBLIC_WALLET_CLIENT);
 
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate();
-        });
-
         const intent: AddLiquidityIntent = {
             ...ADD_LIQUIDITY_INTENT,
             salt: getRandomSalt(),
@@ -136,11 +120,6 @@ describe("Integration test", () => {
     it("should successfully submit a remove liquidity intent", async () => {
         const turbineClient = new TurbineClient(PUBLIC_WALLET_CLIENT);
 
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate();
-        });
-
         const intent: RemoveLiquidityIntent = {
             ...REMOVE_LIQUIDITY_INTENT,
             salt: getRandomSalt(),
@@ -155,11 +134,6 @@ describe("Integration test", () => {
 
     it("should successfully cancel an order", async () => {
         const turbineClient = new TurbineClient(PUBLIC_WALLET_CLIENT);
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate();
-        });
 
         // First create an order to cancel
         const intent: OrderIntent = {
@@ -214,11 +188,6 @@ describe("Integration test", () => {
 
     it("should successfully get order statuses", async () => {
         const turbineClient = new TurbineClient(PUBLIC_WALLET_CLIENT);
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate();
-        });
 
         // First create an order to get its status
         const intent: OrderIntent = {
