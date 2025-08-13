@@ -33,7 +33,7 @@ export { createPublicWalletClient } from "./createPublicWalletClient";
 const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
 
 export class TurbineClient {
-    private turbineApiUrl: string;
+    public turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
     public client: PublicWalletClient;
