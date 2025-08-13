@@ -700,8 +700,8 @@ export class TurbineClient {
                 throw error;
             }
 
-            // If /me endpoint is returning 500, try to authenticate automatically
-            if (error.response?.status === 500) {
+            // If /me endpoint is returning 401, try to authenticate automatically
+            if (error.response?.status === 401) {
                 try {
                     await this.authenticate();
 
