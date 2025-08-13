@@ -6,7 +6,7 @@ import {
     unsuccessfulResponseToTurbineError,
 } from "../src/errorHandling";
 import { TurbineClient } from "../src/turbineClient";
-import { ORDER_INTENT, PUBLIC_WALLET_CLIENT } from "./constants";
+import { ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT } from "./constants";
 import { Hex } from "viem";
 
 describe("TurbineError", () => {
@@ -147,7 +147,7 @@ describe("unsuccessfulResponseToTurbineError", () => {
 describe("TurbineClient Error Handling", () => {
     describe("addOrder", () => {
         it("should throw TurbineError in case of unexpected API response in json", async () => {
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
@@ -167,7 +167,7 @@ describe("TurbineClient Error Handling", () => {
         });
 
         it("should throw TurbineError in case of malformed API response", async () => {
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response("happy chrysler");
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
@@ -185,7 +185,7 @@ describe("TurbineClient Error Handling", () => {
 
     describe("addOrders", () => {
         it("should throw TurbineError in case of unexpected API response in json", async () => {
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
@@ -207,7 +207,7 @@ describe("TurbineClient Error Handling", () => {
         });
 
         it("should throw TurbineError in case of malformed API response", async () => {
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response("happy chrysler");
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
@@ -223,7 +223,7 @@ describe("TurbineClient Error Handling", () => {
         });
 
         it("should throw TurbineError for empty array of orders", async () => {
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response(JSON.stringify([]));
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
@@ -245,7 +245,7 @@ describe("TurbineClient Error Handling", () => {
         it("should throw TurbineError in case of unexpected API response in json", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock the response
             const mockResponse = {
@@ -277,7 +277,7 @@ describe("TurbineClient Error Handling", () => {
         it("should throw TurbineError in case of malformed API response", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock with invalid JSON
             const mockResponse = {
@@ -307,7 +307,7 @@ describe("TurbineClient Error Handling", () => {
         it("should throw TurbineError when API returns non-ok response", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient(PUBLIC_WALLET_CLIENT);
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock a failed response
             const mockResponse = {

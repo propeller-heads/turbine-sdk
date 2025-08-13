@@ -26,9 +26,6 @@ import {
     UserPosition,
 } from "./models";
 import { getSignedAllowance } from "./permit2";
-import { PublicWalletClient } from "./createPublicWalletClient";
-
-export { createPublicWalletClient } from "./createPublicWalletClient";
 
 const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
 
@@ -36,17 +33,20 @@ export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
-    public client: PublicWalletClient;
+    public walletClient: WalletClient;
+    public publicClient: PublicClient;
     private axiosInstance: AxiosInstance;
     private sessionCookie?: string;
 
     constructor(
-        client: PublicWalletClient,
+        walletClient: WalletClient,
+        publicClient: PublicClient,
         turbineApiUrl?: string,
         settlerContract?: Address,
         turbineLiquidityRouterContract?: Address
     ) {
-        this.client = client;
+        this.walletClient = walletClient;
+        this.publicClient = publicClient;
         this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
         this.turbineLiquidityRouterContract =
@@ -328,7 +328,7 @@ export class TurbineClient {
      */
     async getPools(): Promise<TurbinePool[]> {
         try {
-            const poolsData = await this.client.readContract({
+            const poolsData = await this.publicClient.readContract({
                 address: TURBINE_HOOK_CONTRACT,
                 abi: turbineHookABI,
                 functionName: "getRegisteredPools",
@@ -366,7 +366,7 @@ export class TurbineClient {
      */
     async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
         try {
-            return await this.client.readContract({
+            return await this.publicClient.readContract({
                 address: this.settlerContract,
                 abi: settledAmountsABI,
                 functionName: "getSettledAmounts",
@@ -397,7 +397,7 @@ export class TurbineClient {
                 functionName: "balanceOf" as const,
                 args: [userAddress],
             }));
-            const balanceResults = await this.client.multicall({
+            const balanceResults = await this.publicClient.multicall({
                 contracts: multicallContracts,
             });
 
@@ -502,8 +502,8 @@ export class TurbineClient {
 
         let { permit, permitSignature } = await getSignedAllowance({
             token: intent.sellToken,
-            walletClient: this.client,
-            publicClient: this.client as PublicClient,
+            walletClient: this.walletClient,
+            publicClient: this.publicClient,
             deadline: Number(intent.endTime),
             spender: this.settlerContract,
         });
@@ -528,8 +528,8 @@ export class TurbineClient {
         let { permit: permit0, permitSignature: permitSignature0 } =
             await getSignedAllowance({
                 token: intent.token0,
-                walletClient: this.client,
-                publicClient: this.client as PublicClient,
+                walletClient: this.walletClient,
+                publicClient: this.publicClient,
                 amount: intent.maxToken0,
                 deadline: Number(deadline),
                 spender: this.turbineLiquidityRouterContract,
@@ -537,8 +537,8 @@ export class TurbineClient {
         let { permit: permit1, permitSignature: permitSignature1 } =
             await getSignedAllowance({
                 token: intent.token1,
-                walletClient: this.client,
-                publicClient: this.client as PublicClient,
+                walletClient: this.walletClient,
+                publicClient: this.publicClient,
                 amount: intent.maxToken1,
                 deadline: Number(deadline),
                 spender: this.turbineLiquidityRouterContract,
@@ -568,8 +568,8 @@ export class TurbineClient {
         let { permit: permit, permitSignature: permitSignature } =
             await getSignedAllowance({
                 token: intent.lpToken,
-                walletClient: this.client,
-                publicClient: this.client as PublicClient,
+                walletClient: this.walletClient,
+                publicClient: this.publicClient,
                 amount: intent.lpTokenAmount,
                 deadline: Number(deadline),
                 spender: this.turbineLiquidityRouterContract,
@@ -594,8 +594,8 @@ export class TurbineClient {
      * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
     async authenticate(domain?: string): Promise<void> {
-        const chainId = await this.client.getChainId();
-        const addresses = await this.client.getAddresses();
+        const chainId = await this.walletClient.getChainId();
+        const addresses = await this.walletClient.getAddresses();
         const address = addresses[0];
 
         try {
@@ -614,9 +614,9 @@ export class TurbineClient {
                 version: "1",
             });
 
-            const signature = await (this.client as WalletClient).signMessage({
+            const signature = await this.walletClient.signMessage({
                 message: message,
-                account: this.client.account!,
+                account: this.walletClient.account!,
             });
 
             // Convert signature to structured format expected by Turbine API

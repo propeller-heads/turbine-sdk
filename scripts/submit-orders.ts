@@ -6,7 +6,6 @@ import { mainnet } from "viem/chains";
 import {
     TurbineClient,
     getRandomSalt,
-    createPublicWalletClient,
 } from "../src/turbineClient";
 import { OrderIntent } from "../src/models";
 import { USDC, WETH, NULL_ADDRESS } from "../src/constants";
@@ -26,13 +25,17 @@ async function main() {
 
     // Set up clients
     const account = privateKeyToAccount(PRIVATE_KEY);
-    const client = createPublicWalletClient({
+    const walletClient = createWalletClient({
         account: account,
         chain: mainnet,
         transport: http(RPC_URL),
     });
+    const publicClient = createPublicClient({
+        chain: mainnet,
+        transport: http(RPC_URL),
+    });
 
-    const turbineClient = new TurbineClient(client, TURBINE_API_URL);
+    const turbineClient = new TurbineClient(walletClient, publicClient, TURBINE_API_URL);
 
     console.log(`📝 Account: ${account.address}`);
     console.log(`🔗 Turbine API: ${TURBINE_API_URL}`);
