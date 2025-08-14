@@ -52,10 +52,6 @@ export class TurbineClient {
         this.turbineLiquidityRouterContract =
             turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
 
-        // Set default withCredentials to true for all axios requests
-        // TODO: Better would be to set `withCredentials = true` in the axios instance creation, but it doesn't work for some reason.
-        axios.defaults.withCredentials = true;
-
         // Create axios instance with cookie handling
         this.axiosInstance = axios.create({
             baseURL: this.turbineApiUrl,
