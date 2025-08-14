@@ -3,10 +3,7 @@
 import { createPublicClient, createWalletClient, http, Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
-import {
-    TurbineClient,
-    getRandomSalt,
-} from "../src/turbineClient";
+import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { OrderIntent } from "../src/models";
 import { USDC, WETH, NULL_ADDRESS } from "../src/constants";
 import { RPC_URL } from "../src/config";
@@ -35,7 +32,11 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = new TurbineClient(walletClient, publicClient, TURBINE_API_URL);
+    const turbineClient = new TurbineClient(
+        walletClient,
+        publicClient,
+        TURBINE_API_URL
+    );
 
     console.log(`📝 Account: ${account.address}`);
     console.log(`🔗 Turbine API: ${TURBINE_API_URL}`);
