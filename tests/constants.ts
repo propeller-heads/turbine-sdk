@@ -22,7 +22,6 @@ export const PUBLIC_CLIENT = createPublicClient({
     transport: http(RPC_URL),
 });
 
-
 export const ORDER_INTENT: OrderIntent = {
     owner: ACCOUNT.address,
     sellToken: USDC.address,

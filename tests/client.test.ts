@@ -491,7 +491,11 @@ describe("TurbineClient", () => {
 
         it("should use custom turbineApiUrl when provided", async () => {
             const customApiUrl = "https://custom-turbine-api.example.com";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT, customApiUrl);
+            const client = new TurbineClient(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT,
+                customApiUrl
+            );
 
             // Mock axios get method
             const mockAxiosGet = jest
