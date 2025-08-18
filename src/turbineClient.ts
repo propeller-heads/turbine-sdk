@@ -698,18 +698,14 @@ export class TurbineClient {
 
             // If /me endpoint is returning 401, try to authenticate automatically
             if (error.response?.status === 401) {
-                try {
-                    await this.authenticate();
+                await this.authenticate();
 
-                    // Check authentication status after authenticating
-                    const retryResponse = await this.axiosInstance.get("/me");
-                    const retryAuthStatus = retryResponse.data;
+                // Check authentication status after authenticating
+                const retryResponse = await this.axiosInstance.get("/me");
+                const retryAuthStatus = retryResponse.data;
 
-                    if (retryAuthStatus.authenticated && retryAuthStatus.address) {
-                        return retryAuthStatus.address;
-                    }
-                } catch (authError) {
-                    // Authentication failed, fall through to generic error
+                if (retryAuthStatus.authenticated && retryAuthStatus.address) {
+                    return retryAuthStatus.address;
                 }
             }
 
