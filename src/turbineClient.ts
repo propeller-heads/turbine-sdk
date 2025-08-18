@@ -1,6 +1,5 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import axios, { AxiosInstance } from "axios";
 import { balanceOfABI, settledAmountsABI, turbineHookABI } from "./abi";
 import {
     TURBINE_API_URL,
@@ -35,8 +34,7 @@ export class TurbineClient {
     public turbineLiquidityRouterContract: Address;
     public walletClient: WalletClient;
     public publicClient: PublicClient;
-    private axiosInstance: AxiosInstance;
-    private sessionCookie?: string;
+    private sessionCookies: string[] = [];
 
     constructor(
         walletClient: WalletClient,
@@ -51,53 +49,59 @@ export class TurbineClient {
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
         this.turbineLiquidityRouterContract =
             turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
-
-        // Create axios instance with cookie handling
-        this.axiosInstance = axios.create({
-            baseURL: this.turbineApiUrl,
-
-            headers: {
-                "Content-Type": "application/json",
-            },
-        });
-
-        // Add request interceptor for cookie handling
-        this.axiosInstance.interceptors.request.use((config) => {
-            // Add session cookie if we have one
-            config = this.addSessionCookieToHeaders(config);
-            return config;
-        });
-
-        // Add response interceptor to automatically extract and store cookies
-        this.axiosInstance.interceptors.response.use((response) => {
-            // Extract and store cookies from all responses
-            this.extractAndStoreCookie(response);
-            return response;
-        });
     }
 
     /* PRIVATE HELPER METHODS */
 
     /**
-     * Extracts and stores session cookie from response headers
+     * Extracts and stores session cookies from fetch response headers
      */
-    private extractAndStoreCookie(response: any): void {
-        const setCookieHeaders = response.headers["set-cookie"];
-        if (setCookieHeaders && setCookieHeaders.length > 0) {
-            // Extract just the cookie value (before first semicolon)
-            const cookieHeader = setCookieHeaders[0];
-            this.sessionCookie = cookieHeader.split(";")[0];
+    private extractAndStoreCookies(response: Response): void {
+        const setCookieHeaders = response.headers.get("set-cookie");
+        if (setCookieHeaders) {
+            // Parse multiple cookies if present
+            const cookies = setCookieHeaders
+                .split(",")
+                .map((cookie) => cookie.trim().split(";")[0]);
+            this.sessionCookies = [...this.sessionCookies, ...cookies];
         }
     }
 
     /**
-     * Adds the stored session cookie to request headers if available
+     * Creates headers with stored session cookies
      */
-    private addSessionCookieToHeaders(config: any): any {
-        if (this.sessionCookie) {
-            config.headers.Cookie = this.sessionCookie;
+    private createHeaders(additionalHeaders: Record<string, string> = {}): HeadersInit {
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            ...additionalHeaders,
+        };
+
+        if (this.sessionCookies.length > 0) {
+            headers["Cookie"] = this.sessionCookies.join("; ");
         }
-        return config;
+
+        return headers;
+    }
+
+    /**
+     * Makes a fetch request with automatic cookie handling
+     */
+    private async fetchWithCookies(
+        endpoint: string,
+        options: RequestInit = {}
+    ): Promise<Response> {
+        const url = `${this.turbineApiUrl}${endpoint}`;
+        const headers = this.createHeaders(options.headers as Record<string, string>);
+
+        const response = await fetch(url, {
+            ...options,
+            headers,
+        });
+
+        // Extract and store cookies from response
+        this.extractAndStoreCookies(response);
+
+        return response;
     }
 
     /* PUBLIC METHODS */
@@ -129,7 +133,7 @@ export class TurbineClient {
                 );
             }
 
-            const responseJson = response.data;
+            const responseJson = await response.json();
 
             if (!responseJson || !responseJson["orderHash"]) {
                 throw new TurbineError(
@@ -176,7 +180,7 @@ export class TurbineClient {
                 );
             }
 
-            const responseJson = response.data;
+            const responseJson = await response.json();
 
             if (!responseJson || !responseJson.length) {
                 throw new TurbineError(
@@ -219,7 +223,7 @@ export class TurbineClient {
                 );
             }
 
-            const responseJson = response.data;
+            const responseJson = await response.json();
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
@@ -262,7 +266,7 @@ export class TurbineClient {
                 );
             }
 
-            const responseJson = response.data;
+            const responseJson = await response.json();
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
@@ -301,7 +305,7 @@ export class TurbineClient {
                 );
             }
 
-            const responseJson = response.data;
+            const responseJson = await response.json();
 
             if (!responseJson || !responseJson.orderHash) {
                 throw new TurbineError(
@@ -429,7 +433,14 @@ export class TurbineClient {
      */
     async checkStatus(): Promise<boolean> {
         try {
-            await this.axiosInstance.get("/status");
+            const response = await this.fetchWithCookies("/status");
+            if (!response.ok) {
+                throw new TurbineError(
+                    "SERVICE_UNAVAILABLE",
+                    `Service returned status ${response.status}: ${response.statusText}`,
+                    "Turbine is currently unavailable. Try again later."
+                );
+            }
             return true;
         } catch (error: any) {
             if (error instanceof TurbineError) {
@@ -466,7 +477,7 @@ export class TurbineClient {
                 );
             }
 
-            const responseJson = response.data;
+            const responseJson = await response.json();
 
             if (!Array.isArray(responseJson)) {
                 throw new TurbineError(
@@ -586,7 +597,6 @@ export class TurbineClient {
     /**
      * Authenticate with the Turbine API using a wallet client.
      * First calls /nonce to get nonce, then calls /verify with the signed message.
-     * Cookies are automatically handled by axios.
      * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
     async authenticate(domain?: string): Promise<void> {
@@ -595,9 +605,9 @@ export class TurbineClient {
         const address = addresses[0];
 
         try {
-            // Get nonce - session cookies handled automatically by interceptors
-            const nonceResponse = await this.axiosInstance.get("/nonce");
-            const nonce: string = nonceResponse.data;
+            // Get nonce - session cookies handled automatically
+            const nonceResponse = await this.fetchWithCookies("/nonce");
+            const nonce: string = await nonceResponse.json();
 
             // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
@@ -618,10 +628,13 @@ export class TurbineClient {
             // Convert signature to structured format expected by Turbine API
             const structuredSignature = this.parseSignature(signature);
 
-            // Verify with signed message - session cookies handled automatically by interceptors
-            await this.axiosInstance.post("/verify", {
-                message,
-                signature: structuredSignature,
+            // Verify with signed message - session cookies handled automatically
+            await this.fetchWithCookies("/verify", {
+                method: "POST",
+                body: JSON.stringify({
+                    message,
+                    signature: structuredSignature,
+                }),
             });
         } catch (error: any) {
             throw toTurbineError(error);
@@ -630,13 +643,12 @@ export class TurbineClient {
 
     /**
      * Get the current authentication status for the authenticated user.
-     * Cookies are automatically handled by axios.
      * @returns A Promise that resolves to the authentication status
      */
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
         try {
-            const response = await this.axiosInstance.get("/me");
-            return response.data;
+            const response = await this.fetchWithCookies("/me");
+            return await response.json();
         } catch (error) {
             return { authenticated: false };
         }
@@ -644,11 +656,10 @@ export class TurbineClient {
 
     /**
      * Logout and clear the current session.
-     * Cookies are automatically handled by axios.
      */
     async logout(): Promise<void> {
         try {
-            await this.axiosInstance.post("/logout");
+            await this.fetchWithCookies("/logout", { method: "POST" });
         } catch (error) {
             // Server handles session cleanup, so we don't need to do anything locally
             throw toTurbineError(error);
@@ -667,16 +678,59 @@ export class TurbineClient {
      */
     private async ensureAuthenticated(): Promise<Address> {
         try {
-            const response = await this.axiosInstance.get("/me");
-            const authStatus = response.data;
+            const response = await this.fetchWithCookies("/me");
+            
+            // Check if response is ok, if not and it's 401, try to authenticate
+            if (!response.ok && response.status === 401) {
+                // Try to authenticate automatically
+                await this.authenticate();
+
+                // Check authentication status after authenticating
+                const retryResponse = await this.fetchWithCookies("/me");
+                if (!retryResponse.ok) {
+                    throw new TurbineError(
+                        "AUTHENTICATION_FAILED",
+                        `Authentication check failed with status ${retryResponse.status}`,
+                        "Unable to authenticate with your wallet. Please try again."
+                    );
+                }
+                const retryAuthStatus = await retryResponse.json();
+
+                if (retryAuthStatus.authenticated && retryAuthStatus.address) {
+                    return retryAuthStatus.address;
+                }
+                
+                throw new TurbineError(
+                    "AUTHENTICATION_FAILED",
+                    "Authentication succeeded but user is not authenticated",
+                    "Unable to authenticate with your wallet. Please try again."
+                );
+            }
+
+            if (!response.ok) {
+                throw new TurbineError(
+                    "AUTHENTICATION_ERROR",
+                    `Authentication check failed with status ${response.status}: ${response.statusText}`,
+                    "Unable to check authentication status. Please try again."
+                );
+            }
+
+            const authStatus = await response.json();
 
             if (!authStatus.authenticated || !authStatus.address) {
                 // Automatically authenticate the user
                 await this.authenticate();
 
                 // Check authentication status again after authenticating
-                const retryResponse = await this.axiosInstance.get("/me");
-                const retryAuthStatus = retryResponse.data;
+                const retryResponse = await this.fetchWithCookies("/me");
+                if (!retryResponse.ok) {
+                    throw new TurbineError(
+                        "AUTHENTICATION_FAILED",
+                        `Authentication check failed with status ${retryResponse.status}`,
+                        "Unable to authenticate with your wallet. Please try again."
+                    );
+                }
+                const retryAuthStatus = await retryResponse.json();
 
                 if (!retryAuthStatus.authenticated || !retryAuthStatus.address) {
                     throw new TurbineError(
@@ -696,22 +750,9 @@ export class TurbineClient {
                 throw error;
             }
 
-            // If /me endpoint is returning 401, try to authenticate automatically
-            if (error.response?.status === 401) {
-                await this.authenticate();
-
-                // Check authentication status after authenticating
-                const retryResponse = await this.axiosInstance.get("/me");
-                const retryAuthStatus = retryResponse.data;
-
-                if (retryAuthStatus.authenticated && retryAuthStatus.address) {
-                    return retryAuthStatus.address;
-                }
-            }
-
             throw new TurbineError(
                 "AUTHENTICATION_ERROR",
-                "Failed to ensure authentication",
+                `Failed to ensure authentication: ${error.message}`,
                 "Unable to authenticate with your wallet. Please try again."
             );
         }
@@ -719,10 +760,9 @@ export class TurbineClient {
 
     /**
      * Calls the Turbine API endpoint with the given payload.
-     * Cookies are automatically handled by axios.
      * @param payload The payload to send to the endpoint
      * @param endpoint The endpoint to call. One of "add_order", "add_orders", "add_liquidity", "remove_liquidity", "cancel_order", "order_statuses"
-     * @returns A Promise that resolves to an axios response
+     * @returns A Promise that resolves to a fetch response
      */
     protected async callApiEndpoint(
         payload:
@@ -735,8 +775,9 @@ export class TurbineClient {
             | GetOrderStatusesPayload,
         endpoint: string
     ) {
-        return await this.axiosInstance.post(`/${endpoint}`, payload, {
-            transformRequest: [(data: any) => JSON.stringify(data, bigIntReplacer)],
+        return await this.fetchWithCookies(`/${endpoint}`, {
+            method: "POST",
+            body: JSON.stringify(payload, bigIntReplacer),
         });
     }
 

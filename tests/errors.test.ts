@@ -1,5 +1,4 @@
 import { describe, expect, jest, it } from "@jest/globals";
-import axios from "axios";
 import {
     toTurbineError,
     TurbineError,
