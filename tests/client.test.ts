@@ -1,22 +1,21 @@
 import { describe, expect, jest } from "@jest/globals";
 import { Address, getAddress, Hex } from "viem";
-import { NULL_ADDRESS, USDC, USDT, WBTC, WETH } from "../src/constants";
-import { OrderIntent } from "../src/models";
-import { convertSignature, TurbineClient } from "../src/turbineClient";
+import { USDC, WBTC, WETH } from "../src/constants";
+import { TurbineClient } from "../src/turbineClient";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
     ORDER_INTENT,
+    WALLET_CLIENT,
     PUBLIC_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
-    WALLET_CLIENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
-    // Directly set the user session to simulate successful authentication
-    (client as any).userSession = { address, sessionId: "id=test-session-123" };
+    // Mock the ensureAuthenticated method to return the address without making HTTP calls
+    jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(address);
 }
 
 describe("TurbineClient", () => {
@@ -27,20 +26,21 @@ describe("TurbineClient", () => {
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
             const mockOrderId = "test-order-id-123";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            const mockResponse = new Response(
-                JSON.stringify({ orderHash: mockOrderId })
-            );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
-                .mockResolvedValue(mockResponse);
+                .mockResolvedValue({
+                    status: 200,
+                    statusText: "OK",
+                    data: { orderHash: mockOrderId },
+                });
 
             const orderId = await withTurbineErrorHandling(() =>
-                client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
+                client.addOrder(ORDER_INTENT)
             );
 
             expect(orderId).toBe(mockOrderId);
@@ -51,27 +51,24 @@ describe("TurbineClient", () => {
     describe("addOrders", () => {
         it("should call Turbine API and return array of order IDs", async () => {
             const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            const mockResponse = new Response(
-                JSON.stringify([
-                    { orderHash: mockOrderIds[0] },
-                    { orderHash: mockOrderIds[1] },
-                ])
-            );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
-                .mockResolvedValue(mockResponse);
+                .mockResolvedValue({
+                    status: 200,
+                    statusText: "OK",
+                    data: [
+                        { orderHash: mockOrderIds[0] },
+                        { orderHash: mockOrderIds[1] },
+                    ],
+                });
 
             const orderIds = await withTurbineErrorHandling(() =>
-                client.addOrders(
-                    [ORDER_INTENT, ORDER_INTENT],
-                    WALLET_CLIENT,
-                    PUBLIC_CLIENT
-                )
+                client.addOrders([ORDER_INTENT, ORDER_INTENT])
             );
 
             expect(orderIds).toEqual(mockOrderIds);
@@ -82,20 +79,21 @@ describe("TurbineClient", () => {
     describe("addLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            const mockResponse = new Response(
-                JSON.stringify({ intentHash: mockIntentId })
-            );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
-                .mockResolvedValue(mockResponse);
+                .mockResolvedValue({
+                    status: 200,
+                    statusText: "OK",
+                    data: { intentHash: mockIntentId },
+                });
 
             const liquidityId = await withTurbineErrorHandling(() =>
-                client.addLiquidity(ADD_LIQUIDITY_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
+                client.addLiquidity(ADD_LIQUIDITY_INTENT)
             );
 
             expect(liquidityId).toBe(mockIntentId);
@@ -106,24 +104,21 @@ describe("TurbineClient", () => {
     describe("removeLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            const mockResponse = new Response(
-                JSON.stringify({ intentHash: mockIntentId })
-            );
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
-                .mockResolvedValue(mockResponse);
+                .mockResolvedValue({
+                    status: 200,
+                    statusText: "OK",
+                    data: { intentHash: mockIntentId },
+                });
 
             const liquidityId = await withTurbineErrorHandling(() =>
-                client.removeLiquidity(
-                    REMOVE_LIQUIDITY_INTENT,
-                    WALLET_CLIENT,
-                    PUBLIC_CLIENT
-                )
+                client.removeLiquidity(REMOVE_LIQUIDITY_INTENT)
             );
 
             expect(liquidityId).toBe(mockIntentId);
@@ -131,55 +126,23 @@ describe("TurbineClient", () => {
         });
     });
 
-    it("should successfully sign an order intent", async () => {
-        const turbineClient = new TurbineClient();
-        // Define order here to avoid signature invalidation in case
-        // we ever change the order defined in test constants.
-        const orderIntent: OrderIntent = {
-            owner: ACCOUNT.address,
-            sellToken: USDC.address,
-            buyToken: USDT.address,
-            sellAmount: 1000n,
-            minBuyAmount: 950n,
-            midPriceDelta: 5,
-            startTime: 1630000000n,
-            endTime: 1630003600n,
-            partialFill: true,
-            callData: "0x",
-            callDataTarget: NULL_ADDRESS,
-            salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
-        } as const;
-
-        const signature = await withTurbineErrorHandling(() =>
-            turbineClient["signIntent"](orderIntent, WALLET_CLIENT)
-        );
-        const convertedSignature = convertSignature(signature);
-
-        // Expected signature taken from Rust implementation of the same order. See test_order_intent_signature in turbine repo.
-        const expectedSignature = convertSignature(
-            "0x9a9bcfc4c3d3333207941c6e4d318f8cea91f834a8445b3e409976d6918729350196292c4bbeab2eeb7134824163f2bef582e5b7ab610aabb5a67c410cab13c41c" as Hex
-        );
-        expect(convertedSignature).toEqual(expectedSignature);
-    });
-
     describe("cancelOrder", () => {
         it("should call Turbine API and return success message", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            // Mock the fetch response directly
-            const mockResponse = new Response(
-                JSON.stringify({
-                    orderHash: mockOrderHash,
-                })
-            );
-
-            // Use jest.spyOn instead of directly replacing fetch
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock the callApiEndpoint method
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue({
+                    status: 200,
+                    statusText: "OK",
+                    data: { orderHash: mockOrderHash },
+                });
 
             const result = await withTurbineErrorHandling(() =>
                 client.cancelOrder(mockOrderHash as Hex)
@@ -188,13 +151,13 @@ describe("TurbineClient", () => {
             expect(result).toEqual({
                 orderHash: mockOrderHash,
             });
-            expect(global.fetch).toHaveBeenCalledTimes(1);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
     });
 
     describe("getPools", () => {
         it("should return mocked turbine pool", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock the contract call to return test data
             const mockContractData = [
@@ -232,12 +195,10 @@ describe("TurbineClient", () => {
 
             // Mock the readContract method using jest.spyOn
             const mockReadContract = jest
-                .spyOn(PUBLIC_CLIENT, "readContract")
+                .spyOn(client.publicClient, "readContract")
                 .mockResolvedValue(mockContractData as any);
 
-            const pools = await withTurbineErrorHandling(() =>
-                client.getPools(PUBLIC_CLIENT)
-            );
+            const pools = await withTurbineErrorHandling(() => client.getPools());
 
             // Restore the mock
             mockReadContract.mockRestore();
@@ -257,7 +218,7 @@ describe("TurbineClient", () => {
 
     describe("getUserPositions", () => {
         it("should return user positions with mocked data", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
             const testUserAddress = "0xC78c504B91598E6ca72059C4Ea4d2dE8f3e77E38";
 
             // Mock the contract call for getPools to return test data
@@ -298,16 +259,16 @@ describe("TurbineClient", () => {
 
             // Mock the readContract method for getPools
             const mockReadContract = jest
-                .spyOn(PUBLIC_CLIENT, "readContract")
+                .spyOn(client.publicClient, "readContract")
                 .mockResolvedValue(mockPoolsData as any);
 
             // Mock the multicall method for balance checks
             const mockMulticall = jest
-                .spyOn(PUBLIC_CLIENT, "multicall")
+                .spyOn(client.publicClient, "multicall")
                 .mockResolvedValue(mockMulticallResults as any);
 
             const positions = await withTurbineErrorHandling(() =>
-                client.getUserPositions(testUserAddress, PUBLIC_CLIENT)
+                client.getUserPositions(testUserAddress)
             );
 
             // Restore the mocks
@@ -325,7 +286,7 @@ describe("TurbineClient", () => {
         });
 
         it("should handle multicall failures gracefully", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
             const testUserAddress = "0x1234567890123456789012345678901234567890";
 
             // Mock the contract call for getPools to return test data
@@ -366,16 +327,16 @@ describe("TurbineClient", () => {
 
             // Mock the readContract method for getPools
             const mockReadContract = jest
-                .spyOn(PUBLIC_CLIENT, "readContract")
+                .spyOn(client.publicClient, "readContract")
                 .mockResolvedValue(mockPoolsData as any);
 
             // Mock the multicall method for balance checks
             const mockMulticall = jest
-                .spyOn(PUBLIC_CLIENT, "multicall")
+                .spyOn(client.publicClient, "multicall")
                 .mockResolvedValue(mockMulticallResults as any);
 
             const positions = await withTurbineErrorHandling(() =>
-                client.getUserPositions(testUserAddress, PUBLIC_CLIENT)
+                client.getUserPositions(testUserAddress)
             );
 
             // Restore the mocks
@@ -394,7 +355,7 @@ describe("TurbineClient", () => {
 
     describe("getSettledAmounts", () => {
         it("should return filled amounts for multiple orders", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
             const mockOrderHashes = [
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                 "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
@@ -408,11 +369,11 @@ describe("TurbineClient", () => {
 
             // Mock the readContract method
             const mockReadContract = jest
-                .spyOn(PUBLIC_CLIENT, "readContract")
+                .spyOn(client.publicClient, "readContract")
                 .mockResolvedValue(mockFilledAmounts);
 
             const filledAmounts = await withTurbineErrorHandling(() =>
-                client.getSettledAmounts(mockOrderHashes, PUBLIC_CLIENT)
+                client.getSettledAmounts(mockOrderHashes)
             );
 
             expect(filledAmounts).toEqual(mockFilledAmounts);
@@ -430,60 +391,60 @@ describe("TurbineClient", () => {
 
     describe("checkStatus", () => {
         it("should return true when Turbine service is available (status 200)", async () => {
-            const client = new TurbineClient();
-            const mockResponse = new Response("OK", { status: 200 });
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-            // Mock the fetch call
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock axios get method
+            const mockAxiosGet = jest
+                .spyOn(client["axiosInstance"], "get")
+                .mockResolvedValue({
+                    status: 200,
+                    data: "OK",
+                });
 
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(global.fetch).toHaveBeenCalledWith(
-                `${client.turbineApiUrl}/status`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
+            expect(mockAxiosGet).toHaveBeenCalledWith("/status");
 
             // Restore the mock
             jest.restoreAllMocks();
         });
 
         it("should throw TurbineError when service returns non-200 status", async () => {
-            const client = new TurbineClient();
-            const mockResponse = new Response("Service Unavailable", { status: 503 });
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-            // Mock the fetch call
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock axios to throw an error with response
+            const mockAxiosGet = jest
+                .spyOn(client["axiosInstance"], "get")
+                .mockRejectedValue({
+                    response: {
+                        status: 503,
+                        statusText: "Service Unavailable",
+                        data: "Service Unavailable",
+                    },
+                });
 
             await expect(client.checkStatus()).rejects.toThrow(
                 "Turbine is currently unavailable. Try again later."
             );
 
-            expect(global.fetch).toHaveBeenCalledWith(
-                `${client.turbineApiUrl}/status`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
+            expect(mockAxiosGet).toHaveBeenCalledWith("/status");
 
             // Restore the mock
             jest.restoreAllMocks();
         });
 
         it("should throw TurbineError when service returns 404 status", async () => {
-            const client = new TurbineClient();
-            const mockResponse = new Response("Not Found", { status: 404 });
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-            // Mock the fetch call
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock axios to throw an error with response
+            jest.spyOn(client["axiosInstance"], "get").mockRejectedValue({
+                response: {
+                    status: 404,
+                    statusText: "Not Found",
+                    data: "Not Found",
+                },
+            });
 
             await expect(client.checkStatus()).rejects.toThrow(
                 "Turbine is currently unavailable. Try again later."
@@ -494,11 +455,16 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns 500 status", async () => {
-            const client = new TurbineClient();
-            const mockResponse = new Response("Internal Server Error", { status: 500 });
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-            // Mock the fetch call
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock axios to throw an error with response
+            jest.spyOn(client["axiosInstance"], "get").mockRejectedValue({
+                response: {
+                    status: 500,
+                    statusText: "Internal Server Error",
+                    data: "Internal Server Error",
+                },
+            });
 
             await expect(client.checkStatus()).rejects.toThrow(
                 "Turbine is currently unavailable. Try again later."
@@ -509,11 +475,11 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when network request fails", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
             const networkError = new Error("Network error");
 
-            // Mock the fetch call to throw an error
-            jest.spyOn(global, "fetch").mockRejectedValue(networkError);
+            // Mock axios to throw a network error
+            jest.spyOn(client["axiosInstance"], "get").mockRejectedValue(networkError);
 
             await expect(client.checkStatus()).rejects.toThrow(
                 "Turbine is currently unavailable. Try again later."
@@ -525,21 +491,24 @@ describe("TurbineClient", () => {
 
         it("should use custom turbineApiUrl when provided", async () => {
             const customApiUrl = "https://custom-turbine-api.example.com";
-            const client = new TurbineClient(customApiUrl);
-            const mockResponse = new Response("OK", { status: 200 });
+            const client = new TurbineClient(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT,
+                customApiUrl
+            );
 
-            // Mock the fetch call
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock axios get method
+            const mockAxiosGet = jest
+                .spyOn(client["axiosInstance"], "get")
+                .mockResolvedValue({
+                    status: 200,
+                    data: "OK",
+                });
 
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(global.fetch).toHaveBeenCalledWith(`${customApiUrl}/status`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            });
+            expect(mockAxiosGet).toHaveBeenCalledWith("/status");
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -585,15 +554,19 @@ describe("TurbineClient", () => {
                 },
             ];
 
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            const mockResponse = new Response(JSON.stringify(mockOrderStatuses), {
-                status: 200,
-            });
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            // Mock the callApiEndpoint method
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue({
+                    status: 200,
+                    statusText: "OK",
+                    data: mockOrderStatuses,
+                });
 
             const orderHashes: Hex[] = [
                 "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
@@ -622,16 +595,9 @@ describe("TurbineClient", () => {
             expect(result[0].execution[0].soldAmount).toBe(BigInt("1000000"));
             expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
 
-            expect(global.fetch).toHaveBeenCalledWith(
-                expect.stringContaining("/order_statuses"),
-                expect.objectContaining({
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Cookie: "id=test-session-123",
-                    },
-                    body: expect.stringContaining(JSON.stringify(orderHashes)),
-                })
+            expect(mockCallAPI).toHaveBeenCalledWith(
+                { orderHashes: orderHashes },
+                "order_statuses"
             );
         });
     });

@@ -5,20 +5,20 @@ import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
     ORDER_INTENT,
+    WALLET_CLIENT,
     PUBLIC_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
-    WALLET_CLIENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 
 describe("Integration test", () => {
     describe("Authentication Flow", () => {
         it("should successfully authenticate with /nonce and /verify endpoints", async () => {
-            const turbineClient = new TurbineClient();
+            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Test the complete authentication flow
             await withTurbineErrorHandling(async () => {
-                await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
+                await turbineClient.authenticate();
             });
 
             // If we reach here without error, authentication was successful
@@ -26,11 +26,11 @@ describe("Integration test", () => {
         });
 
         it("should return authentication status with /me endpoint", async () => {
-            const turbineClient = new TurbineClient();
+            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
-                await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
+                await turbineClient.authenticate();
             });
 
             // Test the /me endpoint
@@ -45,11 +45,11 @@ describe("Integration test", () => {
         });
 
         it("should handle logout properly", async () => {
-            const turbineClient = new TurbineClient();
+            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
-                await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
+                await turbineClient.authenticate();
             });
 
             // Verify we're authenticated
@@ -72,12 +72,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an order", async () => {
-        const turbineClient = new TurbineClient();
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
-        });
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: OrderIntent = {
             ...ORDER_INTENT,
@@ -85,19 +80,14 @@ describe("Integration test", () => {
         };
 
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.addOrder(intent, WALLET_CLIENT, PUBLIC_CLIENT)
+            turbineClient.addOrder(intent)
         );
 
         expect(result).toBeDefined();
     });
 
     it("should successfully submit an order array", async () => {
-        const turbineClient = new TurbineClient();
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
-        });
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intents: OrderIntent[] = Array.from({ length: 5 }, () => ({
             ...ORDER_INTENT,
@@ -105,7 +95,7 @@ describe("Integration test", () => {
         }));
 
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.addOrders(intents, WALLET_CLIENT, PUBLIC_CLIENT)
+            turbineClient.addOrders(intents)
         );
 
         result.forEach((response) => {
@@ -114,12 +104,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an add liquidity intent", async () => {
-        const turbineClient = new TurbineClient();
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
-        });
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: AddLiquidityIntent = {
             ...ADD_LIQUIDITY_INTENT,
@@ -127,19 +112,14 @@ describe("Integration test", () => {
         };
 
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.addLiquidity(intent, WALLET_CLIENT, PUBLIC_CLIENT)
+            turbineClient.addLiquidity(intent)
         );
 
         expect(result).toBeDefined();
     });
 
     it("should successfully submit a remove liquidity intent", async () => {
-        const turbineClient = new TurbineClient();
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
-        });
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: RemoveLiquidityIntent = {
             ...REMOVE_LIQUIDITY_INTENT,
@@ -147,19 +127,14 @@ describe("Integration test", () => {
         };
 
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.removeLiquidity(intent, WALLET_CLIENT, PUBLIC_CLIENT)
+            turbineClient.removeLiquidity(intent)
         );
 
         expect(result).toBeDefined();
     });
 
     it("should successfully cancel an order", async () => {
-        const turbineClient = new TurbineClient();
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
-        });
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         // First create an order to cancel
         const intent: OrderIntent = {
@@ -168,7 +143,7 @@ describe("Integration test", () => {
         };
 
         const orderHash = await withTurbineErrorHandling(() =>
-            turbineClient.addOrder(intent, WALLET_CLIENT, PUBLIC_CLIENT)
+            turbineClient.addOrder(intent)
         );
 
         // Now cancel the order
@@ -181,11 +156,9 @@ describe("Integration test", () => {
     });
 
     it("should successfully get registered pools", async () => {
-        const turbineClient = new TurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-        const pools = await withTurbineErrorHandling(() =>
-            turbineClient.getPools(PUBLIC_CLIENT)
-        );
+        const pools = await withTurbineErrorHandling(() => turbineClient.getPools());
 
         expect(pools).toBeDefined();
         expect(Array.isArray(pools)).toBe(true);
@@ -204,10 +177,10 @@ describe("Integration test", () => {
     });
 
     it("should successfully get user positions", async () => {
-        const turbineClient = new TurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const positions = await withTurbineErrorHandling(() =>
-            turbineClient.getUserPositions(ACCOUNT.address, PUBLIC_CLIENT)
+            turbineClient.getUserPositions(ACCOUNT.address)
         );
 
         expect(positions).toBeDefined();
@@ -215,12 +188,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully get order statuses", async () => {
-        const turbineClient = new TurbineClient();
-
-        // Authenticate first
-        await withTurbineErrorHandling(async () => {
-            await turbineClient.authenticate(WALLET_CLIENT, ACCOUNT);
-        });
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         // First create an order to get its status
         const intent: OrderIntent = {
@@ -229,7 +197,7 @@ describe("Integration test", () => {
         };
 
         const orderHash = await withTurbineErrorHandling(() =>
-            turbineClient.addOrder(intent, WALLET_CLIENT, PUBLIC_CLIENT)
+            turbineClient.addOrder(intent)
         );
 
         // Now get the order status

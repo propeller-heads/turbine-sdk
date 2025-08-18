@@ -23,7 +23,7 @@ async function main() {
     // Set up clients
     const account = privateKeyToAccount(PRIVATE_KEY);
     const walletClient = createWalletClient({
-        account,
+        account: account,
         chain: mainnet,
         transport: http(RPC_URL),
     });
@@ -32,7 +32,11 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = new TurbineClient(TURBINE_API_URL);
+    const turbineClient = new TurbineClient(
+        walletClient,
+        publicClient,
+        TURBINE_API_URL
+    );
 
     console.log(`📝 Account: ${account.address}`);
     console.log(`🔗 Turbine API: ${TURBINE_API_URL}`);
@@ -94,11 +98,7 @@ async function main() {
         // Submit orders
         console.log(`\n🔄 Submitting ${orders.length} orders to Turbine...`);
 
-        const orderHashes = await turbineClient.addOrders(
-            orders,
-            walletClient,
-            publicClient
-        );
+        const orderHashes = await turbineClient.addOrders(orders);
 
         console.log("\n✅ Orders submitted successfully!");
         orderHashes.forEach((hash, index) => {

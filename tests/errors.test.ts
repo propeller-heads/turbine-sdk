@@ -1,11 +1,12 @@
 import { describe, expect, jest, it } from "@jest/globals";
+import axios from "axios";
 import {
     toTurbineError,
     TurbineError,
     unsuccessfulResponseToTurbineError,
 } from "../src/errorHandling";
 import { TurbineClient } from "../src/turbineClient";
-import { ORDER_INTENT, PUBLIC_CLIENT, WALLET_CLIENT } from "./constants";
+import { ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT } from "./constants";
 import { Hex } from "viem";
 
 describe("TurbineError", () => {
@@ -146,7 +147,7 @@ describe("unsuccessfulResponseToTurbineError", () => {
 describe("TurbineClient Error Handling", () => {
     describe("addOrder", () => {
         it("should throw TurbineError in case of unexpected API response in json", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
@@ -155,31 +156,25 @@ describe("TurbineClient Error Handling", () => {
                 mockResponse
             );
 
-            await expect(
-                client.addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
-            ).rejects.toThrow(TurbineError);
+            await expect(client.addOrder(ORDER_INTENT)).rejects.toThrow(TurbineError);
 
-            await client
-                .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((error) => {
-                    expect(error).toBeInstanceOf(TurbineError);
-                    expect(error.code).toBeTruthy();
-                    expect(error.originalMessage).toBeTruthy();
-                    expect(error.message).toBeTruthy(); // user-friendly message
-                });
+            await client.addOrder(ORDER_INTENT).catch((error) => {
+                expect(error).toBeInstanceOf(TurbineError);
+                expect(error.code).toBeTruthy();
+                expect(error.originalMessage).toBeTruthy();
+                expect(error.message).toBeTruthy(); // user-friendly message
+            });
         });
 
         it("should throw TurbineError in case of malformed API response", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response("happy chrysler");
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
 
-            const error = await client
-                .addOrder(ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((e) => e);
+            const error = await client.addOrder(ORDER_INTENT).catch((e) => e);
 
             expect(error).toBeInstanceOf(TurbineError);
             expect(error.code).toBeTruthy();
@@ -190,7 +185,7 @@ describe("TurbineClient Error Handling", () => {
 
     describe("addOrders", () => {
         it("should throw TurbineError in case of unexpected API response in json", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response(
                 JSON.stringify({ message: "something went wrong" })
@@ -199,31 +194,27 @@ describe("TurbineClient Error Handling", () => {
                 mockResponse
             );
 
-            await expect(
-                client.addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
-            ).rejects.toThrow(TurbineError);
+            await expect(client.addOrders([ORDER_INTENT])).rejects.toThrow(
+                TurbineError
+            );
 
-            await client
-                .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((error) => {
-                    expect(error).toBeInstanceOf(TurbineError);
-                    expect(error.code).toBeTruthy();
-                    expect(error.originalMessage).toBeTruthy();
-                    expect(error.message).toBeTruthy();
-                });
+            await client.addOrders([ORDER_INTENT]).catch((error) => {
+                expect(error).toBeInstanceOf(TurbineError);
+                expect(error.code).toBeTruthy();
+                expect(error.originalMessage).toBeTruthy();
+                expect(error.message).toBeTruthy();
+            });
         });
 
         it("should throw TurbineError in case of malformed API response", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response("happy chrysler");
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
 
-            const error = await client
-                .addOrders([ORDER_INTENT], WALLET_CLIENT, PUBLIC_CLIENT)
-                .catch((e) => e);
+            const error = await client.addOrders([ORDER_INTENT]).catch((e) => e);
 
             expect(error).toBeInstanceOf(TurbineError);
             expect(error.code).toBeTruthy();
@@ -232,18 +223,16 @@ describe("TurbineClient Error Handling", () => {
         });
 
         it("should throw TurbineError for empty array of orders", async () => {
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             const mockResponse = new Response(JSON.stringify([]));
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
 
-            await expect(
-                client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT)
-            ).rejects.toThrow(TurbineError);
+            await expect(client.addOrders([])).rejects.toThrow(TurbineError);
 
-            await client.addOrders([], WALLET_CLIENT, PUBLIC_CLIENT).catch((error) => {
+            await client.addOrders([]).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
                 expect(error.code).toBeTruthy();
                 expect(error.originalMessage).toBeTruthy();
@@ -256,13 +245,22 @@ describe("TurbineClient Error Handling", () => {
         it("should throw TurbineError in case of unexpected API response in json", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock the response
-            const mockResponse = new Response(
-                JSON.stringify({ error: "something went wrong" })
+            const mockResponse = {
+                ok: true,
+                status: 200,
+                statusText: "OK",
+                text: async () => JSON.stringify({ error: "something went wrong" }),
+                json: async () => ({ error: "something went wrong" }),
+                headers: { get: () => null },
+            } as unknown as Response;
+
+            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
             );
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
 
             await expect(client.cancelOrder(mockOrderHash as Hex)).rejects.toThrow(
                 TurbineError
@@ -279,11 +277,22 @@ describe("TurbineClient Error Handling", () => {
         it("should throw TurbineError in case of malformed API response", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock with invalid JSON
-            const mockResponse = new Response("happy chrysler");
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+            const mockResponse = {
+                ok: true,
+                status: 200,
+                statusText: "OK",
+                text: async () => "happy chrysler",
+                json: async () => "happy chrysler",
+                headers: { get: () => null },
+            } as unknown as Response;
+
+            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             const error = await client
                 .cancelOrder(mockOrderHash as Hex)
@@ -298,14 +307,22 @@ describe("TurbineClient Error Handling", () => {
         it("should throw TurbineError when API returns non-ok response", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient();
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock a failed response
-            const mockResponse = new Response("Order not found", {
+            const mockResponse = {
+                ok: false,
                 status: 404,
                 statusText: "Not Found",
-            });
-            jest.spyOn(global, "fetch").mockResolvedValue(mockResponse);
+                text: async () => "Order not found",
+                json: async () => "Order not found",
+                headers: { get: () => null },
+            } as unknown as Response;
+
+            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
 
             await expect(client.cancelOrder(mockOrderHash as Hex)).rejects.toThrow(
                 TurbineError
