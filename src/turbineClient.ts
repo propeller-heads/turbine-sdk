@@ -57,6 +57,11 @@ export class TurbineClient {
      * Extracts and stores session cookies from fetch response headers
      */
     private extractAndStoreCookies(response: Response): void {
+        // Only extract cookies in Node.js environment
+        if (typeof window !== "undefined") {
+            return;
+        }
+
         const setCookieHeaders = response.headers.get("set-cookie");
         if (setCookieHeaders) {
             // Parse multiple cookies if present
@@ -76,7 +81,7 @@ export class TurbineClient {
             ...additionalHeaders,
         };
 
-        if (this.sessionCookies.length > 0) {
+        if (typeof window === "undefined" && this.sessionCookies.length > 0) {
             headers["Cookie"] = this.sessionCookies.join("; ");
         }
 
@@ -85,6 +90,8 @@ export class TurbineClient {
 
     /**
      * Makes a fetch request with automatic cookie handling
+     * In browsers: relies on credentials: "include" for automatic cookie handling
+     * In Node.js: manually manages cookies via extractAndStoreCookies
      */
     private async fetchWithCookies(
         endpoint: string,
@@ -99,8 +106,10 @@ export class TurbineClient {
             credentials: "include",
         });
 
-        // Extract and store cookies from response
-        this.extractAndStoreCookies(response);
+        // Only extract cookies in Node.js environment
+        if (typeof window === "undefined") {
+            this.extractAndStoreCookies(response);
+        }
 
         return response;
     }
