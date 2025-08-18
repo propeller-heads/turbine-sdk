@@ -52,6 +52,10 @@ export class TurbineClient {
         this.turbineLiquidityRouterContract =
             turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
 
+        console.log("Axios create:", axios.create);
+        const localAxios = axios.create();
+        console.log("Local Axios:", localAxios);
+
         // Create axios instance with cookie handling
         this.axiosInstance = axios.create({
             baseURL: this.turbineApiUrl,
