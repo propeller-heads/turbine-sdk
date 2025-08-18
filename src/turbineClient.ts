@@ -680,73 +680,36 @@ export class TurbineClient {
     private async ensureAuthenticated(): Promise<Address> {
         try {
             const response = await this.fetchWithCookies("/me");
-            
-            // Check if response is ok, if not and it's 401, try to authenticate
-            if (!response.ok && response.status === 401) {
-                // Try to authenticate automatically
-                await this.authenticate();
 
-                // Check authentication status after authenticating
-                const retryResponse = await this.fetchWithCookies("/me");
-                if (!retryResponse.ok) {
-                    throw new TurbineError(
-                        "AUTHENTICATION_FAILED",
-                        `Authentication check failed with status ${retryResponse.status}`,
-                        "Unable to authenticate with your wallet. Please try again."
-                    );
+            if (response.ok) {
+                const authStatus = await response.json();
+                if (authStatus.authenticated && authStatus.address) {
+                    return authStatus.address;
                 }
-                const retryAuthStatus = await retryResponse.json();
+            }
 
-                if (retryAuthStatus.authenticated && retryAuthStatus.address) {
-                    return retryAuthStatus.address;
-                }
-                
+            await this.authenticate();
+
+            const retryResponse = await this.fetchWithCookies("/me");
+            if (!retryResponse.ok) {
                 throw new TurbineError(
                     "AUTHENTICATION_FAILED",
-                    "Authentication succeeded but user is not authenticated",
+                    `Authentication check failed with status ${retryResponse.status}`,
+                    "Unable to authenticate with your wallet. Please try again."
+                );
+            }
+            const retryAuthStatus = await retryResponse.json();
+
+            if (!retryAuthStatus.authenticated || !retryAuthStatus.address) {
+                throw new TurbineError(
+                    "AUTHENTICATION_FAILED",
+                    "Authentication failed after authentication attempt",
                     "Unable to authenticate with your wallet. Please try again."
                 );
             }
 
-            if (!response.ok) {
-                throw new TurbineError(
-                    "AUTHENTICATION_ERROR",
-                    `Authentication check failed with status ${response.status}: ${response.statusText}`,
-                    "Unable to check authentication status. Please try again."
-                );
-            }
-
-            const authStatus = await response.json();
-
-            if (!authStatus.authenticated || !authStatus.address) {
-                // Automatically authenticate the user
-                await this.authenticate();
-
-                // Check authentication status again after authenticating
-                const retryResponse = await this.fetchWithCookies("/me");
-                if (!retryResponse.ok) {
-                    throw new TurbineError(
-                        "AUTHENTICATION_FAILED",
-                        `Authentication check failed with status ${retryResponse.status}`,
-                        "Unable to authenticate with your wallet. Please try again."
-                    );
-                }
-                const retryAuthStatus = await retryResponse.json();
-
-                if (!retryAuthStatus.authenticated || !retryAuthStatus.address) {
-                    throw new TurbineError(
-                        "AUTHENTICATION_FAILED",
-                        "Authentication failed after automatic authentication attempt",
-                        "Unable to authenticate with your wallet. Please try again."
-                    );
-                }
-
-                return retryAuthStatus.address;
-            }
-
-            return authStatus.address;
+            return retryAuthStatus.address;
         } catch (error: any) {
-            // If the error is already a TurbineError from authentication, re-throw it
             if (error instanceof TurbineError) {
                 throw error;
             }
