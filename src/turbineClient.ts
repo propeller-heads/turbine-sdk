@@ -96,6 +96,7 @@ export class TurbineClient {
         const response = await fetch(url, {
             ...options,
             headers,
+            credentials: "include",
         });
 
         // Extract and store cookies from response
