@@ -60,13 +60,16 @@ describe("TurbineClient", () => {
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(
-                    new Response(JSON.stringify([
-                        { orderHash: mockOrderIds[0] },
-                        { orderHash: mockOrderIds[1] },
-                    ]), {
-                        status: 200,
-                        statusText: "OK",
-                    })
+                    new Response(
+                        JSON.stringify([
+                            { orderHash: mockOrderIds[0] },
+                            { orderHash: mockOrderIds[1] },
+                        ]),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
                 );
 
             const orderIds = await withTurbineErrorHandling(() =>
