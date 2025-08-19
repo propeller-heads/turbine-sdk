@@ -34,7 +34,7 @@ export class TurbineClient {
     public turbineLiquidityRouterContract: Address;
     public walletClient: WalletClient;
     public publicClient: PublicClient;
-    private sessionCookies: string[] = [];
+    private sessionId?: string;
 
     constructor(
         walletClient: WalletClient,
@@ -54,7 +54,7 @@ export class TurbineClient {
     /* PRIVATE HELPER METHODS */
 
     /**
-     * Extracts and stores session cookies from fetch response headers
+     * Extracts and stores session ID from fetch response headers
      */
     private extractAndStoreCookies(response: Response): void {
         // Only extract cookies in Node.js environment
@@ -68,12 +68,18 @@ export class TurbineClient {
             const cookies = setCookieHeaders
                 .split(",")
                 .map((cookie) => cookie.trim().split(";")[0]);
-            this.sessionCookies = [...this.sessionCookies, ...cookies];
+
+            for (const cookie of cookies) {
+                if (cookie.startsWith("id=")) {
+                    this.sessionId = cookie.substring(3);
+                    break;
+                }
+            }
         }
     }
 
     /**
-     * Creates headers with stored session cookies
+     * Creates headers with stored session ID
      */
     private createHeaders(additionalHeaders: Record<string, string> = {}): HeadersInit {
         const headers: Record<string, string> = {
@@ -81,8 +87,8 @@ export class TurbineClient {
             ...additionalHeaders,
         };
 
-        if (typeof window === "undefined" && this.sessionCookies.length > 0) {
-            headers["Cookie"] = this.sessionCookies.join("; ");
+        if (typeof window === "undefined" && this.sessionId) {
+            headers["Cookie"] = `id=${this.sessionId}`;
         }
 
         return headers;
