@@ -1,7 +1,13 @@
 import { describe, expect, jest } from "@jest/globals";
 import { Address, getAddress, Hex } from "viem";
 import { USDC, WBTC, WETH } from "../src/constants";
-import { TurbineClient } from "../src/turbineClient";
+import {
+    TurbineClient,
+    getPools,
+    getSettledAmounts,
+    getUserPositions,
+    checkStatus,
+} from "../src/turbineClient";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -164,7 +170,7 @@ describe("TurbineClient", () => {
     });
 
     describe("getPools", () => {
-        it("should return mocked turbine pool", async () => {
+        it("should return mocked turbine pool (client method)", async () => {
             const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock the contract call to return test data
@@ -222,12 +228,69 @@ describe("TurbineClient", () => {
             expect(pools[0].stats.weeklySellVolumeToken0).toEqual(0n);
             expect(pools[0].stats.weeklySellVolumeToken1).toEqual(0n);
         });
+
+        it("should return mocked turbine pool (standalone function)", async () => {
+            // Mock the contract call to return test data
+            const mockContractData = [
+                {
+                    poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 30,
+                    lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WETH.toOnchainAmount(500),
+                    liquidity: BigInt("1000000000000000000000"),
+                },
+                {
+                    poolId: "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 50,
+                    lpToken: "0x1234567890123456789012345678901234567890",
+                    reserve0: USDC.toOnchainAmount(2_000_000),
+                    reserve1: WETH.toOnchainAmount(1_000),
+                    liquidity: BigInt("2000000000000000000000"),
+                },
+                {
+                    poolId: "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
+                    token0: USDC.address,
+                    token1: WBTC.address,
+                    fee: 10,
+                    lpToken: "0x9876543210987654321098765432109876543210",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WBTC.toOnchainAmount(10),
+                    liquidity: BigInt("500000000000000000000"),
+                },
+            ];
+
+            // Mock the readContract method using jest.spyOn
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockContractData as any);
+
+            const pools = await withTurbineErrorHandling(() => getPools(PUBLIC_CLIENT));
+
+            // Restore the mock
+            mockReadContract.mockRestore();
+
+            expect(pools).toHaveLength(3);
+            expect(pools[0].metadata.token0).toEqual(mockContractData[0].token0);
+            expect(pools[0].metadata.token1).toEqual(mockContractData[0].token1);
+            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee / 100);
+            expect(pools[0].metadata.lpToken).toEqual(mockContractData[0].lpToken);
+            expect(pools[0].state.reserve0).toEqual(mockContractData[0].reserve0);
+            expect(pools[0].state.reserve1).toEqual(mockContractData[0].reserve1);
+            expect(pools[0].state.liquidity).toEqual(mockContractData[0].liquidity);
+            expect(pools[0].stats.weeklySellVolumeToken0).toEqual(0n);
+            expect(pools[0].stats.weeklySellVolumeToken1).toEqual(0n);
+        });
     });
 
     describe("getUserPositions", () => {
-        it("should return user positions with mocked data", async () => {
+        it("should return user positions with mocked data (client method)", async () => {
             const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
-            const testUserAddress = "0xC78c504B91598E6ca72059C4Ea4d2dE8f3e77E38";
+            const testUserAddress = ACCOUNT.address;
 
             // Mock the contract call for getPools to return test data
             const mockPoolsData = [
@@ -276,7 +339,74 @@ describe("TurbineClient", () => {
                 .mockResolvedValue(mockMulticallResults as any);
 
             const positions = await withTurbineErrorHandling(() =>
-                client.getUserPositions(testUserAddress)
+                client.getUserPositions()
+            );
+
+            // Restore the mocks
+            mockReadContract.mockRestore();
+            mockMulticall.mockRestore();
+
+            // Should only return positions where balance > 0
+            expect(positions).toHaveLength(1);
+            expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[0].token0);
+            expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[0].token1);
+            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee / 100);
+            expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[0].lpToken);
+            expect(positions[0].userAddress).toEqual(getAddress(testUserAddress));
+            expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[0].result);
+        });
+
+        it("should return user positions with mocked data (standalone function)", async () => {
+            const testUserAddress = ACCOUNT.address;
+
+            // Mock the contract call for getPools to return test data
+            const mockPoolsData = [
+                {
+                    poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 3000,
+                    lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
+                    reserve0: USDC.toOnchainAmount(1_000_000),
+                    reserve1: WETH.toOnchainAmount(500),
+                    liquidity: BigInt("1000000000000000000000"),
+                },
+                {
+                    poolId: "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
+                    token0: USDC.address,
+                    token1: WBTC.address,
+                    fee: 50,
+                    lpToken: "0x1234567890123456789012345678901234567890",
+                    reserve0: USDC.toOnchainAmount(2_000_000),
+                    reserve1: WBTC.toOnchainAmount(10),
+                    liquidity: BigInt("2000000000000000000000"),
+                },
+            ];
+
+            // Mock multicall results - user has balance in first pool but not second
+            const mockMulticallResults = [
+                {
+                    status: "success" as const,
+                    result: BigInt("100000000000000000000"), // 1 LP token
+                },
+                {
+                    status: "success" as const,
+                    result: BigInt("0"), // 0 LP tokens
+                },
+            ];
+
+            // Mock the readContract method for getPools
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockPoolsData as any);
+
+            // Mock the multicall method for balance checks
+            const mockMulticall = jest
+                .spyOn(PUBLIC_CLIENT, "multicall")
+                .mockResolvedValue(mockMulticallResults as any);
+
+            const positions = await withTurbineErrorHandling(() =>
+                getUserPositions(testUserAddress as Address, PUBLIC_CLIENT)
             );
 
             // Restore the mocks
@@ -295,7 +425,7 @@ describe("TurbineClient", () => {
 
         it("should handle multicall failures gracefully", async () => {
             const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
-            const testUserAddress = "0x1234567890123456789012345678901234567890";
+            const testUserAddress = ACCOUNT.address;
 
             // Mock the contract call for getPools to return test data
             const mockPoolsData = [
@@ -344,7 +474,7 @@ describe("TurbineClient", () => {
                 .mockResolvedValue(mockMulticallResults as any);
 
             const positions = await withTurbineErrorHandling(() =>
-                client.getUserPositions(testUserAddress)
+                client.getUserPositions()
             );
 
             // Restore the mocks
@@ -362,7 +492,7 @@ describe("TurbineClient", () => {
     });
 
     describe("getSettledAmounts", () => {
-        it("should return filled amounts for multiple orders", async () => {
+        it("should return filled amounts for multiple orders (client method)", async () => {
             const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
             const mockOrderHashes = [
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
@@ -395,10 +525,46 @@ describe("TurbineClient", () => {
             // Restore the mock
             mockReadContract.mockRestore();
         });
+
+        it("should return filled amounts for multiple orders (standalone function)", async () => {
+            const mockOrderHashes = [
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
+                "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
+            ];
+            const mockFilledAmounts = [
+                BigInt("1000000000000000000"), // 1 token
+                BigInt("500000000000000000"), // 0.5 token
+                BigInt("0"), // 0 token
+            ] as const;
+
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const settlerContract = client.settlerContract;
+
+            // Mock the readContract method
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockFilledAmounts);
+
+            const filledAmounts = await withTurbineErrorHandling(() =>
+                getSettledAmounts(PUBLIC_CLIENT, settlerContract, mockOrderHashes)
+            );
+
+            expect(filledAmounts).toEqual(mockFilledAmounts);
+            expect(mockReadContract).toHaveBeenCalledWith({
+                address: settlerContract,
+                abi: expect.any(Array),
+                functionName: "getSettledAmounts",
+                args: [mockOrderHashes],
+            });
+
+            // Restore the mock
+            mockReadContract.mockRestore();
+        });
     });
 
     describe("checkStatus", () => {
-        it("should return true when Turbine service is available (status 200)", async () => {
+        it("should return true when Turbine service is available (status 200) - client method", async () => {
             const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Mock fetch
@@ -413,10 +579,31 @@ describe("TurbineClient", () => {
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(
-                expect.stringContaining("/status"),
-                expect.any(Object)
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/status"));
+
+            // Restore the mock
+            jest.restoreAllMocks();
+        });
+
+        it("should return true when Turbine service is available (status 200) - standalone function", async () => {
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineApiUrl = client.turbineApiUrl;
+
+            // Mock fetch
+            const mockFetch = jest.spyOn(global, "fetch").mockResolvedValue({
+                ok: true,
+                status: 200,
+                headers: new Headers(),
+                json: async () => "OK",
+                text: async () => "OK",
+            } as Response);
+
+            const result = await withTurbineErrorHandling(() =>
+                checkStatus(turbineApiUrl)
             );
+
+            expect(result).toBe(true);
+            expect(mockFetch).toHaveBeenCalledWith(`${turbineApiUrl}/status`);
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -434,10 +621,7 @@ describe("TurbineClient", () => {
                 "Turbine is currently unavailable. Try again later."
             );
 
-            expect(mockFetch).toHaveBeenCalledWith(
-                expect.stringContaining("/status"),
-                expect.any(Object)
-            );
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/status"));
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -520,10 +704,7 @@ describe("TurbineClient", () => {
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(
-                `${customApiUrl}/status`,
-                expect.any(Object)
-            );
+            expect(mockFetch).toHaveBeenCalledWith(`${customApiUrl}/status`);
 
             // Restore the mock
             jest.restoreAllMocks();
