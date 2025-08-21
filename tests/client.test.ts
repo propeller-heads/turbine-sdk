@@ -1,7 +1,13 @@
 import { describe, expect, jest } from "@jest/globals";
 import { Address, getAddress, Hex } from "viem";
 import { USDC, WBTC, WETH } from "../src/constants";
-import { TurbineClient, getPools, getSettledAmounts, getUserPositions, checkStatus } from "../src/turbineClient";
+import {
+    TurbineClient,
+    getPools,
+    getSettledAmounts,
+    getUserPositions,
+    checkStatus,
+} from "../src/turbineClient";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -573,9 +579,7 @@ describe("TurbineClient", () => {
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(
-                expect.stringContaining("/status")
-            );
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/status"));
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -594,12 +598,12 @@ describe("TurbineClient", () => {
                 text: async () => "OK",
             } as Response);
 
-            const result = await withTurbineErrorHandling(() => checkStatus(turbineApiUrl));
+            const result = await withTurbineErrorHandling(() =>
+                checkStatus(turbineApiUrl)
+            );
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(
-                `${turbineApiUrl}/status`
-            );
+            expect(mockFetch).toHaveBeenCalledWith(`${turbineApiUrl}/status`);
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -617,9 +621,7 @@ describe("TurbineClient", () => {
                 "Turbine is currently unavailable. Try again later."
             );
 
-            expect(mockFetch).toHaveBeenCalledWith(
-                expect.stringContaining("/status")
-            );
+            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/status"));
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -702,9 +704,7 @@ describe("TurbineClient", () => {
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(
-                `${customApiUrl}/status`
-            );
+            expect(mockFetch).toHaveBeenCalledWith(`${customApiUrl}/status`);
 
             // Restore the mock
             jest.restoreAllMocks();

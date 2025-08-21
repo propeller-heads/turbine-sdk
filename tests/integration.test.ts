@@ -1,6 +1,13 @@
 import { Hex } from "viem";
 import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
-import { getRandomSalt, TurbineClient, getPools, getSettledAmounts, getUserPositions, checkStatus } from "../src/turbineClient";
+import {
+    getRandomSalt,
+    TurbineClient,
+    getPools,
+    getSettledAmounts,
+    getUserPositions,
+    checkStatus,
+} from "../src/turbineClient";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -254,7 +261,9 @@ describe("Integration test", () => {
 
         // Now get the settled amount using the standalone function
         const result = await withTurbineErrorHandling(() =>
-            getSettledAmounts(PUBLIC_CLIENT, turbineClient.settlerContract, [orderHash as string])
+            getSettledAmounts(PUBLIC_CLIENT, turbineClient.settlerContract, [
+                orderHash as string,
+            ])
         );
 
         expect(result).toBeDefined();
