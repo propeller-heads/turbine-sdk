@@ -122,6 +122,8 @@ export class TurbineClient {
 
     /* PUBLIC METHODS */
 
+    /* AUTHENTICATED METHODS */
+
     /**
      * Add an order to the Turbine API.
      * @param intent An `OrderIntent` object containing the details of the trade to be executed
@@ -338,139 +340,6 @@ export class TurbineClient {
     }
 
     /**
-     * Get the registered pools from the Turbine Hook contract.
-     * @param publicClient The public client used for blockchain interactions
-     * @returns A Promise that resolves to an array of `TurbinePool` objects.
-     */
-    async getPools(): Promise<TurbinePool[]> {
-        try {
-            const poolsData = await this.publicClient.readContract({
-                address: TURBINE_HOOK_CONTRACT,
-                abi: turbineHookABI,
-                functionName: "getRegisteredPools",
-            });
-
-            return poolsData.map((poolData: any) => ({
-                metadata: {
-                    token0: getAddress(poolData.token0),
-                    token1: getAddress(poolData.token1),
-                    fee: poolData.fee / 100, // original fee is in hundredths of basis points
-                    lpToken: getAddress(poolData.lpToken),
-                },
-                state: {
-                    reserve0: BigInt(poolData.reserve0),
-                    reserve1: BigInt(poolData.reserve1),
-                    liquidity: BigInt(poolData.liquidity),
-                },
-                stats: {
-                    // Note: Weekly volume data is not available from the contract
-                    // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
-                    weeklySellVolumeToken0: 0n,
-                    weeklySellVolumeToken1: 0n,
-                },
-            }));
-        } catch (error) {
-            throw toTurbineError(error);
-        }
-    }
-
-    /**
-     * Get the currently settled amounts for multiple orders by their hashes.
-     * @param orderIds An array of order hashes to check
-     * @param publicClient The public client used for blockchain interactions
-     * @returns A Promise that resolves to an array of filled amounts
-     */
-    async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
-        try {
-            return await this.publicClient.readContract({
-                address: this.settlerContract,
-                abi: settledAmountsABI,
-                functionName: "getSettledAmounts",
-                args: [orderIds as Hex[]],
-            });
-        } catch (error) {
-            throw toTurbineError(error);
-        }
-    }
-
-    /**
-     * Get user positions for all registered pools.
-     * @param userAddress The address of the user to get positions for
-     * @param publicClient The public client used for blockchain interactions
-     * @returns A Promise that resolves to an array of `UserPosition` objects.
-     */
-    async getUserPositions(userAddress: Address): Promise<UserPosition[]> {
-        try {
-            const pools = await this.getPools();
-            if (pools.length === 0) {
-                return [];
-            }
-
-            // Execute all balance checks in a single multicall
-            const multicallContracts = pools.map((pool) => ({
-                address: pool.metadata.lpToken,
-                abi: balanceOfABI,
-                functionName: "balanceOf" as const,
-                args: [userAddress],
-            }));
-            const balanceResults = await this.publicClient.multicall({
-                contracts: multicallContracts,
-            });
-
-            // Process results and create user positions
-            const userPositions: UserPosition[] = [];
-            for (let i = 0; i < pools.length; i++) {
-                const pool = pools[i];
-                const balanceResult = balanceResults[i];
-
-                if (balanceResult.status === "success" && balanceResult.result > 0n) {
-                    userPositions.push({
-                        poolMetadata: pool.metadata,
-                        userAddress: getAddress(userAddress),
-                        lpTokenBalance: balanceResult.result as bigint,
-                    });
-                } else if (balanceResult.status === "failure") {
-                    // Log warning for failed balance check but continue processing other pools
-                    console.warn(
-                        `Failed to get balance for LP token ${pool.metadata.lpToken}: ${balanceResult.error?.message || "Unknown error"}`
-                    );
-                }
-            }
-
-            return userPositions;
-        } catch (error) {
-            throw toTurbineError(error);
-        }
-    }
-
-    /**
-     * Check if the Turbine service is available by querying the /status endpoint.
-     * @returns A Promise that resolves to true if the service is available, or throws an error if unavailable.
-     */
-    async checkStatus(): Promise<boolean> {
-        try {
-            const response = await this.fetchWithCookies("/status");
-            if (!response.ok) {
-                throw new TurbineError(
-                    "SERVICE_UNAVAILABLE",
-                    `Service returned status ${response.status}: ${response.statusText}`,
-                    "Turbine is currently unavailable. Try again later."
-                );
-            }
-            return true;
-        } catch (error: any) {
-            if (error instanceof TurbineError) {
-                throw error;
-            }
-            throw new TurbineError(
-                "SERVICE_UNAVAILABLE",
-                `Failed to connect to Turbine service: ${error.message}`,
-                "Turbine is currently unavailable. Try again later."
-            );
-        }
-    }
-
-    /**
      * Get the status of multiple orders by their hashes.
      * @param orderHashes An array of order hashes to check
      * @returns A Promise that resolves to an array of `OrderStatus` objects.
@@ -509,6 +378,29 @@ export class TurbineClient {
         } catch (error) {
             throw toTurbineError(error);
         }
+    }
+
+    /* UNAUTHENTICATED METHODS */
+
+    async getPools(): Promise<TurbinePool[]> {
+        return await getPools(this.publicClient);
+    }
+
+    async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
+        return await getSettledAmounts(
+            this.publicClient,
+            this.settlerContract,
+            orderIds
+        );
+    }
+
+    async getUserPositions(): Promise<UserPosition[]> {
+        const address = await this.walletClient.getAddresses();
+        return await getUserPositions(address[0], this.publicClient);
+    }
+
+    async checkStatus(): Promise<boolean> {
+        return await checkStatus(this.turbineApiUrl);
     }
 
     /* PRIVATE METHODS */
@@ -820,6 +712,148 @@ export class TurbineClient {
             yParity: yParity,
             v: `0x${v.toString(16)}`,
         };
+    }
+}
+
+/**
+ * Get the registered pools from the Turbine Hook contract.
+ * @param publicClient The public client used for blockchain interactions
+ * @returns A Promise that resolves to an array of `TurbinePool` objects.
+ */
+export async function getPools(publicClient: PublicClient): Promise<TurbinePool[]> {
+    try {
+        const poolsData = await publicClient.readContract({
+            address: TURBINE_HOOK_CONTRACT,
+            abi: turbineHookABI,
+            functionName: "getRegisteredPools",
+        });
+
+        return poolsData.map((poolData: any) => ({
+            metadata: {
+                token0: getAddress(poolData.token0),
+                token1: getAddress(poolData.token1),
+                fee: poolData.fee / 100, // original fee is in hundredths of basis points
+                lpToken: getAddress(poolData.lpToken),
+            },
+            state: {
+                reserve0: BigInt(poolData.reserve0),
+                reserve1: BigInt(poolData.reserve1),
+                liquidity: BigInt(poolData.liquidity),
+            },
+            stats: {
+                // Note: Weekly volume data is not available from the contract
+                // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
+                weeklySellVolumeToken0: 0n,
+                weeklySellVolumeToken1: 0n,
+            },
+        }));
+    } catch (error) {
+        throw toTurbineError(error);
+    }
+}
+
+/**
+ * Get the currently settled amounts for multiple orders by their hashes.
+ * @param orderIds An array of order hashes to check
+ * @param publicClient The public client used for blockchain interactions
+ * @param settlerContract The address of the settler contract
+ * @returns A Promise that resolves to an array of filled amounts
+ */
+export async function getSettledAmounts(
+    publicClient: PublicClient,
+    settlerContract: Address,
+    orderIds: string[]
+): Promise<readonly bigint[]> {
+    try {
+        return await publicClient.readContract({
+            address: settlerContract,
+            abi: settledAmountsABI,
+            functionName: "getSettledAmounts",
+            args: [orderIds as Hex[]],
+        });
+    } catch (error) {
+        throw toTurbineError(error);
+    }
+}
+
+/**
+ * Get user positions for all registered pools.
+ * @param userAddress The address of the user to get positions for
+ * @param publicClient The public client used for blockchain interactions
+ * @returns A Promise that resolves to an array of `UserPosition` objects.
+ */
+export async function getUserPositions(
+    userAddress: Address,
+    publicClient: PublicClient
+): Promise<UserPosition[]> {
+    try {
+        const pools = await getPools(publicClient);
+        if (pools.length === 0) {
+            return [];
+        }
+
+        // Execute all balance checks in a single multicall
+        const multicallContracts = pools.map((pool) => ({
+            address: pool.metadata.lpToken,
+            abi: balanceOfABI,
+            functionName: "balanceOf" as const,
+            args: [userAddress],
+        }));
+        const balanceResults = await publicClient.multicall({
+            contracts: multicallContracts,
+        });
+
+        // Process results and create user positions
+        const userPositions: UserPosition[] = [];
+        for (let i = 0; i < pools.length; i++) {
+            const pool = pools[i];
+            const balanceResult = balanceResults[i];
+
+            if (balanceResult.status === "success" && balanceResult.result > 0n) {
+                userPositions.push({
+                    poolMetadata: pool.metadata,
+                    userAddress: getAddress(userAddress),
+                    lpTokenBalance: balanceResult.result as bigint,
+                });
+            } else if (balanceResult.status === "failure") {
+                // Log warning for failed balance check but continue processing other pools
+                console.warn(
+                    `Failed to get balance for LP token ${pool.metadata.lpToken}: ${balanceResult.error?.message || "Unknown error"}`
+                );
+            }
+        }
+
+        return userPositions;
+    } catch (error) {
+        throw toTurbineError(error);
+    }
+}
+
+/**
+ * Check if the Turbine service is available by querying the /status endpoint.
+ * @param turbineApiUrl The base URL of the Turbine API
+ * @returns A Promise that resolves to true if the service is available, or throws an error if unavailable.
+ */
+export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
+    try {
+        const response = await fetch(`${turbineApiUrl}/status`);
+        if (!response.ok) {
+            throw new TurbineError(
+                "SERVICE_UNAVAILABLE",
+                `Service returned status ${response.status}: ${response.statusText}`,
+                "Turbine is currently unavailable. Try again later."
+            );
+        }
+        return true;
+    } catch (error: any) {
+        if (error instanceof TurbineError) {
+            throw error;
+        }
+        throw new TurbineError(
+            "SERVICE_UNAVAILABLE",
+            `Failed to connect to Turbine service: ${error.message}`,
+            "Turbine is currently unavailable. Try again later."
+        );
     }
 }
 
