@@ -1,6 +1,6 @@
 import { Hex } from "viem";
 import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
-import { getRandomSalt, TurbineClient } from "../src/turbineClient";
+import { getRandomSalt, TurbineClient, getPools, getSettledAmounts, getUserPositions, checkStatus } from "../src/turbineClient";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -155,7 +155,7 @@ describe("Integration test", () => {
         expect(result.orderHash).toBe(orderHash);
     });
 
-    it("should successfully get registered pools", async () => {
+    it("should successfully get registered pools (client method)", async () => {
         const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const pools = await withTurbineErrorHandling(() => turbineClient.getPools());
@@ -176,11 +176,39 @@ describe("Integration test", () => {
         expect(pool.stats).toBeDefined();
     });
 
-    it("should successfully get user positions", async () => {
+    it("should successfully get registered pools (standalone function)", async () => {
+        const pools = await withTurbineErrorHandling(() => getPools(PUBLIC_CLIENT));
+
+        expect(pools).toBeDefined();
+        expect(Array.isArray(pools)).toBe(true);
+        expect(pools.length > 0).toBe(true);
+
+        const pool = pools[0];
+        expect(pool.metadata).toBeDefined();
+        expect(pool.metadata.token0).toBe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
+        expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
+        expect(pool.metadata.fee).toBe(30);
+        expect(pool.metadata.lpToken).toBe(
+            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
+        );
+        expect(pool.state).toBeDefined();
+        expect(pool.stats).toBeDefined();
+    });
+
+    it("should successfully get user positions (client method)", async () => {
         const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const positions = await withTurbineErrorHandling(() =>
-            turbineClient.getUserPositions(ACCOUNT.address)
+            turbineClient.getUserPositions()
+        );
+
+        expect(positions).toBeDefined();
+        expect(Array.isArray(positions)).toBe(true);
+    });
+
+    it("should successfully get user positions (standalone function)", async () => {
+        const positions = await withTurbineErrorHandling(() =>
+            getUserPositions(ACCOUNT.address, PUBLIC_CLIENT)
         );
 
         expect(positions).toBeDefined();
@@ -209,5 +237,39 @@ describe("Integration test", () => {
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBe(1);
         expect(result[0].hash).toBe(orderHash);
+    });
+
+    it("should successfully get settled amounts (standalone function)", async () => {
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+
+        // First create an order to get its settled amount
+        const intent: OrderIntent = {
+            ...ORDER_INTENT,
+            salt: getRandomSalt(),
+        };
+
+        const orderHash = await withTurbineErrorHandling(() =>
+            turbineClient.addOrder(intent)
+        );
+
+        // Now get the settled amount using the standalone function
+        const result = await withTurbineErrorHandling(() =>
+            getSettledAmounts(PUBLIC_CLIENT, turbineClient.settlerContract, [orderHash as string])
+        );
+
+        expect(result).toBeDefined();
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBe(1);
+        expect(typeof result[0]).toBe("bigint");
+    });
+
+    it("should successfully check status (standalone function)", async () => {
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+
+        const result = await withTurbineErrorHandling(() =>
+            checkStatus(turbineClient.turbineApiUrl)
+        );
+
+        expect(result).toBe(true);
     });
 });
