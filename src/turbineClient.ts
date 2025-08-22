@@ -1,6 +1,6 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import { balanceOfABI, orderSettledABI, turbineHookABI } from "./abi";
+import { balanceOfABI, settledAmountsABI, turbineHookABI } from "./abi";
 import {
     TURBINE_API_URL,
     TURBINE_HOOK_CONTRACT,
@@ -754,9 +754,9 @@ export async function getPools(publicClient: PublicClient): Promise<TurbinePool[
 
 /**
  * Get the currently settled amounts for multiple orders by their hashes.
+ * @param orderIds An array of order hashes to check
  * @param publicClient The public client used for blockchain interactions
  * @param settlerContract The address of the settler contract
- * @param orderIds An array of order hashes to check
  * @returns A Promise that resolves to an array of filled amounts
  */
 export async function getSettledAmounts(
@@ -765,43 +765,12 @@ export async function getSettledAmounts(
     orderIds: string[]
 ): Promise<readonly bigint[]> {
     try {
-        // Filter logs for OrderSettled events
-        const logs = await publicClient.getLogs({
+        return await publicClient.readContract({
             address: settlerContract,
-            event: orderSettledABI,
-            args: {
-                orderHash: orderIds as Hex[],
-            },
-            fromBlock: 22497666n,
-            toBlock: "latest",
+            abi: settledAmountsABI,
+            functionName: "getSettledAmounts",
+            args: [orderIds as Hex[]],
         });
-
-        const settledAmounts = new Map<string, bigint>();
-
-        for (const orderId of orderIds) {
-            settledAmounts.set(orderId.toLowerCase(), 0n);
-        }
-
-        for (const log of logs) {
-            const { orderHash, receiveAmount } = log.args as {
-                owner: Address;
-                orderHash: Hex;
-                receiveAmount: bigint;
-                sendAmount: bigint;
-            };
-
-            if (orderHash) {
-                const currentAmount = settledAmounts.get(orderHash.toLowerCase()) || 0n;
-                settledAmounts.set(
-                    orderHash.toLowerCase(),
-                    currentAmount + receiveAmount
-                );
-            }
-        }
-
-        return orderIds.map(
-            (orderId) => settledAmounts.get(orderId.toLowerCase()) || 0n
-        ) as readonly bigint[];
     } catch (error) {
         throw toTurbineError(error);
     }

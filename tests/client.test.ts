@@ -499,65 +499,31 @@ describe("TurbineClient", () => {
                 "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
                 "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
             ];
-
-            // Mock event logs - first order has 2 partial fills, second has 1, third has none
-            const mockLogs = [
-                {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[0] as Hex,
-                        receiveAmount: BigInt("600000000000000000"), // 0.6 token
-                        sendAmount: BigInt("1000000"),
-                    },
-                },
-                {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[0] as Hex,
-                        receiveAmount: BigInt("400000000000000000"), // 0.4 token
-                        sendAmount: BigInt("800000"),
-                    },
-                },
-                {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[1] as Hex,
-                        receiveAmount: BigInt("500000000000000000"), // 0.5 token
-                        sendAmount: BigInt("1000000"),
-                    },
-                },
-            ];
-
-            const expectedAmounts = [
-                BigInt("1000000000000000000"), // 1 token (0.6 + 0.4)
+            const mockFilledAmounts = [
+                BigInt("1000000000000000000"), // 1 token
                 BigInt("500000000000000000"), // 0.5 token
                 BigInt("0"), // 0 token
             ] as const;
 
-            // Mock the getLogs method
-            const mockGetLogs = jest
-                .spyOn(client.publicClient, "getLogs")
-                .mockResolvedValue(mockLogs as any);
+            // Mock the readContract method
+            const mockReadContract = jest
+                .spyOn(client.publicClient, "readContract")
+                .mockResolvedValue(mockFilledAmounts);
 
             const filledAmounts = await withTurbineErrorHandling(() =>
                 client.getSettledAmounts(mockOrderHashes)
             );
 
-            expect(filledAmounts).toEqual(expectedAmounts);
-            expect(mockGetLogs).toHaveBeenCalledWith({
+            expect(filledAmounts).toEqual(mockFilledAmounts);
+            expect(mockReadContract).toHaveBeenCalledWith({
                 address: client.settlerContract,
-                event: expect.objectContaining({
-                    name: "OrderSettled",
-                }),
-                args: {
-                    orderHash: mockOrderHashes,
-                },
-                fromBlock: 22497666n,
-                toBlock: "latest",
+                abi: expect.any(Array),
+                functionName: "getSettledAmounts",
+                args: [mockOrderHashes],
             });
 
-            // Restore the mocks
-            mockGetLogs.mockRestore();
+            // Restore the mock
+            mockReadContract.mockRestore();
         });
 
         it("should return filled amounts for multiple orders (standalone function)", async () => {
@@ -566,52 +532,34 @@ describe("TurbineClient", () => {
                 "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
                 "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
             ];
-
-            // Mock event logs - first order has 1 fill, others have none
-            const mockLogs = [
-                {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[0] as Hex,
-                        receiveAmount: BigInt("1000000000000000000"), // 1 token
-                        sendAmount: BigInt("1000000"),
-                    },
-                },
-            ];
-
-            const expectedAmounts = [
+            const mockFilledAmounts = [
                 BigInt("1000000000000000000"), // 1 token
-                BigInt("0"), // 0 token
+                BigInt("500000000000000000"), // 0.5 token
                 BigInt("0"), // 0 token
             ] as const;
 
             const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
             const settlerContract = client.settlerContract;
 
-            // Mock the getLogs method
-            const mockGetLogs = jest
-                .spyOn(PUBLIC_CLIENT, "getLogs")
-                .mockResolvedValue(mockLogs as any);
+            // Mock the readContract method
+            const mockReadContract = jest
+                .spyOn(PUBLIC_CLIENT, "readContract")
+                .mockResolvedValue(mockFilledAmounts);
 
             const filledAmounts = await withTurbineErrorHandling(() =>
                 getSettledAmounts(PUBLIC_CLIENT, settlerContract, mockOrderHashes)
             );
 
-            expect(filledAmounts).toEqual(expectedAmounts);
-            expect(mockGetLogs).toHaveBeenCalledWith({
+            expect(filledAmounts).toEqual(mockFilledAmounts);
+            expect(mockReadContract).toHaveBeenCalledWith({
                 address: settlerContract,
-                event: expect.objectContaining({
-                    name: "OrderSettled",
-                }),
-                args: {
-                    orderHash: mockOrderHashes,
-                },
-                fromBlock: 22497666n,
-                toBlock: "latest",
+                abi: expect.any(Array),
+                functionName: "getSettledAmounts",
+                args: [mockOrderHashes],
             });
 
-            // Restore the mocks
-            mockGetLogs.mockRestore();
+            // Restore the mock
+            mockReadContract.mockRestore();
         });
     });
 
