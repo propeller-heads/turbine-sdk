@@ -508,7 +508,7 @@ describe("TurbineClient", () => {
                         orderHash: mockOrderHashes[0] as Hex,
                         receiveAmount: BigInt("600000000000000000"), // 0.6 token
                         sendAmount: BigInt("1000000"),
-                    }
+                    },
                 },
                 {
                     args: {
@@ -516,7 +516,7 @@ describe("TurbineClient", () => {
                         orderHash: mockOrderHashes[0] as Hex,
                         receiveAmount: BigInt("400000000000000000"), // 0.4 token
                         sendAmount: BigInt("800000"),
-                    }
+                    },
                 },
                 {
                     args: {
@@ -524,8 +524,8 @@ describe("TurbineClient", () => {
                         orderHash: mockOrderHashes[1] as Hex,
                         receiveAmount: BigInt("500000000000000000"), // 0.5 token
                         sendAmount: BigInt("1000000"),
-                    }
-                }
+                    },
+                },
             ];
 
             const expectedAmounts = [
@@ -547,7 +547,7 @@ describe("TurbineClient", () => {
             expect(mockGetLogs).toHaveBeenCalledWith({
                 address: client.settlerContract,
                 event: expect.objectContaining({
-                    name: 'OrderSettled'
+                    name: "OrderSettled",
                 }),
                 args: {
                     orderHash: mockOrderHashes,
@@ -575,8 +575,8 @@ describe("TurbineClient", () => {
                         orderHash: mockOrderHashes[0] as Hex,
                         receiveAmount: BigInt("1000000000000000000"), // 1 token
                         sendAmount: BigInt("1000000"),
-                    }
-                }
+                    },
+                },
             ];
 
             const expectedAmounts = [
@@ -601,7 +601,7 @@ describe("TurbineClient", () => {
             expect(mockGetLogs).toHaveBeenCalledWith({
                 address: settlerContract,
                 event: expect.objectContaining({
-                    name: 'OrderSettled'
+                    name: "OrderSettled",
                 }),
                 args: {
                     orderHash: mockOrderHashes,
