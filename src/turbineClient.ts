@@ -35,6 +35,7 @@ export class TurbineClient {
     public walletClient: WalletClient;
     public publicClient: PublicClient;
     private sessionId?: string;
+    private authenticationInProgress: boolean = false;
 
     constructor(
         walletClient: WalletClient,
@@ -585,6 +586,33 @@ export class TurbineClient {
      * @returns {Promise<Address>} The authenticated user's address.
      */
     private async ensureAuthenticated(): Promise<Address> {
+        // If authentication is already in progress, wait for it
+        if (this.authenticationInProgress) {
+            // Poll until authentication completes with 5 minute timeout
+            const startTime = Date.now();
+            const timeout = 300000; // 5 minutes
+
+            while (this.authenticationInProgress && Date.now() - startTime < timeout) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+            }
+
+            // If we timed out, reset the flag and proceed with authentication
+            if (this.authenticationInProgress) {
+                this.authenticationInProgress = false;
+            }
+
+            // Re-check auth status after waiting
+            const response = await this.fetchWithCookies("/me");
+            if (response.ok) {
+                const authStatus = await response.json();
+                if (authStatus.authenticated && authStatus.address) {
+                    return authStatus.address;
+                }
+            }
+        }
+
+        this.authenticationInProgress = true;
+
         try {
             const response = await this.fetchWithCookies("/me");
 
@@ -626,6 +654,8 @@ export class TurbineClient {
                 `Failed to ensure authentication: ${error.message}`,
                 "Unable to authenticate with your wallet. Please try again."
             );
+        } finally {
+            this.authenticationInProgress = false;
         }
     }
 
