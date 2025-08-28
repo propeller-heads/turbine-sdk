@@ -68,22 +68,30 @@ export const balanceOfABI = [
     },
 ] as const;
 
-export const settledAmountsABI = [
-    {
-        inputs: [
-            {
-                name: "orderHashes",
-                type: "bytes32[]",
-            },
-        ],
-        name: "getSettledAmounts",
-        outputs: [
-            {
-                name: "",
-                type: "uint256[]",
-            },
-        ],
-        stateMutability: "view",
-        type: "function",
-    },
-] as const;
+export const orderSettledABI = {
+    anonymous: false,
+    inputs: [
+        {
+            indexed: true,
+            name: "owner",
+            type: "address",
+        },
+        {
+            indexed: true,
+            name: "orderHash",
+            type: "bytes32",
+        },
+        {
+            indexed: false,
+            name: "receiveAmount",
+            type: "uint256",
+        },
+        {
+            indexed: false,
+            name: "sendAmount",
+            type: "uint256",
+        },
+    ],
+    name: "OrderSettled",
+    type: "event",
+} as const;
