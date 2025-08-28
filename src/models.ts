@@ -32,13 +32,21 @@ export class Token {
     }
 }
 
+export interface PermitDetails {
+    token: Address;
+    amount: bigint;
+    expiration: number;
+    nonce: number;
+}
+
 export interface AllowanceTransferPermitSingle {
-    details: {
-        token: Address;
-        amount: bigint;
-        expiration: number;
-        nonce: number;
-    };
+    details: PermitDetails;
+    spender: Address;
+    sigDeadline: bigint;
+}
+
+export interface AllowanceTransferBatchPermit {
+    details: PermitDetails[];
     spender: Address;
     sigDeadline: bigint;
 }
@@ -52,6 +60,11 @@ export interface PrimitiveSignature {
 export interface SignedPermit {
     signature: PrimitiveSignature;
     permit: AllowanceTransferPermitSingle;
+}
+
+export interface SignedBatchPermit {
+    signature: PrimitiveSignature;
+    permit: AllowanceTransferBatchPermit;
 }
 
 /**
@@ -115,10 +128,8 @@ export interface OrderIntent {
 export interface AddLiquidity {
     /** The intent to add liquidity */
     addLiquidity: AddLiquidityIntent;
-    /** The permit signature and permit data for token0 */
-    permitToken0: SignedPermit;
-    /** The permit signature and permit data for token1 */
-    permitToken1: SignedPermit;
+    /** The permit signature and permit data for both tokens */
+    permitTokens: SignedBatchPermit;
 }
 
 /**
