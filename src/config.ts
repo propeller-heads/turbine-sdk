@@ -5,14 +5,14 @@ export const CHAIN_ID = 1;
 export const TURBINE_API_URL =
     process.env.TURBINE_API_URL || "http://127.0.0.1:8080/api";
 export const TURBINE_SETTLER_CONTRACT: Address = getAddress(
-    process.env.TURBINE_SETTLER_CONTRACT || "0x346a33009161ed9085b75c9194a523322236f74e"
+    process.env.TURBINE_SETTLER_CONTRACT || "0x93feD5239b89D3Bf85B937822C3aB05F4Fb1d910"
 );
 export const TURBINE_LIQUIDITY_ROUTER_CONTRACT: Address = getAddress(
     process.env.TURBINE_LIQUIDITY_ROUTER_CONTRACT ||
-        "0x751fe9126615077ac00f3b1c584637065a1aa3f0"
+        "0xD9A3087e6AFe906110642D16b1993A43a487d967"
 );
 export const TURBINE_HOOK_CONTRACT: Address = getAddress(
-    process.env.TURBINE_HOOK_CONTRACT || "0x23CE72f64743a067F2fFA0ba782190bAa4A4e088"
+    process.env.TURBINE_HOOK_CONTRACT || "0x6bbDcb2d52B1319AED9615035844F56597C8a088"
 );
 
 export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet
