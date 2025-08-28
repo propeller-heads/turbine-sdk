@@ -850,4 +850,20 @@ describe("TurbineClient", () => {
             );
         });
     });
+
+    describe("getSettledAmounts - mainnet integration", () => {
+        it("should query filled amounts for mainnet real order", async () => {
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+
+            const orderHash: Hex =
+                "0x06e0c1b6ee937206ecf9199a5adf05d65637650b4e999784aaa1768064388e76";
+
+            const result = await withTurbineErrorHandling(() =>
+                client.getSettledAmounts([orderHash])
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toBe(100_000_000n);
+        });
+    });
 });
