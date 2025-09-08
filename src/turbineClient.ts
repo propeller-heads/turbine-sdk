@@ -32,6 +32,7 @@ export class TurbineClient {
     public turbineApiUrl: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
+    public hookContract: Address;
     public walletClient: WalletClient;
     public publicClient: PublicClient;
     private sessionId?: string;
@@ -42,7 +43,8 @@ export class TurbineClient {
         publicClient: PublicClient,
         turbineApiUrl?: string,
         settlerContract?: Address,
-        turbineLiquidityRouterContract?: Address
+        turbineLiquidityRouterContract?: Address,
+        hookContract?: Address
     ) {
         this.walletClient = walletClient;
         this.publicClient = publicClient;
@@ -50,6 +52,7 @@ export class TurbineClient {
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
         this.turbineLiquidityRouterContract =
             turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
+        this.hookContract = hookContract || TURBINE_HOOK_CONTRACT;
     }
 
     /* PRIVATE HELPER METHODS */
@@ -384,7 +387,7 @@ export class TurbineClient {
     /* UNAUTHENTICATED METHODS */
 
     async getPools(): Promise<TurbinePool[]> {
-        return await getPools(this.publicClient);
+        return await getPools(this.publicClient, this.hookContract);
     }
 
     async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
@@ -750,10 +753,10 @@ export class TurbineClient {
  * @param publicClient The public client used for blockchain interactions
  * @returns A Promise that resolves to an array of `TurbinePool` objects.
  */
-export async function getPools(publicClient: PublicClient): Promise<TurbinePool[]> {
+export async function getPools(publicClient: PublicClient, hookContract: Address = TURBINE_HOOK_CONTRACT): Promise<TurbinePool[]> {
     try {
         const poolsData = await publicClient.readContract({
-            address: TURBINE_HOOK_CONTRACT,
+            address: hookContract,
             abi: turbineHookABI,
             functionName: "getRegisteredPools",
         });
@@ -845,10 +848,11 @@ export async function getSettledAmounts(
  */
 export async function getUserPositions(
     userAddress: Address,
-    publicClient: PublicClient
+    publicClient: PublicClient,
+    hookContract: Address = TURBINE_HOOK_CONTRACT
 ): Promise<UserPosition[]> {
     try {
-        const pools = await getPools(publicClient);
+        const pools = await getPools(publicClient, hookContract);
         if (pools.length === 0) {
             return [];
         }
