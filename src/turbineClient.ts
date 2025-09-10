@@ -689,7 +689,7 @@ export class TurbineClient {
     ) {
         return await this.fetchWithCookies(`/${endpoint}`, {
             method: "POST",
-            body: JSON.stringify(payload, bigIntReplacer),
+            body: JSON.stringify(payload),
         });
     }
 
@@ -945,10 +945,7 @@ export function convertSignature(sig: Hex): PrimitiveSignature {
     };
 }
 
-/** Helps serializing BigInts into JSON */
-function bigIntReplacer(key: string, value: any): any {
-    if (typeof value === "bigint") {
-        return `0x${value.toString(16)}`;
-    }
-    return value;
-}
+// Handle BigInt serialization
+(global as any).BigInt.prototype.toJSON = function() {
+    return this.toString();
+};
