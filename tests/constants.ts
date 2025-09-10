@@ -68,7 +68,7 @@ export const REMOVE_LIQUIDITY_INTENT: RemoveLiquidityIntent = {
     token0: USDC.address,
     token1: WETH.address,
     fee: 30,
-    lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
+    lpToken: "0xeE7f609036A1eF63e7b0b001cc488b2C98771503",
     lpTokenAmount: 2000000000000n,
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
