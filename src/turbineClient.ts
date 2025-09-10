@@ -888,6 +888,6 @@ export function convertSignature(sig: Hex): PrimitiveSignature {
 }
 
 // Handle BigInt serialization
-(global as any).BigInt.prototype.toJSON = function() {
+(global as any).BigInt.prototype.toJSON = function () {
     return this.toString();
 };
