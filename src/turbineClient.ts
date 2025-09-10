@@ -393,18 +393,15 @@ export class TurbineClient {
         }
     }
 
+    async getSettledAmounts(orderHashes: Hex[]): Promise<readonly bigint[]> {
+        let statuses = await this.getOrderStatuses(orderHashes);
+        return statuses.map((status) => status.executedSellAmount);
+    }
+
     /* UNAUTHENTICATED METHODS */
 
     async getPools(): Promise<TurbinePool[]> {
         return await getPools(this.publicClient);
-    }
-
-    async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
-        return await getSettledAmounts(
-            this.publicClient,
-            this.settlerContract,
-            orderIds
-        );
     }
 
     async getUserPositions(): Promise<UserPosition[]> {
@@ -788,61 +785,6 @@ export async function getPools(publicClient: PublicClient): Promise<TurbinePool[
                 weeklySellVolumeToken1: 0n,
             },
         }));
-    } catch (error) {
-        throw toTurbineError(error);
-    }
-}
-
-/**
- * Get the currently settled amounts for multiple orders by their hashes.
- * @param publicClient The public client used for blockchain interactions
- * @param settlerContract The address of the settler contract
- * @param orderIds An array of order hashes to check
- * @returns A Promise that resolves to an array of filled amounts
- */
-export async function getSettledAmounts(
-    publicClient: PublicClient,
-    settlerContract: Address,
-    orderIds: string[]
-): Promise<readonly bigint[]> {
-    try {
-        // Filter logs for OrderSettled events
-        const logs = await publicClient.getLogs({
-            address: settlerContract,
-            event: orderSettledABI,
-            args: {
-                orderHash: orderIds as Hex[],
-            },
-            fromBlock: 22497666n,
-            toBlock: "latest",
-        });
-
-        const settledAmounts = new Map<string, bigint>();
-
-        for (const orderId of orderIds) {
-            settledAmounts.set(orderId.toLowerCase(), 0n);
-        }
-
-        for (const log of logs) {
-            const { orderHash, receiveAmount } = log.args as {
-                owner: Address;
-                orderHash: Hex;
-                receiveAmount: bigint;
-                sendAmount: bigint;
-            };
-
-            if (orderHash) {
-                const currentAmount = settledAmounts.get(orderHash.toLowerCase()) || 0n;
-                settledAmounts.set(
-                    orderHash.toLowerCase(),
-                    currentAmount + receiveAmount
-                );
-            }
-        }
-
-        return orderIds.map(
-            (orderId) => settledAmounts.get(orderId.toLowerCase()) || 0n
-        ) as readonly bigint[];
     } catch (error) {
         throw toTurbineError(error);
     }
