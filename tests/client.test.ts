@@ -528,10 +528,19 @@ describe("TurbineClient", () => {
             ];
 
             const expectedAmounts = [
-                BigInt("1000000000000000000"), // 1 token (0.6 + 0.4)
-                BigInt("500000000000000000"), // 0.5 token
-                BigInt("0"), // 0 token
-            ] as readonly bigint[];
+                {
+                    hash: mockOrderHashes[0],
+                    executedSellAmount: BigInt("1000000000000000000"), // 1 token (0.6 + 0.4)
+                },
+                {
+                    hash: mockOrderHashes[1],
+                    executedSellAmount: BigInt("500000000000000000"), // 0.5 token
+                },
+                {
+                    hash: mockOrderHashes[2],
+                    executedSellAmount: BigInt("0"), // 0 token
+                },
+            ];
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);

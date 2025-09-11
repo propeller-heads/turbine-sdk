@@ -266,7 +266,10 @@ describe("Integration test", () => {
         expect(result).toBeDefined();
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBe(1);
-        expect(result[0]).toBe(0n);
+        expect(result[0]).toEqual({
+            hash: orderHash,
+            executedSellAmount: BigInt("0"),
+        });
     });
 
     it("should successfully check status (standalone function)", async () => {

@@ -17,6 +17,7 @@ import {
     CancelOrderPayload,
     GetOrderStatusesPayload,
     OrderIntent,
+    OrderSettledAmount,
     OrderStatus,
     PrimitiveSignature,
     RemoveLiquidity,
@@ -381,9 +382,12 @@ export class TurbineClient {
         }
     }
 
-    async getSettledAmounts(orderHashes: Hex[]): Promise<readonly bigint[]> {
+    async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
         let statuses = await this.getOrderStatuses(orderHashes);
-        return statuses.map((status) => status.executedSellAmount);
+        return statuses.map((status) => ({
+            hash: status.hash,
+            executedSellAmount: status.executedSellAmount,
+        }));
     }
 
     /* UNAUTHENTICATED METHODS */

@@ -256,6 +256,11 @@ export interface OrderStatus {
     executedBuyAmount: bigint;
 }
 
+export interface OrderSettledAmount {
+    hash: Hex;
+    executedSellAmount: bigint;
+}
+
 /**
  * Payload for cancelling an order
  */
