@@ -4,7 +4,6 @@ import {
     getRandomSalt,
     TurbineClient,
     getPools,
-    getSettledAmounts,
     getUserPositions,
     checkStatus,
 } from "../src/turbineClient";
@@ -177,7 +176,7 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
-            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
+            "0xeE7f609036A1eF63e7b0b001cc488b2C98771503"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
@@ -196,7 +195,7 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
-            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
+            "0xeE7f609036A1eF63e7b0b001cc488b2C98771503"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
@@ -246,10 +245,10 @@ describe("Integration test", () => {
         expect(result[0].hash).toBe(orderHash);
     });
 
-    it("should successfully get settled amounts (standalone function)", async () => {
+    it("should successfully get settled amounts", async () => {
         const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-        // First create an order to get its settled amount
+        // First create an order to get its status
         const intent: OrderIntent = {
             ...ORDER_INTENT,
             salt: getRandomSalt(),
@@ -259,17 +258,18 @@ describe("Integration test", () => {
             turbineClient.addOrder(intent)
         );
 
-        // Now get the settled amount using the standalone function
+        // Now get the order status
         const result = await withTurbineErrorHandling(() =>
-            getSettledAmounts(PUBLIC_CLIENT, turbineClient.settlerContract, [
-                orderHash as string,
-            ])
+            turbineClient.getSettledAmounts([orderHash as Hex])
         );
 
         expect(result).toBeDefined();
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBe(1);
-        expect(typeof result[0]).toBe("bigint");
+        expect(result[0]).toEqual({
+            hash: orderHash,
+            executedSellAmount: BigInt("0"),
+        });
     });
 
     it("should successfully check status (standalone function)", async () => {
