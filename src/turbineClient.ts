@@ -2,6 +2,7 @@ import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
 import { balanceOfABI, orderSettledABI, turbineHookABI } from "./abi";
 import {
+    SIWE_DOMAIN,
     TURBINE_API_URL,
     TURBINE_HOOK_CONTRACT,
     TURBINE_LIQUIDITY_ROUTER_CONTRACT,
@@ -26,10 +27,9 @@ import {
 } from "./models";
 import { getSignedAllowance } from "./permit2";
 
-const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
-
 export class TurbineClient {
     public turbineApiUrl: string;
+    public siweDomain: string;
     public settlerContract: Address;
     public turbineLiquidityRouterContract: Address;
     public walletClient: WalletClient;
@@ -41,12 +41,14 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient,
         turbineApiUrl?: string,
+        siweDomain?: string,
         settlerContract?: Address,
         turbineLiquidityRouterContract?: Address
     ) {
         this.walletClient = walletClient;
         this.publicClient = publicClient;
         this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
+        this.siweDomain = siweDomain || SIWE_DOMAIN;
         this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
         this.turbineLiquidityRouterContract =
             turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
@@ -503,9 +505,8 @@ export class TurbineClient {
     /**
      * Authenticate with the Turbine API using a wallet client.
      * First calls /nonce to get nonce, then calls /verify with the signed message.
-     * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
-    async authenticate(domain?: string): Promise<void> {
+    async authenticate(): Promise<void> {
         const chainId = await this.walletClient.getChainId();
         const addresses = await this.walletClient.getAddresses();
         const address = addresses[0];
@@ -519,7 +520,7 @@ export class TurbineClient {
             const message = createSiweMessage({
                 address: address,
                 chainId: chainId,
-                domain: domain || DEFAULT_SIWE_DOMAIN,
+                domain: this.siweDomain,
                 statement: "Sign in to Turbine with your Ethereum wallet",
                 nonce,
                 uri: this.turbineApiUrl,
