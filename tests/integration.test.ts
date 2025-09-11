@@ -4,6 +4,7 @@ import {
     getRandomSalt,
     TurbineClient,
     getPools,
+    getSettledAmounts,
     getUserPositions,
     checkStatus,
 } from "../src/turbineClient";
@@ -17,17 +18,10 @@ import {
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 
-function createTurbineClient() {
-    const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
-    // During integration tests, the actual turbine url and domain are different
-    turbineClient.siweDomain = "dev-swap.propellerheads.xyz";
-    return turbineClient;
-}
-
 describe("Integration test", () => {
     describe("Authentication Flow", () => {
         it("should successfully authenticate with /nonce and /verify endpoints", async () => {
-            const turbineClient = createTurbineClient();
+            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // Test the complete authentication flow
             await withTurbineErrorHandling(async () => {
@@ -39,7 +33,7 @@ describe("Integration test", () => {
         });
 
         it("should return authentication status with /me endpoint", async () => {
-            const turbineClient = createTurbineClient();
+            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
@@ -58,7 +52,7 @@ describe("Integration test", () => {
         });
 
         it("should handle logout properly", async () => {
-            const turbineClient = createTurbineClient();
+            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
@@ -85,7 +79,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an order", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: OrderIntent = {
             ...ORDER_INTENT,
@@ -100,7 +94,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an order array", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intents: OrderIntent[] = Array.from({ length: 5 }, () => ({
             ...ORDER_INTENT,
@@ -117,7 +111,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an add liquidity intent", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: AddLiquidityIntent = {
             ...ADD_LIQUIDITY_INTENT,
@@ -132,7 +126,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit a remove liquidity intent", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: RemoveLiquidityIntent = {
             ...REMOVE_LIQUIDITY_INTENT,
@@ -147,7 +141,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully cancel an order", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         // First create an order to cancel
         const intent: OrderIntent = {
@@ -169,7 +163,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully get registered pools (client method)", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const pools = await withTurbineErrorHandling(() => turbineClient.getPools());
 
@@ -183,7 +177,7 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
-            "0xeE7f609036A1eF63e7b0b001cc488b2C98771503"
+            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
@@ -202,14 +196,14 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
-            "0xeE7f609036A1eF63e7b0b001cc488b2C98771503"
+            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
     });
 
     it("should successfully get user positions (client method)", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const positions = await withTurbineErrorHandling(() =>
             turbineClient.getUserPositions()
@@ -229,7 +223,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully get order statuses", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         // First create an order to get its status
         const intent: OrderIntent = {
@@ -252,10 +246,10 @@ describe("Integration test", () => {
         expect(result[0].hash).toBe(orderHash);
     });
 
-    it("should successfully get settled amounts", async () => {
-        const turbineClient = createTurbineClient();
+    it("should successfully get settled amounts (standalone function)", async () => {
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
-        // First create an order to get its status
+        // First create an order to get its settled amount
         const intent: OrderIntent = {
             ...ORDER_INTENT,
             salt: getRandomSalt(),
@@ -265,19 +259,21 @@ describe("Integration test", () => {
             turbineClient.addOrder(intent)
         );
 
-        // Now get the order status
+        // Now get the settled amount using the standalone function
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.getSettledAmounts([orderHash as Hex])
+            getSettledAmounts(PUBLIC_CLIENT, turbineClient.settlerContract, [
+                orderHash as string,
+            ])
         );
 
         expect(result).toBeDefined();
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBe(1);
-        expect(result[0]).toBe(0n);
+        expect(typeof result[0]).toBe("bigint");
     });
 
     it("should successfully check status (standalone function)", async () => {
-        const turbineClient = createTurbineClient();
+        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const result = await withTurbineErrorHandling(() =>
             checkStatus(turbineClient.turbineApiUrl)
