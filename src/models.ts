@@ -256,6 +256,14 @@ export interface OrderStatus {
     executedBuyAmount: bigint;
 }
 
+/**
+ * Represents the status of a liquidity intent
+ */
+export interface LiquidityIntentStatus {
+    hash: Hex;
+    status: string; // e.g., "Pending", "Invalid", etc.
+}
+
 export interface OrderSettledAmount {
     hash: Hex;
     executedSellAmount: bigint;

@@ -797,4 +797,44 @@ describe("TurbineClient", () => {
             );
         });
     });
+
+    describe("getLiquidityIntents", () => {
+        it("should call Turbine API and return liquidity intent statuses", async () => {
+            const mockStatuses = [
+                {
+                    hash: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    status: "Pending",
+                },
+            ];
+
+            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+
+            // Mock authentication
+            mockAuthentication(client, ACCOUNT.address);
+
+            // Spy on internal fetchWithCookies used by getLiquidityIntents
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(JSON.stringify(mockStatuses), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const intentHashes: Hex[] = [
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            ];
+
+            const result = await withTurbineErrorHandling(() =>
+                client.getLiquidityIntents(intentHashes)
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].hash).toBe(
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+            );
+            expect(result[0].status).toBe("Pending");
+        });
+    });
 });
