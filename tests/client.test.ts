@@ -16,6 +16,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
+import { LiquidityIntentState } from "../src/models";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
@@ -803,7 +804,7 @@ describe("TurbineClient", () => {
             const mockStatuses = [
                 {
                     hash: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-                    status: "Pending",
+                    state: LiquidityIntentState.Pending,
                 },
             ];
 
@@ -834,7 +835,7 @@ describe("TurbineClient", () => {
             expect(result[0].hash).toBe(
                 "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
             );
-            expect(result[0].status).toBe("Pending");
+            expect(result[0].state).toBe(LiquidityIntentState.Pending);
         });
     });
 });

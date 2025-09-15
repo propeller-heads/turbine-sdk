@@ -17,6 +17,7 @@ import {
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatusesPayload,
+    LiquidityIntentState,
     LiquidityIntentStatus,
     OrderIntent,
     OrderSettledAmount,
@@ -418,10 +419,10 @@ export class TurbineClient {
             }
 
             return responseJson.map(
-                (status: any) =>
+                (status: LiquidityIntentStatus) =>
                     ({
                         hash: status.hash,
-                        status: status.status,
+                        state: LiquidityIntentState[status.state],
                     }) as LiquidityIntentStatus
             );
         } catch (error) {
