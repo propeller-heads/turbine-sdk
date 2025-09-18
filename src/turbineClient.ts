@@ -68,8 +68,6 @@ export class TurbineClient {
 
     /* PRIVATE HELPER METHODS */
 
-
-
     /**
      * Extracts and stores session ID from fetch response headers
      */
@@ -413,7 +411,11 @@ export class TurbineClient {
 
     async getUserPositions(): Promise<UserPosition[]> {
         const address = await this.walletClient.getAddresses();
-        return await getUserPositions(address[0], this.publicClient, this.config.lpHookAddress);
+        return await getUserPositions(
+            address[0],
+            this.publicClient,
+            this.config.lpHookAddress
+        );
     }
 
     async checkStatus(): Promise<boolean> {
@@ -775,7 +777,10 @@ export class TurbineClient {
  * @param hookAddress The address of the Turbine Hook contract
  * @returns A Promise that resolves to an array of `TurbinePool` objects.
  */
-export async function getPools(publicClient: PublicClient, hookAddress: Address): Promise<TurbinePool[]> {
+export async function getPools(
+    publicClient: PublicClient,
+    hookAddress: Address
+): Promise<TurbinePool[]> {
     try {
         const poolsData = await publicClient.readContract({
             address: hookAddress,
@@ -874,8 +879,9 @@ export async function getUserPositions(
  */
 export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig> {
     try {
-        const response = await fetch(`${turbineApiUrl}/api/config`);
+        const response = await fetch(`${turbineApiUrl}/config`);
         if (!response.ok) {
+            console.log(response);
             throw new TurbineError(
                 "CONFIG_FETCH_FAILED",
                 `Config fetch failed with status ${response.status}: ${response.statusText}`,
@@ -887,6 +893,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         if (error instanceof TurbineError) {
             throw error;
         }
+        console.log(error);
         throw new TurbineError(
             "CONFIG_FETCH_FAILED",
             `Failed to fetch config: ${error.message}`,
