@@ -27,9 +27,9 @@ export class TurbineClient {
     public turbineApiUrl: string;
     public walletClient: WalletClient;
     public publicClient: PublicClient;
+    public config: TurbineConfig;
     private sessionId?: string;
     private authenticationInProgress: boolean = false;
-    private config: TurbineConfig;
 
     private constructor(
         walletClient: WalletClient,
