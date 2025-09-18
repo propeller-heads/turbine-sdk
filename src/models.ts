@@ -1,5 +1,15 @@
 import { Address, getAddress, Hex } from "viem";
 
+export interface TurbineConfig {
+    turbineSettlerAddress: Address;
+    lpHookAddress: Address;
+    lpRouterAddress: Address;
+    poolManagerAddress: Address;
+    submitSettlements: boolean;
+    siweDomain: string;
+    siweUri: string;
+}
+
 export class Token {
     public address: Address;
     public decimals: number;
