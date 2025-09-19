@@ -517,7 +517,9 @@ export class TurbineClient {
 
         try {
             // Get nonce - session cookies handled automatically
-            const nonceResponse = await this.fetchWithCookies("/nonce");
+            const nonceResponse = await this.fetchWithCookies("/nonce", {
+                method: "POST",
+            });
             const nonce: string = await nonceResponse.json();
 
             // Create and sign SIWE message with the received nonce
