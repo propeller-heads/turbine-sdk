@@ -22,7 +22,10 @@ import { withTurbineErrorHandling } from "./utils";
 describe("Integration test", () => {
     describe("Authentication Flow", () => {
         it("should successfully authenticate with /nonce and /verify endpoints", async () => {
-            const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             // Test the complete authentication flow
             await withTurbineErrorHandling(async () => {
@@ -34,7 +37,10 @@ describe("Integration test", () => {
         });
 
         it("should return authentication status with /me endpoint", async () => {
-            const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
@@ -53,7 +59,10 @@ describe("Integration test", () => {
         });
 
         it("should handle logout properly", async () => {
-            const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
@@ -186,7 +195,9 @@ describe("Integration test", () => {
 
     it("should successfully get registered pools (standalone function)", async () => {
         const config = await fetchConfig(TURBINE_API_URL);
-        const pools = await withTurbineErrorHandling(() => getPools(PUBLIC_CLIENT, config.lpHookAddress));
+        const pools = await withTurbineErrorHandling(() =>
+            getPools(PUBLIC_CLIENT, config.lpHookAddress)
+        );
 
         expect(pools).toBeDefined();
         expect(Array.isArray(pools)).toBe(true);

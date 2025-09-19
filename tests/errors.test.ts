@@ -5,7 +5,12 @@ import {
     unsuccessfulResponseToTurbineError,
 } from "../src/errorHandling";
 import { TurbineClient } from "../src/turbineClient";
-import { ORDER_INTENT, WALLET_CLIENT, PUBLIC_CLIENT, createMockTurbineClient } from "./constants";
+import {
+    ORDER_INTENT,
+    WALLET_CLIENT,
+    PUBLIC_CLIENT,
+    createMockTurbineClient,
+} from "./constants";
 import { Hex } from "viem";
 
 describe("TurbineError", () => {
