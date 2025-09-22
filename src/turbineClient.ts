@@ -11,6 +11,8 @@ import {
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatusesPayload,
+    LiquidityIntentState,
+    LiquidityIntentStatus,
     OrderIntent,
     OrderSettledAmount,
     OrderStatus,
@@ -390,6 +392,50 @@ export class TurbineClient {
             return responseJson.map((orderStatus: any) =>
                 this.parseOrderStatus(orderStatus)
             );
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Get the status of multiple liquidity intents by their hashes.
+     * @param intentHashes An array of liquidity intent hashes to check
+     * @returns A Promise that resolves to an array of liquidity intent status objects.
+     */
+    async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentStatus[]> {
+        await this.ensureAuthenticated();
+
+        try {
+            const response = await this.fetchWithCookies("/liquidity_intent_statuses", {
+                method: "GET",
+                body: JSON.stringify({ intentHashes }),
+            });
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to get liquidity intent statuses. Please try again later."
+                );
+            }
+
+            const responseJson = await response.json();
+
+            if (!Array.isArray(responseJson)) {
+                throw new TurbineError(
+                    "INVALID_RESPONSE",
+                    `Expected array response but got: ${JSON.stringify(responseJson)}`,
+                    "Received unexpected response format from server. Please try again later."
+                );
+            }
+
+            return responseJson.map((status: any) => {
+                const stateKey = status.state as keyof typeof LiquidityIntentState;
+                return {
+                    hash: status.hash,
+                    state: LiquidityIntentState[stateKey],
+                } as LiquidityIntentStatus;
+            });
         } catch (error) {
             throw toTurbineError(error);
         }

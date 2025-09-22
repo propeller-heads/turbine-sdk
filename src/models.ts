@@ -266,6 +266,23 @@ export interface OrderStatus {
     executedBuyAmount: bigint;
 }
 
+export enum LiquidityIntentState {
+    Pending = "Pending",
+    Invalid = "Invalid",
+    Expired = "Expired",
+    Executed = "Executed",
+    PendingCancellation = "PendingCancellation",
+    Canceled = "Canceled",
+}
+
+/**
+ * Represents the status of a liquidity intent
+ */
+export interface LiquidityIntentStatus {
+    hash: Hex;
+    state: LiquidityIntentState;
+}
+
 export interface OrderSettledAmount {
     hash: Hex;
     executedSellAmount: bigint;

@@ -17,6 +17,7 @@ import {
     MOCK_TURBINE_CONFIG,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
+import { LiquidityIntentState } from "../src/models";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
@@ -797,6 +798,46 @@ describe("TurbineClient", () => {
                 { orderHashes: orderHashes },
                 "order_statuses"
             );
+        });
+    });
+
+    describe("getLiquidityIntents", () => {
+        it("should call Turbine API and return liquidity intent statuses", async () => {
+            const mockStatuses = [
+                {
+                    hash: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    state: "Pending",
+                },
+            ];
+
+            const client = await createMockTurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client, ACCOUNT.address);
+
+            // Spy on internal fetchWithCookies used by getLiquidityIntents
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(JSON.stringify(mockStatuses), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const intentHashes: Hex[] = [
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            ];
+
+            const result = await withTurbineErrorHandling(() =>
+                client.getLiquidityIntents(intentHashes)
+            );
+
+            expect(result).toHaveLength(1);
+            expect(result[0].hash).toBe(
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+            );
+            expect(result[0].state).toBe(LiquidityIntentState.Pending);
         });
     });
 });
