@@ -11,9 +11,10 @@ import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
     ORDER_INTENT,
-    WALLET_CLIENT,
     PUBLIC_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
+    createMockTurbineClient,
+    MOCK_TURBINE_CONFIG,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 
@@ -31,7 +32,7 @@ describe("TurbineClient", () => {
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
             const mockOrderId = "test-order-id-123";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -57,7 +58,7 @@ describe("TurbineClient", () => {
     describe("addOrders", () => {
         it("should call Turbine API and return array of order IDs", async () => {
             const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -89,7 +90,7 @@ describe("TurbineClient", () => {
     describe("addLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -115,7 +116,7 @@ describe("TurbineClient", () => {
     describe("removeLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -142,7 +143,7 @@ describe("TurbineClient", () => {
         it("should call Turbine API and return success message", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -170,7 +171,7 @@ describe("TurbineClient", () => {
 
     describe("getPools", () => {
         it("should return mocked turbine pool (client method)", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock the contract call to return test data
             const mockContractData = [
@@ -268,7 +269,9 @@ describe("TurbineClient", () => {
                 .spyOn(PUBLIC_CLIENT, "readContract")
                 .mockResolvedValue(mockContractData as any);
 
-            const pools = await withTurbineErrorHandling(() => getPools(PUBLIC_CLIENT));
+            const pools = await withTurbineErrorHandling(() =>
+                getPools(PUBLIC_CLIENT, MOCK_TURBINE_CONFIG.lpHookAddress)
+            );
 
             // Restore the mock
             mockReadContract.mockRestore();
@@ -288,7 +291,7 @@ describe("TurbineClient", () => {
 
     describe("getUserPositions", () => {
         it("should return user positions with mocked data (client method)", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const testUserAddress = ACCOUNT.address;
 
             // Mock the contract call for getPools to return test data
@@ -405,7 +408,11 @@ describe("TurbineClient", () => {
                 .mockResolvedValue(mockMulticallResults as any);
 
             const positions = await withTurbineErrorHandling(() =>
-                getUserPositions(testUserAddress as Address, PUBLIC_CLIENT)
+                getUserPositions(
+                    testUserAddress as Address,
+                    PUBLIC_CLIENT,
+                    MOCK_TURBINE_CONFIG.lpHookAddress
+                )
             );
 
             // Restore the mocks
@@ -423,8 +430,7 @@ describe("TurbineClient", () => {
         });
 
         it("should handle multicall failures gracefully", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
-            const testUserAddress = ACCOUNT.address;
+            const client = await createMockTurbineClient();
 
             // Mock the contract call for getPools to return test data
             const mockPoolsData = [
@@ -492,7 +498,7 @@ describe("TurbineClient", () => {
 
     describe("getSettledAmounts", () => {
         it("should return filled amounts for multiple orders (client method)", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const mockOrderHashes = [
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                 "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
@@ -564,7 +570,7 @@ describe("TurbineClient", () => {
 
     describe("checkStatus", () => {
         it("should return true when Turbine service is available (status 200) - client method", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch
             const mockFetch = jest.spyOn(global, "fetch").mockResolvedValue({
@@ -585,7 +591,7 @@ describe("TurbineClient", () => {
         });
 
         it("should return true when Turbine service is available (status 200) - standalone function", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const turbineApiUrl = client.turbineApiUrl;
 
             // Mock fetch
@@ -609,7 +615,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns non-200 status", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch to throw an error
             const mockFetch = jest
@@ -627,7 +633,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns 404 status", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch to return 404
             jest.spyOn(global, "fetch").mockResolvedValue({
@@ -648,7 +654,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns 500 status", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch to return 500
             jest.spyOn(global, "fetch").mockResolvedValue({
@@ -669,7 +675,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when network request fails", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const networkError = new Error("Network error");
 
             // Mock fetch to throw a network error
@@ -685,11 +691,7 @@ describe("TurbineClient", () => {
 
         it("should use custom turbineApiUrl when provided", async () => {
             const customApiUrl = "https://custom-turbine-api.example.com";
-            const client = new TurbineClient(
-                WALLET_CLIENT,
-                PUBLIC_CLIENT,
-                customApiUrl
-            );
+            const client = await createMockTurbineClient(customApiUrl);
 
             // Mock fetch
             const mockFetch = jest.spyOn(global, "fetch").mockResolvedValue({
@@ -749,7 +751,7 @@ describe("TurbineClient", () => {
                 },
             ];
 
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
