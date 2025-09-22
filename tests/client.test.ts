@@ -810,7 +810,7 @@ describe("TurbineClient", () => {
                 },
             ];
 
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
