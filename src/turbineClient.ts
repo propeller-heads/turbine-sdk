@@ -418,13 +418,13 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map(
-                (status: LiquidityIntentStatus) =>
-                    ({
-                        hash: status.hash,
-                        state: LiquidityIntentState[status.state],
-                    }) as LiquidityIntentStatus
-            );
+            return responseJson.map((status: any) => {
+                const stateKey = status.state as keyof typeof LiquidityIntentState;
+                return {
+                    hash: status.hash,
+                    state: LiquidityIntentState[stateKey],
+                } as LiquidityIntentStatus;
+            });
         } catch (error) {
             throw toTurbineError(error);
         }

@@ -804,7 +804,7 @@ describe("TurbineClient", () => {
             const mockStatuses = [
                 {
                     hash: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-                    state: LiquidityIntentState.Pending,
+                    state: "Pending",
                 },
             ];
 
