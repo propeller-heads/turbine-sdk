@@ -1,9 +1,16 @@
-import { createPublicClient, createWalletClient, Hex, http } from "viem";
+import { createPublicClient, createWalletClient, Hex, http, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { RPC_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
-import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/models";
+import {
+    AddLiquidityIntent,
+    OrderIntent,
+    RemoveLiquidityIntent,
+    TurbineConfig,
+} from "../src/models";
+import { TurbineClient } from "../src/turbineClient";
 import { mainnet } from "viem/chains";
+import { jest } from "@jest/globals";
 
 export const PREFUNDED_PK: Hex =
     "0x91ab9a7e53c220e6210460b65a7a3bb2ca181412a8a7b43ff336b3df1737ce12";
@@ -72,3 +79,63 @@ export const REMOVE_LIQUIDITY_INTENT: RemoveLiquidityIntent = {
     lpTokenAmount: 2000000000000n,
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
+
+// Mock configuration for testing
+export const MOCK_TURBINE_CONFIG: TurbineConfig = {
+    turbineSettlerAddress: "0x1234567890123456789012345678901234567890" as Address,
+    lpHookAddress: "0x2345678901234567890123456789012345678901" as Address,
+    lpRouterAddress: "0x3456789012345678901234567890123456789012" as Address,
+    poolManagerAddress: "0x4567890123456789012345678901234567890123" as Address,
+    submitSettlements: true,
+    siweDomain: "test.propellerheads.xyz",
+    siweUri: "https://test-turbine.propellerheads.xyz/api",
+};
+
+// Helper function to create a mocked TurbineClient for testing
+export async function createMockTurbineClient(
+    customApiUrl?: string
+): Promise<TurbineClient> {
+    // Mock the status check and config fetch
+    jest.spyOn(global, "fetch").mockImplementation(
+        async (url: string | URL | Request) => {
+            const urlString = url.toString();
+
+            if (urlString.includes("/status")) {
+                return new Response("OK", { status: 200 });
+            }
+
+            if (urlString.includes("/config")) {
+                return new Response(JSON.stringify(MOCK_TURBINE_CONFIG), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                });
+            }
+
+            throw new Error(`Unmocked fetch URL: ${urlString}`);
+        }
+    );
+
+    const client = await TurbineClient.create(
+        WALLET_CLIENT,
+        PUBLIC_CLIENT,
+        customApiUrl
+    );
+
+    // Mock the getSignedAllowance function to prevent real blockchain calls
+    jest.spyOn(await import("../src/permit2"), "getSignedAllowance").mockResolvedValue({
+        permit: {
+            details: {
+                token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address,
+                amount: BigInt("1000000000000000000000000000000"),
+                expiration: Math.floor(Date.now() / 1000) + 3600,
+                nonce: 0,
+            },
+            spender: MOCK_TURBINE_CONFIG.turbineSettlerAddress,
+            sigDeadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+        },
+        permitSignature:
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12" as Hex,
+    });
+
+    return client;
+}
