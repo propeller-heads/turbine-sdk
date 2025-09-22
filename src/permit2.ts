@@ -5,7 +5,7 @@ import {
     PermitSingleData,
 } from "@uniswap/permit2-sdk";
 import { Address, Hex, maxUint160, PublicClient, WalletClient } from "viem";
-import { CHAIN_ID, TURBINE_SETTLER_CONTRACT } from "./config";
+import { CHAIN_ID } from "./config";
 import { AllowanceTransferPermitSingle } from "./models";
 
 /* Get current nonce of Permit2 AllowanceTransfer.
@@ -61,14 +61,14 @@ export async function getSignedAllowance({
     publicClient,
     deadline,
     amount = maxUint160, // infinite approval
-    spender = TURBINE_SETTLER_CONTRACT,
+    spender,
 }: {
     token: Address;
     walletClient: WalletClient;
     publicClient: PublicClient;
     deadline: number;
     amount?: bigint;
-    spender?: Address;
+    spender: Address;
 }): Promise<getSignedAllowanceReturnType> {
     const nonce = await getNonce(
         (await walletClient.getAddresses())[0],
