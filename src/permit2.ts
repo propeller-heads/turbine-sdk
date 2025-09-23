@@ -65,8 +65,7 @@ async function getNonce(
  * @param deadline When allowance and signature expire. By default
  * will be set to order's endTime.
  * @param amount The amount of tokens to approve. By default will be set to maxUint160.
- * @param spender The address of allowed token spender. By default
- * will be set to OrderSettler address.
+ * @param spender The address of allowed token spender.
  */
 export async function getSignedAllowance({
     token,
@@ -118,8 +117,7 @@ export type getSignedAllowanceReturnType = {
  * @param deadline When allowance and signature expire. By default
  * will be set to order's endTime.
  * @param amounts The amounts of tokens to approve. By default will be set to maxUint160.
- * @param spender The address of allowed token spender. By default
- * will be set to OrderSettler address.
+ * @param spender The address of allowed token spender.
  */
 export async function getBatchSignedAllowance({
     tokens,
@@ -127,14 +125,14 @@ export async function getBatchSignedAllowance({
     publicClient,
     deadline,
     amounts = [maxUint160, maxUint160], // infinite approval
-    spender = TURBINE_SETTLER_CONTRACT,
+    spender,
 }: {
     tokens: [Address, Address];
     walletClient: WalletClient;
     publicClient: PublicClient;
     deadline: number;
     amounts?: [bigint, bigint];
-    spender?: Address;
+    spender: Address;
 }): Promise<getBatchSignedAllowanceReturnType> {
     const permitDetails: PermitDetails[] = [];
     for (let i = 0; i < tokens.length; i++) {
