@@ -4,9 +4,9 @@ import {
     getRandomSalt,
     TurbineClient,
     getPools,
-    getSettledAmounts,
     getUserPositions,
     checkStatus,
+    fetchConfig,
 } from "../src/turbineClient";
 import {
     ACCOUNT,
@@ -16,12 +16,16 @@ import {
     PUBLIC_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
 } from "./constants";
+import { TURBINE_API_URL } from "../src/config";
 import { withTurbineErrorHandling } from "./utils";
 
 describe("Integration test", () => {
     describe("Authentication Flow", () => {
         it("should successfully authenticate with /nonce and /verify endpoints", async () => {
-            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             // Test the complete authentication flow
             await withTurbineErrorHandling(async () => {
@@ -33,7 +37,10 @@ describe("Integration test", () => {
         });
 
         it("should return authentication status with /me endpoint", async () => {
-            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
@@ -52,7 +59,10 @@ describe("Integration test", () => {
         });
 
         it("should handle logout properly", async () => {
-            const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT
+            );
 
             // First authenticate
             await withTurbineErrorHandling(async () => {
@@ -79,7 +89,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an order", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: OrderIntent = {
             ...ORDER_INTENT,
@@ -94,7 +104,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an order array", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intents: OrderIntent[] = Array.from({ length: 5 }, () => ({
             ...ORDER_INTENT,
@@ -111,7 +121,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit an add liquidity intent", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: AddLiquidityIntent = {
             ...ADD_LIQUIDITY_INTENT,
@@ -126,7 +136,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully submit a remove liquidity intent", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const intent: RemoveLiquidityIntent = {
             ...REMOVE_LIQUIDITY_INTENT,
@@ -141,7 +151,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully cancel an order", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         // First create an order to cancel
         const intent: OrderIntent = {
@@ -163,7 +173,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully get registered pools (client method)", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const pools = await withTurbineErrorHandling(() => turbineClient.getPools());
 
@@ -177,14 +187,17 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
-            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
+            "0xeE7f609036A1eF63e7b0b001cc488b2C98771503"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
     });
 
     it("should successfully get registered pools (standalone function)", async () => {
-        const pools = await withTurbineErrorHandling(() => getPools(PUBLIC_CLIENT));
+        const config = await fetchConfig(TURBINE_API_URL);
+        const pools = await withTurbineErrorHandling(() =>
+            getPools(PUBLIC_CLIENT, config.lpHookAddress)
+        );
 
         expect(pools).toBeDefined();
         expect(Array.isArray(pools)).toBe(true);
@@ -196,14 +209,14 @@ describe("Integration test", () => {
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
         expect(pool.metadata.fee).toBe(30);
         expect(pool.metadata.lpToken).toBe(
-            "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307"
+            "0xeE7f609036A1eF63e7b0b001cc488b2C98771503"
         );
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
     });
 
     it("should successfully get user positions (client method)", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const positions = await withTurbineErrorHandling(() =>
             turbineClient.getUserPositions()
@@ -214,8 +227,9 @@ describe("Integration test", () => {
     });
 
     it("should successfully get user positions (standalone function)", async () => {
+        const config = await fetchConfig(TURBINE_API_URL);
         const positions = await withTurbineErrorHandling(() =>
-            getUserPositions(ACCOUNT.address, PUBLIC_CLIENT)
+            getUserPositions(ACCOUNT.address, PUBLIC_CLIENT, config.lpHookAddress)
         );
 
         expect(positions).toBeDefined();
@@ -223,7 +237,7 @@ describe("Integration test", () => {
     });
 
     it("should successfully get order statuses", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         // First create an order to get its status
         const intent: OrderIntent = {
@@ -246,10 +260,10 @@ describe("Integration test", () => {
         expect(result[0].hash).toBe(orderHash);
     });
 
-    it("should successfully get settled amounts (standalone function)", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+    it("should successfully get settled amounts", async () => {
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
-        // First create an order to get its settled amount
+        // First create an order to get its status
         const intent: OrderIntent = {
             ...ORDER_INTENT,
             salt: getRandomSalt(),
@@ -259,21 +273,22 @@ describe("Integration test", () => {
             turbineClient.addOrder(intent)
         );
 
-        // Now get the settled amount using the standalone function
+        // Now get the order status
         const result = await withTurbineErrorHandling(() =>
-            getSettledAmounts(PUBLIC_CLIENT, turbineClient.settlerContract, [
-                orderHash as string,
-            ])
+            turbineClient.getSettledAmounts([orderHash as Hex])
         );
 
         expect(result).toBeDefined();
         expect(Array.isArray(result)).toBe(true);
         expect(result.length).toBe(1);
-        expect(typeof result[0]).toBe("bigint");
+        expect(result[0]).toEqual({
+            hash: orderHash,
+            executedSellAmount: BigInt("0"),
+        });
     });
 
     it("should successfully check status (standalone function)", async () => {
-        const turbineClient = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+        const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
         const result = await withTurbineErrorHandling(() =>
             checkStatus(turbineClient.turbineApiUrl)

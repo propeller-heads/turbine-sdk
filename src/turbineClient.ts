@@ -1,12 +1,7 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
 import { balanceOfABI, orderSettledABI, turbineHookABI } from "./abi";
-import {
-    TURBINE_API_URL,
-    TURBINE_HOOK_CONTRACT,
-    TURBINE_LIQUIDITY_ROUTER_CONTRACT,
-    TURBINE_SETTLER_CONTRACT,
-} from "./config";
+import { TURBINE_API_URL } from "./config";
 import { NULL_ADDRESS } from "./constants";
 import { toTurbineError, TurbineError } from "./errorHandling";
 import {
@@ -16,40 +11,61 @@ import {
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatusesPayload,
+    LiquidityIntentState,
+    LiquidityIntentStatus,
     OrderIntent,
+    OrderSettledAmount,
     OrderStatus,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
+    TurbineConfig,
     TurbinePool,
     UserPosition,
 } from "./models";
 import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
 
-const DEFAULT_SIWE_DOMAIN = "dev-swap.propellerheads.xyz";
-
 export class TurbineClient {
     public turbineApiUrl: string;
-    public settlerContract: Address;
-    public turbineLiquidityRouterContract: Address;
     public walletClient: WalletClient;
     public publicClient: PublicClient;
+    public config: TurbineConfig;
     private sessionId?: string;
     private authenticationInProgress: boolean = false;
 
-    constructor(
+    private constructor(
         walletClient: WalletClient,
         publicClient: PublicClient,
-        turbineApiUrl?: string,
-        settlerContract?: Address,
-        turbineLiquidityRouterContract?: Address
+        turbineApiUrl: string,
+        config: TurbineConfig
     ) {
         this.walletClient = walletClient;
         this.publicClient = publicClient;
-        this.turbineApiUrl = turbineApiUrl || TURBINE_API_URL;
-        this.settlerContract = settlerContract || TURBINE_SETTLER_CONTRACT;
-        this.turbineLiquidityRouterContract =
-            turbineLiquidityRouterContract || TURBINE_LIQUIDITY_ROUTER_CONTRACT;
+        this.turbineApiUrl = turbineApiUrl;
+        this.config = config;
+    }
+
+    /**
+     * Creates a new TurbineClient instance with configuration fetched from the API
+     * @param walletClient The wallet client for signing transactions
+     * @param publicClient The public client for reading blockchain data
+     * @param turbineApiUrl Optional API URL (defaults to TURBINE_API_URL)
+     * @returns Promise that resolves to a configured TurbineClient instance
+     */
+    static async create(
+        walletClient: WalletClient,
+        publicClient: PublicClient,
+        turbineApiUrl?: string
+    ): Promise<TurbineClient> {
+        const apiUrl = turbineApiUrl || TURBINE_API_URL;
+
+        // Check status first
+        await checkStatus(apiUrl);
+
+        // Fetch config
+        const config = await fetchConfig(apiUrl);
+
+        return new TurbineClient(walletClient, publicClient, apiUrl, config);
     }
 
     /* PRIVATE HELPER METHODS */
@@ -381,27 +397,83 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Get the status of multiple liquidity intents by their hashes.
+     * @param intentHashes An array of liquidity intent hashes to check
+     * @returns A Promise that resolves to an array of liquidity intent status objects.
+     */
+    async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentStatus[]> {
+        await this.ensureAuthenticated();
+
+        try {
+            const response = await this.fetchWithCookies("/liquidity_intent_statuses", {
+                method: "GET",
+                body: JSON.stringify({ intentHashes }),
+            });
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to get liquidity intent statuses. Please try again later."
+                );
+            }
+
+            const responseJson = await response.json();
+
+            if (!Array.isArray(responseJson)) {
+                throw new TurbineError(
+                    "INVALID_RESPONSE",
+                    `Expected array response but got: ${JSON.stringify(responseJson)}`,
+                    "Received unexpected response format from server. Please try again later."
+                );
+            }
+
+            return responseJson.map((status: any) => {
+                const stateKey = status.state as keyof typeof LiquidityIntentState;
+                return {
+                    hash: status.hash,
+                    state: LiquidityIntentState[stateKey],
+                } as LiquidityIntentStatus;
+            });
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
+        let statuses = await this.getOrderStatuses(orderHashes);
+        return statuses.map((status) => ({
+            hash: status.hash,
+            executedSellAmount: status.executedSellAmount,
+        }));
+    }
+
     /* UNAUTHENTICATED METHODS */
 
     async getPools(): Promise<TurbinePool[]> {
-        return await getPools(this.publicClient);
-    }
-
-    async getSettledAmounts(orderIds: string[]): Promise<readonly bigint[]> {
-        return await getSettledAmounts(
-            this.publicClient,
-            this.settlerContract,
-            orderIds
-        );
+        return await getPools(this.publicClient, this.config.lpHookAddress);
     }
 
     async getUserPositions(): Promise<UserPosition[]> {
         const address = await this.walletClient.getAddresses();
-        return await getUserPositions(address[0], this.publicClient);
+        return await getUserPositions(
+            address[0],
+            this.publicClient,
+            this.config.lpHookAddress
+        );
     }
 
     async checkStatus(): Promise<boolean> {
         return await checkStatus(this.turbineApiUrl);
+    }
+
+    /**
+     * Get the current configuration
+     * @returns The TurbineConfig
+     */
+    getConfig(): TurbineConfig {
+        return this.config;
     }
 
     /* PRIVATE METHODS */
@@ -421,7 +493,7 @@ export class TurbineClient {
             walletClient: this.walletClient,
             publicClient: this.publicClient,
             deadline: Number(intent.endTime),
-            spender: this.settlerContract,
+            spender: this.config.turbineSettlerAddress,
         });
         return {
             order: intent,
@@ -448,7 +520,7 @@ export class TurbineClient {
                 publicClient: this.publicClient,
                 amounts: [intent.maxToken0, intent.maxToken1],
                 deadline: Number(deadline),
-                spender: this.turbineLiquidityRouterContract,
+                spender: this.config.lpRouterAddress,
             });
         return {
             addLiquidity: intent,
@@ -475,7 +547,7 @@ export class TurbineClient {
                 publicClient: this.publicClient,
                 amount: intent.lpTokenAmount,
                 deadline: Number(deadline),
-                spender: this.turbineLiquidityRouterContract,
+                spender: this.config.lpRouterAddress,
             });
         return {
             removeLiquidity: intent,
@@ -493,26 +565,28 @@ export class TurbineClient {
     /**
      * Authenticate with the Turbine API using a wallet client.
      * First calls /nonce to get nonce, then calls /verify with the signed message.
-     * @param domain Optional domain to use in the SIWE message (defaults to {@link DEFAULT_SIWE_DOMAIN})
      */
-    async authenticate(domain?: string): Promise<void> {
+    async authenticate(): Promise<void> {
         const chainId = await this.walletClient.getChainId();
         const addresses = await this.walletClient.getAddresses();
         const address = addresses[0];
+        const config = this.getConfig();
 
         try {
             // Get nonce - session cookies handled automatically
-            const nonceResponse = await this.fetchWithCookies("/nonce");
+            const nonceResponse = await this.fetchWithCookies("/nonce", {
+                method: "POST",
+            });
             const nonce: string = await nonceResponse.json();
 
             // Create and sign SIWE message with the received nonce
             const message = createSiweMessage({
                 address: address,
                 chainId: chainId,
-                domain: domain || DEFAULT_SIWE_DOMAIN,
+                domain: config.siweDomain,
                 statement: "Sign in to Turbine with your Ethereum wallet",
                 nonce,
-                uri: this.turbineApiUrl,
+                uri: config.siweUri,
                 version: "1",
             });
 
@@ -735,12 +809,16 @@ export class TurbineClient {
 /**
  * Get the registered pools from the Turbine Hook contract.
  * @param publicClient The public client used for blockchain interactions
+ * @param hookAddress The address of the Turbine Hook contract
  * @returns A Promise that resolves to an array of `TurbinePool` objects.
  */
-export async function getPools(publicClient: PublicClient): Promise<TurbinePool[]> {
+export async function getPools(
+    publicClient: PublicClient,
+    hookAddress: Address
+): Promise<TurbinePool[]> {
     try {
         const poolsData = await publicClient.readContract({
-            address: TURBINE_HOOK_CONTRACT,
+            address: hookAddress,
             abi: turbineHookABI,
             functionName: "getRegisteredPools",
         });
@@ -770,72 +848,19 @@ export async function getPools(publicClient: PublicClient): Promise<TurbinePool[
 }
 
 /**
- * Get the currently settled amounts for multiple orders by their hashes.
- * @param publicClient The public client used for blockchain interactions
- * @param settlerContract The address of the settler contract
- * @param orderIds An array of order hashes to check
- * @returns A Promise that resolves to an array of filled amounts
- */
-export async function getSettledAmounts(
-    publicClient: PublicClient,
-    settlerContract: Address,
-    orderIds: string[]
-): Promise<readonly bigint[]> {
-    try {
-        // Filter logs for OrderSettled events
-        const logs = await publicClient.getLogs({
-            address: settlerContract,
-            event: orderSettledABI,
-            args: {
-                orderHash: orderIds as Hex[],
-            },
-            fromBlock: 22497666n,
-            toBlock: "latest",
-        });
-
-        const settledAmounts = new Map<string, bigint>();
-
-        for (const orderId of orderIds) {
-            settledAmounts.set(orderId.toLowerCase(), 0n);
-        }
-
-        for (const log of logs) {
-            const { orderHash, receiveAmount } = log.args as {
-                owner: Address;
-                orderHash: Hex;
-                receiveAmount: bigint;
-                sendAmount: bigint;
-            };
-
-            if (orderHash) {
-                const currentAmount = settledAmounts.get(orderHash.toLowerCase()) || 0n;
-                settledAmounts.set(
-                    orderHash.toLowerCase(),
-                    currentAmount + receiveAmount
-                );
-            }
-        }
-
-        return orderIds.map(
-            (orderId) => settledAmounts.get(orderId.toLowerCase()) || 0n
-        ) as readonly bigint[];
-    } catch (error) {
-        throw toTurbineError(error);
-    }
-}
-
-/**
  * Get user positions for all registered pools.
  * @param userAddress The address of the user to get positions for
  * @param publicClient The public client used for blockchain interactions
+ * @param hookAddress The address of the Turbine Hook contract
  * @returns A Promise that resolves to an array of `UserPosition` objects.
  */
 export async function getUserPositions(
     userAddress: Address,
-    publicClient: PublicClient
+    publicClient: PublicClient,
+    hookAddress: Address
 ): Promise<UserPosition[]> {
     try {
-        const pools = await getPools(publicClient);
+        const pools = await getPools(publicClient, hookAddress);
         if (pools.length === 0) {
             return [];
         }
@@ -874,6 +899,41 @@ export async function getUserPositions(
         return userPositions;
     } catch (error) {
         throw toTurbineError(error);
+    }
+}
+
+/**
+ * Check if the Turbine service is available by querying the /status endpoint.
+ * @param turbineApiUrl The base URL of the Turbine API
+ * @returns A Promise that resolves to true if the service is available, or throws an error if unavailable.
+ */
+/**
+ * Fetch configuration from the Turbine API endpoint.
+ * @param turbineApiUrl The base URL of the Turbine API
+ * @returns A Promise that resolves to the TurbineConfig
+ */
+export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig> {
+    try {
+        const response = await fetch(`${turbineApiUrl}/config`);
+        if (!response.ok) {
+            console.log(response);
+            throw new TurbineError(
+                "CONFIG_FETCH_FAILED",
+                `Config fetch failed with status ${response.status}: ${response.statusText}`,
+                "Unable to fetch configuration. Please try again later."
+            );
+        }
+        return await response.json();
+    } catch (error: any) {
+        if (error instanceof TurbineError) {
+            throw error;
+        }
+        console.log(error);
+        throw new TurbineError(
+            "CONFIG_FETCH_FAILED",
+            `Failed to fetch config: ${error.message}`,
+            "Unable to fetch configuration. Please try again later."
+        );
     }
 }
 
@@ -922,7 +982,7 @@ export function convertSignature(sig: Hex): PrimitiveSignature {
 }
 
 /** Helps serializing BigInts into JSON */
-function bigIntReplacer(key: string, value: any): any {
+function bigIntReplacer(_key: string, value: any): any {
     if (typeof value === "bigint") {
         return `0x${value.toString(16)}`;
     }

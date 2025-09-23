@@ -32,7 +32,7 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = new TurbineClient(
+    const turbineClient = await TurbineClient.create(
         walletClient,
         publicClient,
         TURBINE_API_URL

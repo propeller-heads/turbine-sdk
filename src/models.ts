@@ -1,5 +1,15 @@
 import { Address, getAddress, Hex } from "viem";
 
+export interface TurbineConfig {
+    turbineSettlerAddress: Address;
+    lpHookAddress: Address;
+    lpRouterAddress: Address;
+    poolManagerAddress: Address;
+    submitSettlements: boolean;
+    siweDomain: string;
+    siweUri: string;
+}
+
 export class Token {
     public address: Address;
     public decimals: number;
@@ -265,6 +275,28 @@ export interface OrderStatus {
     execution: OrderExecution[];
     executedSellAmount: bigint;
     executedBuyAmount: bigint;
+}
+
+export enum LiquidityIntentState {
+    Pending = "Pending",
+    Invalid = "Invalid",
+    Expired = "Expired",
+    Executed = "Executed",
+    PendingCancellation = "PendingCancellation",
+    Canceled = "Canceled",
+}
+
+/**
+ * Represents the status of a liquidity intent
+ */
+export interface LiquidityIntentStatus {
+    hash: Hex;
+    state: LiquidityIntentState;
+}
+
+export interface OrderSettledAmount {
+    hash: Hex;
+    executedSellAmount: bigint;
 }
 
 /**

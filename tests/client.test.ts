@@ -4,7 +4,6 @@ import { USDC, WBTC, WETH } from "../src/constants";
 import {
     TurbineClient,
     getPools,
-    getSettledAmounts,
     getUserPositions,
     checkStatus,
 } from "../src/turbineClient";
@@ -12,11 +11,13 @@ import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
     ORDER_INTENT,
-    WALLET_CLIENT,
     PUBLIC_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
+    createMockTurbineClient,
+    MOCK_TURBINE_CONFIG,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
+import { LiquidityIntentState } from "../src/models";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
@@ -32,7 +33,7 @@ describe("TurbineClient", () => {
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
             const mockOrderId = "test-order-id-123";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -58,7 +59,7 @@ describe("TurbineClient", () => {
     describe("addOrders", () => {
         it("should call Turbine API and return array of order IDs", async () => {
             const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -90,7 +91,7 @@ describe("TurbineClient", () => {
     describe("addLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -116,7 +117,7 @@ describe("TurbineClient", () => {
     describe("removeLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
             const mockIntentId = "test-intent-id-123";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -143,7 +144,7 @@ describe("TurbineClient", () => {
         it("should call Turbine API and return success message", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -171,7 +172,7 @@ describe("TurbineClient", () => {
 
     describe("getPools", () => {
         it("should return mocked turbine pool (client method)", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock the contract call to return test data
             const mockContractData = [
@@ -269,7 +270,9 @@ describe("TurbineClient", () => {
                 .spyOn(PUBLIC_CLIENT, "readContract")
                 .mockResolvedValue(mockContractData as any);
 
-            const pools = await withTurbineErrorHandling(() => getPools(PUBLIC_CLIENT));
+            const pools = await withTurbineErrorHandling(() =>
+                getPools(PUBLIC_CLIENT, MOCK_TURBINE_CONFIG.lpHookAddress)
+            );
 
             // Restore the mock
             mockReadContract.mockRestore();
@@ -289,7 +292,7 @@ describe("TurbineClient", () => {
 
     describe("getUserPositions", () => {
         it("should return user positions with mocked data (client method)", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const testUserAddress = ACCOUNT.address;
 
             // Mock the contract call for getPools to return test data
@@ -406,7 +409,11 @@ describe("TurbineClient", () => {
                 .mockResolvedValue(mockMulticallResults as any);
 
             const positions = await withTurbineErrorHandling(() =>
-                getUserPositions(testUserAddress as Address, PUBLIC_CLIENT)
+                getUserPositions(
+                    testUserAddress as Address,
+                    PUBLIC_CLIENT,
+                    MOCK_TURBINE_CONFIG.lpHookAddress
+                )
             );
 
             // Restore the mocks
@@ -424,8 +431,7 @@ describe("TurbineClient", () => {
         });
 
         it("should handle multicall failures gracefully", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
-            const testUserAddress = ACCOUNT.address;
+            const client = await createMockTurbineClient();
 
             // Mock the contract call for getPools to return test data
             const mockPoolsData = [
@@ -493,131 +499,79 @@ describe("TurbineClient", () => {
 
     describe("getSettledAmounts", () => {
         it("should return filled amounts for multiple orders (client method)", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const mockOrderHashes = [
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                 "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
                 "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
-            ];
+            ] as Hex[];
 
-            // Mock event logs - first order has 2 partial fills, second has 1, third has none
-            const mockLogs = [
+            // Mock order statuses with different executed sell amounts
+            const mockOrderStatuses = [
                 {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[0] as Hex,
-                        receiveAmount: BigInt("600000000000000000"), // 0.6 token
-                        sendAmount: BigInt("1000000"),
-                    },
+                    hash: mockOrderHashes[0],
+                    order: { executedSellAmount: BigInt("1000000") },
+                    state: "Filled",
+                    execution: [],
+                    executedSellAmount: BigInt("1000000000000000000"), // 1 token (0.6 + 0.4)
+                    executedBuyAmount: BigInt("950000"),
                 },
                 {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[0] as Hex,
-                        receiveAmount: BigInt("400000000000000000"), // 0.4 token
-                        sendAmount: BigInt("800000"),
-                    },
+                    hash: mockOrderHashes[1],
+                    order: { executedSellAmount: BigInt("500000") },
+                    state: "PartiallyFilled",
+                    execution: [],
+                    executedSellAmount: BigInt("500000000000000000"), // 0.5 token
+                    executedBuyAmount: BigInt("475000"),
                 },
                 {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[1] as Hex,
-                        receiveAmount: BigInt("500000000000000000"), // 0.5 token
-                        sendAmount: BigInt("1000000"),
-                    },
+                    hash: mockOrderHashes[2],
+                    order: { executedSellAmount: BigInt("0") },
+                    state: "Open",
+                    execution: [],
+                    executedSellAmount: BigInt("0"), // 0 token
+                    executedBuyAmount: BigInt("0"),
                 },
             ];
 
             const expectedAmounts = [
-                BigInt("1000000000000000000"), // 1 token (0.6 + 0.4)
-                BigInt("500000000000000000"), // 0.5 token
-                BigInt("0"), // 0 token
-            ] as const;
+                {
+                    hash: mockOrderHashes[0],
+                    executedSellAmount: BigInt("1000000000000000000"), // 1 token (0.6 + 0.4)
+                },
+                {
+                    hash: mockOrderHashes[1],
+                    executedSellAmount: BigInt("500000000000000000"), // 0.5 token
+                },
+                {
+                    hash: mockOrderHashes[2],
+                    executedSellAmount: BigInt("0"), // 0 token
+                },
+            ];
 
-            // Mock the getLogs method
-            const mockGetLogs = jest
-                .spyOn(client.publicClient, "getLogs")
-                .mockResolvedValue(mockLogs as any);
+            // Mock authentication
+            mockAuthentication(client, ACCOUNT.address);
+
+            // Mock the getOrderStatuses method
+            const mockGetOrderStatuses = jest
+                .spyOn(client, "getOrderStatuses")
+                .mockResolvedValue(mockOrderStatuses as any);
 
             const filledAmounts = await withTurbineErrorHandling(() =>
                 client.getSettledAmounts(mockOrderHashes)
             );
 
             expect(filledAmounts).toEqual(expectedAmounts);
-            expect(mockGetLogs).toHaveBeenCalledWith({
-                address: client.settlerContract,
-                event: expect.objectContaining({
-                    name: "OrderSettled",
-                }),
-                args: {
-                    orderHash: mockOrderHashes,
-                },
-                fromBlock: 22497666n,
-                toBlock: "latest",
-            });
+            expect(mockGetOrderStatuses).toHaveBeenCalledWith(mockOrderHashes);
 
             // Restore the mocks
-            mockGetLogs.mockRestore();
-        });
-
-        it("should return filled amounts for multiple orders (standalone function)", async () => {
-            const mockOrderHashes = [
-                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                "0x2345678901bcdef12345678901bcdef12345678901bcdef12345678901bcdef1",
-                "0x3456789012cdef123456789012cdef123456789012cdef123456789012cdef12",
-            ];
-
-            // Mock event logs - first order has 1 fill, others have none
-            const mockLogs = [
-                {
-                    args: {
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b" as Address,
-                        orderHash: mockOrderHashes[0] as Hex,
-                        receiveAmount: BigInt("1000000000000000000"), // 1 token
-                        sendAmount: BigInt("1000000"),
-                    },
-                },
-            ];
-
-            const expectedAmounts = [
-                BigInt("1000000000000000000"), // 1 token
-                BigInt("0"), // 0 token
-                BigInt("0"), // 0 token
-            ] as const;
-
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
-            const settlerContract = client.settlerContract;
-
-            // Mock the getLogs method
-            const mockGetLogs = jest
-                .spyOn(PUBLIC_CLIENT, "getLogs")
-                .mockResolvedValue(mockLogs as any);
-
-            const filledAmounts = await withTurbineErrorHandling(() =>
-                getSettledAmounts(PUBLIC_CLIENT, settlerContract, mockOrderHashes)
-            );
-
-            expect(filledAmounts).toEqual(expectedAmounts);
-            expect(mockGetLogs).toHaveBeenCalledWith({
-                address: settlerContract,
-                event: expect.objectContaining({
-                    name: "OrderSettled",
-                }),
-                args: {
-                    orderHash: mockOrderHashes,
-                },
-                fromBlock: 22497666n,
-                toBlock: "latest",
-            });
-
-            // Restore the mocks
-            mockGetLogs.mockRestore();
+            mockGetOrderStatuses.mockRestore();
         });
     });
 
     describe("checkStatus", () => {
         it("should return true when Turbine service is available (status 200) - client method", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch
             const mockFetch = jest.spyOn(global, "fetch").mockResolvedValue({
@@ -638,7 +592,7 @@ describe("TurbineClient", () => {
         });
 
         it("should return true when Turbine service is available (status 200) - standalone function", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const turbineApiUrl = client.turbineApiUrl;
 
             // Mock fetch
@@ -662,7 +616,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns non-200 status", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch to throw an error
             const mockFetch = jest
@@ -680,7 +634,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns 404 status", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch to return 404
             jest.spyOn(global, "fetch").mockResolvedValue({
@@ -701,7 +655,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when service returns 500 status", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock fetch to return 500
             jest.spyOn(global, "fetch").mockResolvedValue({
@@ -722,7 +676,7 @@ describe("TurbineClient", () => {
         });
 
         it("should throw TurbineError when network request fails", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
             const networkError = new Error("Network error");
 
             // Mock fetch to throw a network error
@@ -738,11 +692,7 @@ describe("TurbineClient", () => {
 
         it("should use custom turbineApiUrl when provided", async () => {
             const customApiUrl = "https://custom-turbine-api.example.com";
-            const client = new TurbineClient(
-                WALLET_CLIENT,
-                PUBLIC_CLIENT,
-                customApiUrl
-            );
+            const client = await createMockTurbineClient(customApiUrl);
 
             // Mock fetch
             const mockFetch = jest.spyOn(global, "fetch").mockResolvedValue({
@@ -802,7 +752,7 @@ describe("TurbineClient", () => {
                 },
             ];
 
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+            const client = await createMockTurbineClient();
 
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
@@ -851,19 +801,43 @@ describe("TurbineClient", () => {
         });
     });
 
-    describe("getSettledAmounts - mainnet integration", () => {
-        it("should query filled amounts for mainnet real order", async () => {
-            const client = new TurbineClient(WALLET_CLIENT, PUBLIC_CLIENT);
+    describe("getLiquidityIntents", () => {
+        it("should call Turbine API and return liquidity intent statuses", async () => {
+            const mockStatuses = [
+                {
+                    hash: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+                    state: "Pending",
+                },
+            ];
 
-            const orderHash: Hex =
-                "0x06e0c1b6ee937206ecf9199a5adf05d65637650b4e999784aaa1768064388e76";
+            const client = await createMockTurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client, ACCOUNT.address);
+
+            // Spy on internal fetchWithCookies used by getLiquidityIntents
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(JSON.stringify(mockStatuses), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const intentHashes: Hex[] = [
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+            ];
 
             const result = await withTurbineErrorHandling(() =>
-                client.getSettledAmounts([orderHash])
+                client.getLiquidityIntents(intentHashes)
             );
 
             expect(result).toHaveLength(1);
-            expect(result[0]).toBe(100_000_000n);
+            expect(result[0].hash).toBe(
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+            );
+            expect(result[0].state).toBe(LiquidityIntentState.Pending);
         });
     });
 });

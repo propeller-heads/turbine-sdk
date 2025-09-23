@@ -85,17 +85,17 @@ In case of partial fills, the `TurbineSettler` will update the `sellAmount` in t
 ## Submitting orders via the SDK
 
 > [!TIP]
-> You can also submit orders using our frontend: <https://swap.propellerheads.xyz/turbine>
+> You can also submit orders using our frontend: <https://app.turbine.exchange/>
 
 > [!Note]
 > For this alpha version Turbine has a limit of 60 active orders per `owner`.
 
-### Available environments to submit orders
+### Available API URLs to submit orders
 
 The available URLs are:
 
--   **DEV** environment: <http://dev-turbine.propellerheads.xyz/api>
--   **STAGING** environment in a TEE on DStack: <https://cf57bca965c02d1dbfccc8a4677856765800efab-8080.dstack-prod5.phala.network>
+-   **DEV** environment: <https://dev-api.turbine.exchange/api>
+-   **STAGING** environment in a TEE on DStack: <https://staging-api.turbine.exchange/api>
 
 > [!WARNING]
 > The URL of the STAGING environment is subject to change.
