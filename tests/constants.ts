@@ -137,5 +137,32 @@ export async function createMockTurbineClient(
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12" as Hex,
     });
 
+    // Mock the batch allowance as well to avoid real RPC calls during tests
+    jest.spyOn(
+        await import("../src/permit2"),
+        "getBatchSignedAllowance"
+    ).mockResolvedValue({
+        permit: {
+            details: [
+                {
+                    token: USDC.address as Address,
+                    amount: BigInt("1000000000000000000000000000000"),
+                    expiration: Math.floor(Date.now() / 1000) + 3600,
+                    nonce: 0,
+                },
+                {
+                    token: WETH.address as Address,
+                    amount: BigInt("1000000000000000000000000000000"),
+                    expiration: Math.floor(Date.now() / 1000) + 3600,
+                    nonce: 0,
+                },
+            ],
+            spender: MOCK_TURBINE_CONFIG.lpRouterAddress,
+            sigDeadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+        },
+        permitSignature:
+            "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex,
+    });
+
     return client;
 }

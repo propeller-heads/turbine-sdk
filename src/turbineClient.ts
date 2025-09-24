@@ -23,7 +23,7 @@ import {
     TurbinePool,
     UserPosition,
 } from "./models";
-import { getSignedAllowance } from "./permit2";
+import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -513,33 +513,20 @@ export class TurbineClient {
         };
 
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
-        let { permit: permit0, permitSignature: permitSignature0 } =
-            await getSignedAllowance({
-                token: intent.token0,
+        let { permit: permit, permitSignature: permitSignature } =
+            await getBatchSignedAllowance({
+                tokens: [intent.token0, intent.token1],
                 walletClient: this.walletClient,
                 publicClient: this.publicClient,
-                amount: intent.maxToken0,
-                deadline: Number(deadline),
-                spender: this.config.lpRouterAddress,
-            });
-        let { permit: permit1, permitSignature: permitSignature1 } =
-            await getSignedAllowance({
-                token: intent.token1,
-                walletClient: this.walletClient,
-                publicClient: this.publicClient,
-                amount: intent.maxToken1,
+                amounts: [intent.maxToken0, intent.maxToken1],
                 deadline: Number(deadline),
                 spender: this.config.lpRouterAddress,
             });
         return {
             addLiquidity: intent,
-            permitToken0: {
-                signature: convertSignature(permitSignature0),
-                permit: permit0,
-            },
-            permitToken1: {
-                signature: convertSignature(permitSignature1),
-                permit: permit1,
+            permitTokens: {
+                signature: convertSignature(permitSignature),
+                permit: permit,
             },
         };
     }
