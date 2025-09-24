@@ -612,13 +612,19 @@ export class TurbineClient {
             const structuredSignature = this.parseSignature(signature);
 
             // Verify with signed message - session cookies handled automatically
-            await this.fetchWithCookies("/verify", {
+            const verifyResponse = await this.fetchWithCookies("/verify", {
                 method: "POST",
                 body: JSON.stringify({
                     message,
                     signature: structuredSignature,
                 }),
             });
+
+            if (!verifyResponse.ok) {
+                const responseText = await verifyResponse.text();
+                const errorMessage = `Verify endpoint failed: ${verifyResponse.status} ${verifyResponse.statusText} - ${responseText}`;
+                throw new Error(errorMessage);
+            }
         } catch (error: any) {
             throw toTurbineError(error);
         }
@@ -720,6 +726,11 @@ export class TurbineClient {
             return retryAuthStatus.address;
         } catch (error: any) {
             if (error instanceof TurbineError) {
+                throw error;
+            }
+
+            // If it's already a detailed authentication error, preserve it
+            if (error.message && error.message.includes("Authentication failed:")) {
                 throw error;
             }
 

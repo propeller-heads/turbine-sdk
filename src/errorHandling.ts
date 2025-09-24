@@ -150,6 +150,15 @@ export function toTurbineError(error: unknown): TurbineError {
         );
     }
 
+    // Handle authentication/verification endpoint errors with detailed server response
+    if (errorMessage.includes("Verify endpoint failed:")) {
+        return new TurbineError(
+            "AUTHENTICATION_FAILED",
+            errorMessage,
+            `Authentication failed: ${errorMessage}`
+        );
+    }
+
     // Default error
     return new TurbineError(
         "UNKNOWN_ERROR",
