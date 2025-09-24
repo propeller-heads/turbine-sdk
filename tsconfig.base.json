@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["ES2022", "DOM"],
+    "moduleResolution": "node",
+
+    // Basic type checking
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Module handling
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+
+    // Performance
+    "incremental": true,
+
+    // Library-specific
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["tests/**", "scripts/**", "node_modules/**"]
+}

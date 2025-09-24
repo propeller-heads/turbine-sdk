@@ -1,10 +1,33 @@
-# Ignore all.js files
-*.js
-!jest.config.js
+# Build outputs
+_cjs
+_esm
+_types
+build/
+dist/
 
-# Ignore node_modules directory
+# TypeScript build info
+tsconfig*.tsbuildinfo
+
+# Environment files
+*.local
+.env*
+.envrc
+
+# Dependencies
 node_modules/
+
+# IDE/System files
 .idea/
+.DS_Store
+
+# Testing
+coverage/
+*.test.js
+*.test.d.ts
+
+# Cache files
+.eslintcache
+cache/
 
 # Yarn
 .pnp.*
@@ -14,3 +37,6 @@ node_modules/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Keep configuration files
+!jest.config.js

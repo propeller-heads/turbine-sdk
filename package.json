@@ -2,9 +2,69 @@
     "name": "turbine-sdk",
     "version": "0.9.1",
     "description": "Submit orders to Turbine",
-    "main": "index.js",
+    "type": "module",
+    "sideEffects": false,
+    "main": "./src/_cjs/index.js",
+    "module": "./src/_esm/index.js",
+    "types": "./src/_types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./src/_types/index.d.ts",
+            "import": "./src/_esm/index.js",
+            "require": "./src/_cjs/index.js"
+        },
+        "./models": {
+            "types": "./src/_types/models.d.ts",
+            "import": "./src/_esm/models.js",
+            "require": "./src/_cjs/models.js"
+        },
+        "./turbineClient": {
+            "types": "./src/_types/turbineClient.d.ts",
+            "import": "./src/_esm/turbineClient.js",
+            "require": "./src/_cjs/turbineClient.js"
+        },
+        "./constants": {
+            "types": "./src/_types/constants.d.ts",
+            "import": "./src/_esm/constants.js",
+            "require": "./src/_cjs/constants.js"
+        },
+        "./config": {
+            "types": "./src/_types/config.d.ts",
+            "import": "./src/_esm/config.js",
+            "require": "./src/_cjs/config.js"
+        },
+        "./web3Subscription": {
+            "types": "./src/_types/web3Subscription.d.ts",
+            "import": "./src/_esm/web3Subscription.js",
+            "require": "./src/_cjs/web3Subscription.js"
+        },
+        "./permit2": {
+            "types": "./src/_types/permit2.d.ts",
+            "import": "./src/_esm/permit2.js",
+            "require": "./src/_cjs/permit2.js"
+        },
+        "./errorHandling": {
+            "types": "./src/_types/errorHandling.d.ts",
+            "import": "./src/_esm/errorHandling.js",
+            "require": "./src/_cjs/errorHandling.js"
+        },
+        "./abi": {
+            "types": "./src/_types/abi.d.ts",
+            "import": "./src/_esm/abi.js",
+            "require": "./src/_cjs/abi.js"
+        }
+    },
+    "files": [
+        "src/_esm/**",
+        "src/_cjs/**",
+        "src/_types/**"
+    ],
     "scripts": {
-        "build": "tsc",
+        "clean": "rm -rf src/_cjs src/_esm src/_types build dist src/*.tsbuildinfo",
+        "build:esm": "tsc -p tsconfig.esm.json",
+        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "build:types": "tsc -p tsconfig.types.json",
+        "build": "yarn clean && yarn build:esm && yarn build:cjs && yarn build:types",
         "test": "jest",
         "test-no-integration": "jest --testPathIgnorePatterns integration",
         "submit-orders": "ts-node scripts/submit-orders.ts",
