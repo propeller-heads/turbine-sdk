@@ -55,9 +55,8 @@
         }
     },
     "files": [
-        "src/_esm/**",
-        "src/_cjs/**",
-        "src/_types/**"
+        "src/**",
+        "tsconfig*.json"
     ],
     "scripts": {
         "clean": "rm -rf src/_cjs src/_esm src/_types build dist src/*.tsbuildinfo",
