@@ -6,20 +6,14 @@ import {
     PermitSingle,
     PermitSingleData,
 } from "@uniswap/permit2-sdk";
-import {
-    Address,
-    Hex,
-    maxUint160,
-    PublicClient,
-    TypedDataDomain,
-    WalletClient,
-} from "viem";
+import { Address, Hex, maxUint160, PublicClient, WalletClient } from "viem";
 import { CHAIN_ID } from "./config";
 import {
-    AllowanceTransferBatchPermit,
+    AllowanceTransferPermitBatch,
     AllowanceTransferPermitSingle,
     PermitDetails,
 } from "./models";
+import { toTurbineError } from "./errorHandling";
 
 /* Get current nonce of Permit2 AllowanceTransfer.
  * This nonce should be used in a new allowance.
@@ -153,7 +147,7 @@ export async function getBatchSignedAllowance({
         });
     }
 
-    const permit: AllowanceTransferBatchPermit = {
+    const permit: AllowanceTransferPermitBatch = {
         details: permitDetails,
         spender: spender,
         sigDeadline: BigInt(deadline),
@@ -164,7 +158,7 @@ export async function getBatchSignedAllowance({
     return { permit, permitSignature };
 }
 export type getBatchSignedAllowanceReturnType = {
-    permit: AllowanceTransferBatchPermit;
+    permit: AllowanceTransferPermitBatch;
     permitSignature: Hex;
 };
 
@@ -174,7 +168,7 @@ export type getBatchSignedAllowanceReturnType = {
  * data suited for `ethers` wallet, while we're using `viem` wallet.
  */
 export async function getSignature(
-    permit: AllowanceTransferPermitSingle | AllowanceTransferBatchPermit,
+    permit: AllowanceTransferPermitSingle | AllowanceTransferPermitBatch,
     wallet: WalletClient,
     permitType: "PermitSingle" | "PermitBatch" = "PermitSingle"
 ): Promise<Hex> {
@@ -185,12 +179,14 @@ export async function getSignature(
             PERMIT2_ADDRESS,
             CHAIN_ID // TODO use chainId from wallet?
         ) as PermitSingleData;
-    } else {
+    } else if (permitType === "PermitBatch") {
         permitData = AllowanceTransfer.getPermitData(
             permit as PermitBatch,
             PERMIT2_ADDRESS,
             CHAIN_ID // TODO use chainId from wallet?
         ) as PermitBatchData;
+    } else {
+        throw toTurbineError("Invalid permit type");
     }
     const signature = await wallet.signTypedData({
         account: wallet.account!,

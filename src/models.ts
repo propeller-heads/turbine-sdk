@@ -55,7 +55,7 @@ export interface AllowanceTransferPermitSingle {
     sigDeadline: bigint;
 }
 
-export interface AllowanceTransferBatchPermit {
+export interface AllowanceTransferPermitBatch {
     details: PermitDetails[];
     spender: Address;
     sigDeadline: bigint;
@@ -72,9 +72,9 @@ export interface SignedPermit {
     permit: AllowanceTransferPermitSingle;
 }
 
-export interface SignedBatchPermit {
+export interface SignedPermitBatch {
     signature: PrimitiveSignature;
-    permit: AllowanceTransferBatchPermit;
+    permit: AllowanceTransferPermitBatch;
 }
 
 /**
@@ -139,7 +139,7 @@ export interface AddLiquidity {
     /** The intent to add liquidity */
     addLiquidity: AddLiquidityIntent;
     /** The permit signature and permit data for both tokens */
-    permitTokens: SignedBatchPermit;
+    permitTokens: SignedPermitBatch;
 }
 
 /**
