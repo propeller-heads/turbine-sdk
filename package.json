@@ -59,12 +59,13 @@
         "tsconfig*.json"
     ],
     "scripts": {
-        "clean": "rm -rf src/_cjs src/_esm src/_types build dist src/*.tsbuildinfo",
+        "clean": "rm -rf src/_cjs src/_esm src/_types build dist && rm -f src/*.tsbuildinfo",
         "build:esm": "tsc -p tsconfig.esm.json",
         "build:cjs": "tsc -p tsconfig.cjs.json",
         "build:types": "tsc -p tsconfig.types.json",
         "build": "yarn clean && yarn build:esm && yarn build:cjs && yarn build:types",
-        "prepack": "yarn build",
+        "build:only": "yarn build:esm && yarn build:cjs && yarn build:types",
+        "prepack": "yarn build:only",
         "test": "jest",
         "test-no-integration": "jest --testPathIgnorePatterns integration",
         "submit-orders": "ts-node scripts/submit-orders.ts",
