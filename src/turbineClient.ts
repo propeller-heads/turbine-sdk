@@ -1,9 +1,9 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import { balanceOfABI, orderSettledABI, turbineHookABI } from "./abi";
-import { TURBINE_API_URL } from "./config";
-import { NULL_ADDRESS } from "./constants";
-import { toTurbineError, TurbineError } from "./errorHandling";
+import { balanceOfABI, orderSettledABI, turbineHookABI } from "./abi.js";
+import { TURBINE_API_URL } from "./config.js";
+import { NULL_ADDRESS } from "./constants.js";
+import { toTurbineError, TurbineError } from "./errorHandling.js";
 import {
     AddLiquidity,
     AddLiquidityIntent,
@@ -22,8 +22,8 @@ import {
     TurbineConfig,
     TurbinePool,
     UserPosition,
-} from "./models";
-import { getSignedAllowance } from "./permit2";
+} from "./models.js";
+import { getSignedAllowance } from "./permit2.js";
 
 export class TurbineClient {
     public turbineApiUrl: string;

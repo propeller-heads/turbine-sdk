@@ -1,5 +1,5 @@
 import Web3, { BlockHeaderOutput } from "web3";
-import { W3_WEBSOCKET } from "./config";
+import { W3_WEBSOCKET } from "./config.js";
 
 function connectToWeb3(websocket_url: string): Web3 {
     const web3 = new Web3(new Web3.providers.WebsocketProvider(websocket_url));

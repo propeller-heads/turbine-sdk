@@ -1,5 +1,5 @@
 import { Address } from "viem";
-import { Token } from "./models";
+import { Token } from "./models.js";
 
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 

@@ -5,8 +5,8 @@ import {
     PermitSingleData,
 } from "@uniswap/permit2-sdk";
 import { Address, Hex, maxUint160, PublicClient, WalletClient } from "viem";
-import { CHAIN_ID } from "./config";
-import { AllowanceTransferPermitSingle } from "./models";
+import { CHAIN_ID } from "./config.js";
+import { AllowanceTransferPermitSingle } from "./models.js";
 
 /* Get current nonce of Permit2 AllowanceTransfer.
  * This nonce should be used in a new allowance.
