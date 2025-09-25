@@ -771,7 +771,7 @@ describe("TurbineClient", () => {
 
             expect(mockCallAPI).toHaveBeenCalledWith(
                 { orderHashes: orderHashes },
-                "order_statuses"
+                "order_states"
             );
         });
     });
