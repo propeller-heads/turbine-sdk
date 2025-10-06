@@ -449,6 +449,47 @@ export class TurbineClient {
         }));
     }
 
+    /**
+     * Get the fee for a prospective order.
+     * @param intent The intent for which to get the fee
+     * @returns A Promise that resolves to a bigint containing the fee
+     */
+    async getOrderFee(intent: OrderIntent): Promise<bigint> {
+        await this.ensureAuthenticated();
+        
+        try {
+            const response = await this.fetchWithCookies("/order_fees", {
+                method: "POST",
+                body: JSON.stringify(intent, bigIntReplacer),
+            });
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to get order fee. Please try again later."
+                );
+            }
+
+            const feeJson = await response.json();
+
+            if (typeof feeJson === "bigint") {
+                return feeJson as bigint;
+            }
+            if (typeof feeJson === "string") {
+                return BigInt(feeJson);
+            }
+
+            throw new TurbineError(
+                "INVALID_RESPONSE",
+                `Unexpected fee response: ${JSON.stringify(feeJson)}`,
+                "Received unexpected response format from server. Please try again later."
+            );
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
     /* UNAUTHENTICATED METHODS */
 
     async getPools(): Promise<TurbinePool[]> {
