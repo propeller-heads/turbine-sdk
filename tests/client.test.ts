@@ -572,8 +572,6 @@ describe("TurbineClient", () => {
     describe("getOrderFee", () => {
         it("should call Turbine API and return fee as bigint", async () => {
             const client = await createMockTurbineClient();
-            // Mock authentication
-            mockAuthentication(client, ACCOUNT.address);
 
             // Spy on internal fetchWithCookies used by getOrderFee
             const mockFetchWithCookies = jest

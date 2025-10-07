@@ -455,8 +455,6 @@ export class TurbineClient {
      * @returns A Promise that resolves to a bigint containing the fee
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
-        await this.ensureAuthenticated();
-
         try {
             const response = await this.fetchWithCookies("/order_fees", {
                 method: "POST",
