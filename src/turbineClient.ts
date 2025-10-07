@@ -456,7 +456,7 @@ export class TurbineClient {
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
         await this.ensureAuthenticated();
-        
+
         try {
             const response = await this.fetchWithCookies("/order_fees", {
                 method: "POST",
