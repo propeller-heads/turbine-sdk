@@ -449,10 +449,12 @@ export class TurbineClient {
         }));
     }
 
+    /* UNAUTHENTICATED METHODS */
+
     /**
      * Get the fee for a prospective order.
      * @param intent The intent for which to get the fee
-     * @returns A Promise that resolves to a bigint containing the fee
+     * @returns A Promise that resolves to a bigint containing the fee expressed in absolute amount of the sell token.
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
         try {
@@ -471,24 +473,19 @@ export class TurbineClient {
 
             const feeJson = await response.json();
 
-            if (typeof feeJson === "bigint") {
-                return feeJson as bigint;
-            }
-            if (typeof feeJson === "string") {
-                return BigInt(feeJson);
+            if (typeof feeJson !== "string") {
+                throw new TurbineError(
+                    "INVALID_RESPONSE",
+                    `Unexpected fee response: ${JSON.stringify(feeJson)}`,
+                    "Received unexpected response format from server. Please try again later."
+                );
             }
 
-            throw new TurbineError(
-                "INVALID_RESPONSE",
-                `Unexpected fee response: ${JSON.stringify(feeJson)}`,
-                "Received unexpected response format from server. Please try again later."
-            );
+            return BigInt(feeJson);
         } catch (error) {
             throw toTurbineError(error);
         }
     }
-
-    /* UNAUTHENTICATED METHODS */
 
     async getPools(): Promise<TurbinePool[]> {
         return await getPools(this.publicClient, this.config.lpHookAddress);

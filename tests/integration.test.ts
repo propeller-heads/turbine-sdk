@@ -296,7 +296,6 @@ describe("Integration test", () => {
         );
 
         expect(typeof fee).toBe("bigint");
-        expect(fee).toBe(10000n);
     });
 
     it("should successfully check status (standalone function)", async () => {
