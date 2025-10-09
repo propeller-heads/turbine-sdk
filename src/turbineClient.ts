@@ -451,6 +451,42 @@ export class TurbineClient {
 
     /* UNAUTHENTICATED METHODS */
 
+    /**
+     * Get the fee for a prospective order.
+     * @param intent The intent for which to get the fee
+     * @returns A Promise that resolves to a bigint containing the fee expressed in absolute amount of the sell token.
+     */
+    async getOrderFee(intent: OrderIntent): Promise<bigint> {
+        try {
+            const response = await this.fetchWithCookies("/order_fees", {
+                method: "POST",
+                body: JSON.stringify(intent, bigIntReplacer),
+            });
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to get order fee. Please try again later."
+                );
+            }
+
+            const feeJson = await response.json();
+
+            if (typeof feeJson !== "string") {
+                throw new TurbineError(
+                    "INVALID_RESPONSE",
+                    `Unexpected fee response: ${JSON.stringify(feeJson)}`,
+                    "Received unexpected response format from server. Please try again later."
+                );
+            }
+
+            return BigInt(feeJson);
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
     async getPools(): Promise<TurbinePool[]> {
         return await getPools(this.publicClient, this.config.lpHookAddress);
     }

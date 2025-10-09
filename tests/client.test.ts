@@ -569,6 +569,35 @@ describe("TurbineClient", () => {
         });
     });
 
+    describe("getOrderFee", () => {
+        it("should call Turbine API and return fee as bigint", async () => {
+            const client = await createMockTurbineClient();
+
+            // Spy on internal fetchWithCookies used by getOrderFee
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(JSON.stringify("0x38d7ea4c68000"), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const fee = await withTurbineErrorHandling(() =>
+                client.getOrderFee(ORDER_INTENT)
+            );
+
+            expect(fee).toBe(BigInt("0x38d7ea4c68000"));
+            expect(mockFetchWithCookies).toHaveBeenCalledWith(
+                "/order_fees",
+                expect.objectContaining({ method: "POST" })
+            );
+
+            // Restore the mock
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
     describe("checkStatus", () => {
         it("should return true when Turbine service is available (status 200) - client method", async () => {
             const client = await createMockTurbineClient();
