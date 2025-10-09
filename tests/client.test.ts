@@ -2,19 +2,19 @@ import { describe, expect, jest } from "@jest/globals";
 import { Address, getAddress, Hex } from "viem";
 import { USDC, WBTC, WETH } from "../src/constants";
 import {
-    TurbineClient,
+    checkStatus,
     getPools,
     getUserPositions,
-    checkStatus,
+    TurbineClient,
 } from "../src/turbineClient";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
+    createMockTurbineClient,
+    MOCK_TURBINE_CONFIG,
     ORDER_INTENT,
     PUBLIC_CLIENT,
     REMOVE_LIQUIDITY_INTENT,
-    createMockTurbineClient,
-    MOCK_TURBINE_CONFIG,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 import { LiquidityIntentState } from "../src/models";
@@ -507,7 +507,7 @@ describe("TurbineClient", () => {
             ] as Hex[];
 
             // Mock order statuses with different executed sell amounts
-            const mockOrderStatuses = [
+            const mockOrderStates = [
                 {
                     hash: mockOrderHashes[0],
                     order: { executedSellAmount: BigInt("1000000") },
@@ -552,10 +552,10 @@ describe("TurbineClient", () => {
             // Mock authentication
             mockAuthentication(client, ACCOUNT.address);
 
-            // Mock the getOrderStatuses method
+            // Mock the getOrderStates method
             const mockGetOrderStatuses = jest
-                .spyOn(client, "getOrderStatuses")
-                .mockResolvedValue(mockOrderStatuses as any);
+                .spyOn(client, "getOrderStates")
+                .mockResolvedValue(mockOrderStates as any);
 
             const filledAmounts = await withTurbineErrorHandling(() =>
                 client.getSettledAmounts(mockOrderHashes)
@@ -566,6 +566,35 @@ describe("TurbineClient", () => {
 
             // Restore the mocks
             mockGetOrderStatuses.mockRestore();
+        });
+    });
+
+    describe("getOrderFee", () => {
+        it("should call Turbine API and return fee as bigint", async () => {
+            const client = await createMockTurbineClient();
+
+            // Spy on internal fetchWithCookies used by getOrderFee
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(JSON.stringify("0x38d7ea4c68000"), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const fee = await withTurbineErrorHandling(() =>
+                client.getOrderFee(ORDER_INTENT)
+            );
+
+            expect(fee).toBe(BigInt("0x38d7ea4c68000"));
+            expect(mockFetchWithCookies).toHaveBeenCalledWith(
+                "/order_fees",
+                expect.objectContaining({ method: "POST" })
+            );
+
+            // Restore the mock
+            mockFetchWithCookies.mockRestore();
         });
     });
 
@@ -713,32 +742,12 @@ describe("TurbineClient", () => {
         });
     });
 
-    describe("getOrderStatuses", () => {
+    describe("getOrderStates", () => {
         it("should call Turbine API and return order statuses", async () => {
-            const mockOrderStatuses = [
+            const mockOrderStates = [
                 {
                     hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
-                    order: {
-                        hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
-                        owner: "0x9719df0e4151581b9d59801b8f236fdf3f510d9b",
-                        sell_token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                        buy_token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-                        start_time: "1751642853",
-                        end_time: "1751643153",
-                        partial_fill: true,
-                        salt: "0x45091d251dda08eb0211bdefbcbb04cdce1c863c4afd3875b2997ab539ddbf16",
-                        created_timestamp: "2025-07-04T15:27:33.894719321",
-                        calldata: "0x",
-                        calldata_target: "0x0000000000000000000000000000000000000000",
-                        sell_amount: "50000000",
-                        executed_sell_amount: "0",
-                        mid_price_delta: "2500",
-                        limit_price: {
-                            numerator: "300000000",
-                            denominator: "1",
-                        },
-                    },
-                    state: "Invalid",
+                    status: "Invalid",
                     execution: [
                         {
                             batch_id: "123",
@@ -761,7 +770,7 @@ describe("TurbineClient", () => {
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(
-                    new Response(JSON.stringify(mockOrderStatuses), {
+                    new Response(JSON.stringify(mockOrderStates), {
                         status: 200,
                         statusText: "OK",
                     })
@@ -772,19 +781,14 @@ describe("TurbineClient", () => {
             ];
 
             const result = await withTurbineErrorHandling(() =>
-                client.getOrderStatuses(orderHashes)
+                client.getOrderStates(orderHashes)
             );
 
             expect(result).toHaveLength(1);
             expect(result[0].hash).toBe(
                 "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce"
             );
-            expect(result[0].state).toBe("Invalid");
-            expect(result[0].order.owner).toBe(
-                getAddress("0x9719df0e4151581b9d59801b8f236fdf3f510d9b")
-            );
-            expect(result[0].order.sellAmount).toBe(BigInt("50000000"));
-            expect(result[0].order.limitPrice.numerator).toBe(BigInt("300000000"));
+            expect(result[0].status).toBe("Invalid");
             expect(result[0].executedSellAmount).toBe(BigInt("1000000"));
             expect(result[0].execution).toHaveLength(1);
             expect(result[0].execution[0].batchId).toBe(123);
@@ -796,7 +800,7 @@ describe("TurbineClient", () => {
 
             expect(mockCallAPI).toHaveBeenCalledWith(
                 { orderHashes: orderHashes },
-                "order_statuses"
+                "order_states"
             );
         });
     });
