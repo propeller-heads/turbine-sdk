@@ -1,6 +1,6 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import { balanceOfABI, orderSettledABI, turbineHookABI } from "./abi";
+import { balanceOfABI, turbineHookABI } from "./abi";
 import { TURBINE_API_URL } from "./config";
 import { NULL_ADDRESS } from "./constants";
 import { toTurbineError, TurbineError } from "./errorHandling";
@@ -10,12 +10,12 @@ import {
     AddOrder,
     AddSmartOrder,
     CancelOrderPayload,
-    GetOrderStatusesPayload,
+    GetOrderStatesPayload,
     LiquidityIntentState,
     LiquidityIntentStatus,
     OrderIntent,
     OrderSettledAmount,
-    OrderStatus,
+    OrderState,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
@@ -359,17 +359,17 @@ export class TurbineClient {
     /**
      * Get the status of multiple orders by their hashes.
      * @param orderHashes An array of order hashes to check
-     * @returns A Promise that resolves to an array of `OrderStatus` objects.
+     * @returns A Promise that resolves to an array of `OrderState` objects.
      */
-    async getOrderStatuses(orderHashes: Hex[]): Promise<OrderStatus[]> {
+    async getOrderStates(orderHashes: Hex[]): Promise<OrderState[]> {
         await this.ensureAuthenticated();
 
         try {
-            const payload: GetOrderStatusesPayload = {
+            const payload: GetOrderStatesPayload = {
                 orderHashes: orderHashes,
             };
 
-            const response = await this.callApiEndpoint(payload, "order_statuses");
+            const response = await this.callApiEndpoint(payload, "order_states");
 
             if (response.status < 200 || response.status >= 300) {
                 throw new TurbineError(
@@ -390,7 +390,7 @@ export class TurbineClient {
             }
 
             return responseJson.map((orderStatus: any) =>
-                this.parseOrderStatus(orderStatus)
+                this.parseOrderState(orderStatus)
             );
         } catch (error) {
             throw toTurbineError(error);
@@ -442,7 +442,7 @@ export class TurbineClient {
     }
 
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
-        let statuses = await this.getOrderStatuses(orderHashes);
+        let statuses = await this.getOrderStates(orderHashes);
         return statuses.map((status) => ({
             hash: status.hash,
             executedSellAmount: status.executedSellAmount,
@@ -781,7 +781,7 @@ export class TurbineClient {
             | AddLiquidity
             | RemoveLiquidity
             | CancelOrderPayload
-            | GetOrderStatusesPayload,
+            | GetOrderStatesPayload,
         endpoint: string
     ) {
         return await this.fetchWithCookies(`/${endpoint}`, {
@@ -793,43 +793,23 @@ export class TurbineClient {
     /**
      * Parse an order status from the API response format to our TypeScript interface.
      * Converts snake_case to camelCase and string numbers to BigInts.
-     * @param orderStatus The raw order status from the API
-     * @returns The parsed OrderStatus object
+     * @param orderState The raw order status from the API
+     * @returns The parsed OrderState object
      */
-    private parseOrderStatus(orderStatus: any): OrderStatus {
+    private parseOrderState(orderState: any): OrderState {
         return {
-            hash: orderStatus.hash,
-            order: {
-                hash: orderStatus.order.hash,
-                owner: getAddress(orderStatus.order.owner),
-                sellToken: getAddress(orderStatus.order.sell_token),
-                buyToken: getAddress(orderStatus.order.buy_token),
-                startTime: BigInt(orderStatus.order.start_time),
-                endTime: BigInt(orderStatus.order.end_time),
-                partialFill: orderStatus.order.partial_fill,
-                salt: orderStatus.order.salt,
-                createdTimestamp: orderStatus.order.created_timestamp,
-                callData: orderStatus.order.calldata,
-                callDataTarget: getAddress(orderStatus.order.calldata_target),
-                sellAmount: BigInt(orderStatus.order.sell_amount),
-                executedSellAmount: BigInt(orderStatus.order.executed_sell_amount),
-                midPriceDelta: Number(orderStatus.order.mid_price_delta),
-                limitPrice: {
-                    numerator: BigInt(orderStatus.order.limit_price.numerator),
-                    denominator: BigInt(orderStatus.order.limit_price.denominator),
-                },
-            },
-            state: orderStatus.state,
-            execution: orderStatus.execution.map((exec: any) => ({
+            hash: orderState.hash,
+            status: orderState.status,
+            execution: orderState.execution.map((exec: any) => ({
                 batchId: Number(exec.batch_id),
                 txHash: exec.tx_hash,
                 clearedAt: new Date(exec.cleared_at * 1000),
                 soldAmount: BigInt(exec.sold_amount),
                 boughtAmount: BigInt(exec.bought_amount),
             })),
-            executedSellAmount: BigInt(orderStatus.executed_sell_amount),
-            executedBuyAmount: BigInt(orderStatus.executed_buy_amount),
-        } as OrderStatus;
+            executedSellAmount: BigInt(orderState.executed_sell_amount),
+            executedBuyAmount: BigInt(orderState.executed_buy_amount),
+        } as OrderState;
     }
 
     /**

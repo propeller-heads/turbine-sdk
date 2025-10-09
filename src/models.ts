@@ -268,10 +268,9 @@ export interface OrderExecution {
 /**
  * Represents the status of an order
  */
-export interface OrderStatus {
+export interface OrderState {
     hash: Hex;
-    order: OrderStatusOrder;
-    state: string; // e.g., "Active", "Invalid", etc.
+    status: string; // e.g., "Active", "Invalid", etc.
     execution: OrderExecution[];
     executedSellAmount: bigint;
     executedBuyAmount: bigint;
@@ -309,6 +308,6 @@ export interface CancelOrderPayload {
 /**
  * Payload for getting order statuses
  */
-export interface GetOrderStatusesPayload {
+export interface GetOrderStatesPayload {
     orderHashes: Hex[];
 }
