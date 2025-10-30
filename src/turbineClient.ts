@@ -854,7 +854,8 @@ export async function getPools(
         const BATCH_SIZE = 1000n;
         const poolsData: any[] = [];
         for (let start = 0n; start < numberOfPools; start += BATCH_SIZE) {
-            const end = start + BATCH_SIZE > numberOfPools ? numberOfPools : start + BATCH_SIZE;
+            const end =
+                start + BATCH_SIZE > numberOfPools ? numberOfPools : start + BATCH_SIZE;
             const batch = await publicClient.readContract({
                 address: hookAddress,
                 abi: turbineHookABI,
