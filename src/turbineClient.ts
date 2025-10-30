@@ -844,11 +844,26 @@ export async function getPools(
     hookAddress: Address
 ): Promise<TurbinePool[]> {
     try {
-        const poolsData = await publicClient.readContract({
+        const numberOfPools = await publicClient.readContract({
             address: hookAddress,
             abi: turbineHookABI,
-            functionName: "getRegisteredPools",
+            functionName: "getNumberOfRegisteredPools",
         });
+
+        // Fetch pools in batches of up to 1000 at a time
+        const BATCH_SIZE = 1000n;
+        const poolsData: any[] = [];
+        for (let start = 0n; start < numberOfPools; start += BATCH_SIZE) {
+            const end =
+                start + BATCH_SIZE > numberOfPools ? numberOfPools : start + BATCH_SIZE;
+            const batch = await publicClient.readContract({
+                address: hookAddress,
+                abi: turbineHookABI,
+                functionName: "getRegisteredPoolsSlice",
+                args: [start, end],
+            });
+            poolsData.push(...batch);
+        }
 
         return poolsData.map((poolData: any) => ({
             metadata: {
