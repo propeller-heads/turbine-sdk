@@ -1,6 +1,6 @@
 import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import { balanceOfABI, turbineHookABI } from "./abi";
+import { balanceOfABI, turbineHookABI, poolManagerABI } from "./abi";
 import { TURBINE_API_URL } from "./config";
 import { NULL_ADDRESS } from "./constants";
 import { toTurbineError, TurbineError } from "./errorHandling";
@@ -16,6 +16,7 @@ import {
     OrderIntent,
     OrderSettledAmount,
     OrderState,
+    PoolKey,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
@@ -24,6 +25,7 @@ import {
     UserPosition,
 } from "./models";
 import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
+import { computeSqrtPriceX96 } from "./math";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -135,6 +137,56 @@ export class TurbineClient {
         }
 
         return response;
+    }
+
+    private createPoolKey(intent: AddLiquidityIntent): PoolKey {
+        const [token0, token1] = intent.token0 < intent.token1 ?
+            [intent.token0, intent.token1] :
+            [intent.token1, intent.token0]
+
+        return {
+            currency0: token0,
+            currency1: token1,
+            fee: intent.fee,
+            tickSpacing: 1,
+            hooks: this.config.lpHookAddress
+        }
+    }
+
+    private calculateInitialPrice(intent: AddLiquidityIntent): bigint {
+        // Calculate sqrt price based on token amounts
+        // Determine currency ordering used by PoolManager (currency0 < currency1)
+        const isAscending = intent.token0 < intent.token1;
+        const token0Amount = isAscending ? intent.maxToken0 : intent.maxToken1;
+        const token1Amount = isAscending ? intent.maxToken1 : intent.maxToken0;
+
+        // Throw error if any amount is zero
+        if (token0Amount === 0n || token1Amount === 0n) {
+            throw new Error("token amount must be grater than 0")
+        }
+
+        // sqrtPriceX96 = floor( sqrt(price) * 2^96 ) where price = amount1 / amount0
+        // To avoid precision loss with bigint division, compute:
+        // sqrtP = sqrt( (amount1 << 192) / amount0 )
+        const ratioX192 = (token1Amount << 192n) / token0Amount;
+        return this.bigIntSqrt(ratioX192);
+    }
+
+    private bigIntSqrt(value: bigint): bigint {
+        if (value < 0n) {
+            throw new Error("square root of negative numbers is not supported");
+        }
+        if (value < 2n) {
+            return value;
+        }
+        // Initial guess: 2^(bitLength/2)
+        let x0 = 1n << (BigInt((value.toString(2).length + 1) >> 1));
+        let x1 = (x0 + value / x0) >> 1n;
+        while (x1 < x0) {
+            x0 = x1;
+            x1 = (x0 + value / x0) >> 1n;
+        }
+        return x0;
     }
 
     /* PUBLIC METHODS */
@@ -440,6 +492,60 @@ export class TurbineClient {
             throw toTurbineError(error);
         }
     }
+
+    async createPool(intent: AddLiquidityIntent): Promise<string> {
+        const address = await this.ensureAuthenticated()
+
+        if (getAddress(intent.owner) !== getAddress(address)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to create pool",
+                "Please authenticate with your wallet before making requests."
+            )
+        }
+
+        try {
+            const poolKey = this.createPoolKey(intent)
+
+            // Align deposit amounts with currency0/currency1 from poolKey
+            const amountCurrency0 = poolKey.currency0 === intent.token0 ? intent.maxToken0 : intent.maxToken1
+            const amountCurrency1 = poolKey.currency1 === intent.token0 ? intent.maxToken0 : intent.maxToken1
+
+            const sqrtPriceX96 = computeSqrtPriceX96(amountCurrency0, amountCurrency1)
+
+            const txHash = await this.walletClient.writeContract({
+                address: this.config.poolManagerAddress,
+                abi: poolManagerABI,
+                functionName: "initialize",
+                args: [
+                    {
+                        currency0: poolKey.currency0,
+                        currency1: poolKey.currency1,
+                        fee: poolKey.fee,
+                        tickSpacing: poolKey.tickSpacing,
+                        hooks: poolKey.hooks,
+                    },
+                    sqrtPriceX96,
+                ],
+                account: address,
+            })
+
+            const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+            if (receipt.status !== "success") {
+                throw new TurbineError(
+                    "POOL_CREATION_FAILED",
+                    "Pool creation transaction failed",
+                    "The pool creation transaction was reverted. Please try again."
+                )
+            }
+
+            return txHash
+        } catch (error) {
+            throw toTurbineError(error)
+        }
+    }
+
+    /* UNAUTHENTICATED METHODS */
 
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
         let statuses = await this.getOrderStates(orderHashes);
