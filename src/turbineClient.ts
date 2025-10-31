@@ -514,6 +514,7 @@ export class TurbineClient {
             const sqrtPriceX96 = computeSqrtPriceX96(amountCurrency0, amountCurrency1)
 
             const txHash = await this.walletClient.writeContract({
+                chain: this.walletClient.chain,
                 address: this.config.poolManagerAddress,
                 abi: poolManagerABI,
                 functionName: "initialize",
