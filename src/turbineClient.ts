@@ -546,6 +546,54 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Add liquidity using pre-signed permit data.
+     * This method is used when permit data has already been created via createAddLiquidityData()
+     * and the pool has been created. It submits the liquidity intent to Turbine without requiring
+     * additional Permit2 signatures.
+     * 
+     * @param payload The AddLiquidity payload containing the intent and pre-signed permit data
+     * @returns A Promise that resolves to a string containing the submitted intent hash.
+     */
+    async addLiquidityWithSignedPermit(payload: AddLiquidity): Promise<string> {
+        const address = await this.ensureAuthenticated();
+
+        // Validate that the owner in the payload matches the authenticated address
+        if (getAddress(payload.addLiquidity.owner) !== getAddress(address)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to add liquidity",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
+
+        try {
+            const response = await this.callApiEndpoint(payload, "add_liquidity");
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit liquidity addition. Please try again later."
+                );
+            }
+
+            const responseJson = await response.json();
+
+            if (!responseJson || !responseJson["intentHash"]) {
+                throw new TurbineError(
+                    "MISSING_INTENT_HASH",
+                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
+                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                );
+            }
+
+            return responseJson["intentHash"];
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
     /* UNAUTHENTICATED METHODS */
 
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
@@ -647,7 +695,7 @@ export class TurbineClient {
         };
     }
 
-    private async createAddLiquidityData(
+    async createAddLiquidityData(
         intent: AddLiquidityIntent
     ): Promise<AddLiquidity> {
         intent = {
