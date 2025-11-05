@@ -1,4 +1,12 @@
-import { Address, BaseError, ContractFunctionRevertedError, getAddress, Hex, PublicClient, WalletClient } from "viem";
+import {
+    Address,
+    BaseError,
+    ContractFunctionRevertedError,
+    getAddress,
+    Hex,
+    PublicClient,
+    WalletClient,
+} from "viem";
 import { createSiweMessage } from "viem/siwe";
 import { balanceOfABI, turbineHookABI, poolManagerABI } from "./abi";
 import { TURBINE_API_URL } from "./config";
@@ -139,13 +147,14 @@ export class TurbineClient {
     }
 
     private createPoolKey(token0: Address, token1: Address, fee: number): PoolKey {
-        const [currency0, currency1] = token0 < token1 ? [token0, token1] : [token1, token0];
+        const [currency0, currency1] =
+            token0 < token1 ? [token0, token1] : [token1, token0];
         return {
             currency0,
             currency1,
             fee,
             tickSpacing: 1,
-            hooks: this.config.lpHookAddress
+            hooks: this.config.lpHookAddress,
         };
     }
 
@@ -158,7 +167,7 @@ export class TurbineClient {
 
         // Throw error if any amount is zero
         if (token0Amount === 0n || token1Amount === 0n) {
-            throw new Error("token amount must be grater than 0")
+            throw new Error("token amount must be grater than 0");
         }
 
         // sqrtPriceX96 = floor( sqrt(price) * 2^96 ) where price = amount1 / amount0
@@ -176,7 +185,7 @@ export class TurbineClient {
             return value;
         }
         // Initial guess: 2^(bitLength/2)
-        let x0 = 1n << (BigInt((value.toString(2).length + 1) >> 1));
+        let x0 = 1n << BigInt((value.toString(2).length + 1) >> 1);
         let x1 = (x0 + value / x0) >> 1n;
         while (x1 < x0) {
             x0 = x1;
@@ -462,7 +471,7 @@ export class TurbineClient {
 
     async createPool(token0: Address, token1: Address, fee: number): Promise<string> {
         try {
-            const poolKey = this.createPoolKey(token0, token1, fee)
+            const poolKey = this.createPoolKey(token0, token1, fee);
 
             const { request } = await this.publicClient.simulateContract({
                 address: this.config.poolManagerAddress,
@@ -480,34 +489,41 @@ export class TurbineClient {
                 ],
                 account: this.walletClient.account!,
                 chain: this.publicClient.chain!,
-            })
+            });
 
             const txHash = await this.walletClient.writeContract(request);
 
-            const receipt = await this.publicClient.waitForTransactionReceipt({ hash: txHash })
+            const receipt = await this.publicClient.waitForTransactionReceipt({
+                hash: txHash,
+            });
             if (receipt.status !== "success") {
                 throw new TurbineError(
                     "POOL_CREATION_FAILED",
                     "Pool creation transaction failed",
                     "The pool creation transaction was reverted. Please try again."
-                )
+                );
             }
 
-            return txHash
+            return txHash;
         } catch (err) {
             if (err instanceof BaseError) {
-                const revertError = err.walk(err => err instanceof ContractFunctionRevertedError)
+                const revertError = err.walk(
+                    (err) => err instanceof ContractFunctionRevertedError
+                );
                 // 0xb3e8301e is the selector of PoolAlreadyRegistered error from Hook contract.
                 // PoolManager returns it wrapped in WrappedError, which itself has a different selector.
-                if ((revertError instanceof ContractFunctionRevertedError) && (revertError.raw?.includes("b3e8301e"))) {
+                if (
+                    revertError instanceof ContractFunctionRevertedError &&
+                    revertError.raw?.includes("b3e8301e")
+                ) {
                     throw new TurbineError(
                         "POOL_ALREADY_INITIALIZED",
                         "Pool already initialized.",
                         "The pool is already initialized. Please try creating a different pool."
-                    )
+                    );
                 }
             }
-            throw toTurbineError(err)
+            throw toTurbineError(err);
         }
     }
 
@@ -516,7 +532,7 @@ export class TurbineClient {
      * This method is used when permit data has already been created via createAddLiquidityData()
      * and the pool has been created. It submits the liquidity intent to Turbine without requiring
      * additional Permit2 signatures.
-     * 
+     *
      * @param payload The AddLiquidity payload containing the intent and pre-signed permit data
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
@@ -660,9 +676,7 @@ export class TurbineClient {
         };
     }
 
-    async createAddLiquidityData(
-        intent: AddLiquidityIntent
-    ): Promise<AddLiquidity> {
+    async createAddLiquidityData(intent: AddLiquidityIntent): Promise<AddLiquidity> {
         intent = {
             ...intent,
             fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points

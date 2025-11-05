@@ -9,7 +9,7 @@
 //
 // You can change pool details directly in the script.
 
-import { createPublicClient, createWalletClient, http, Hex, Address, ContractFunctionExecutionError } from "viem";
+import { createPublicClient, createWalletClient, http, Hex, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { TurbineClient } from "../src/turbineClient";
@@ -87,4 +87,3 @@ main().catch((error) => {
     console.error("Script failed:", error);
     process.exit(1);
 });
-
