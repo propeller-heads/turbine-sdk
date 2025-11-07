@@ -158,42 +158,6 @@ export class TurbineClient {
         };
     }
 
-    private calculateInitialPrice(intent: AddLiquidityIntent): bigint {
-        // Calculate sqrt price based on token amounts
-        // Determine currency ordering used by PoolManager (currency0 < currency1)
-        const isAscending = intent.token0 < intent.token1;
-        const token0Amount = isAscending ? intent.maxToken0 : intent.maxToken1;
-        const token1Amount = isAscending ? intent.maxToken1 : intent.maxToken0;
-
-        // Throw error if any amount is zero
-        if (token0Amount === 0n || token1Amount === 0n) {
-            throw new Error("token amount must be grater than 0");
-        }
-
-        // sqrtPriceX96 = floor( sqrt(price) * 2^96 ) where price = amount1 / amount0
-        // To avoid precision loss with bigint division, compute:
-        // sqrtP = sqrt( (amount1 << 192) / amount0 )
-        const ratioX192 = (token1Amount << 192n) / token0Amount;
-        return this.bigIntSqrt(ratioX192);
-    }
-
-    private bigIntSqrt(value: bigint): bigint {
-        if (value < 0n) {
-            throw new Error("square root of negative numbers is not supported");
-        }
-        if (value < 2n) {
-            return value;
-        }
-        // Initial guess: 2^(bitLength/2)
-        let x0 = 1n << BigInt((value.toString(2).length + 1) >> 1);
-        let x1 = (x0 + value / x0) >> 1n;
-        while (x1 < x0) {
-            x0 = x1;
-            x1 = (x0 + value / x0) >> 1n;
-        }
-        return x0;
-    }
-
     /* PUBLIC METHODS */
 
     /* AUTHENTICATED METHODS */
@@ -469,6 +433,56 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Add liquidity using pre-signed permit data.
+     * This method is used when permit data has already been created via createAddLiquidityData()
+     * and the pool has been created. It submits the liquidity intent to Turbine without requiring
+     * additional Permit2 signatures.
+     *
+     * @param payload The AddLiquidity payload containing the intent and pre-signed permit data
+     * @returns A Promise that resolves to a string containing the submitted intent hash.
+     */
+    async addLiquidityWithSignedPermit(payload: AddLiquidity): Promise<string> {
+        const address = await this.ensureAuthenticated();
+
+        // Validate that the owner in the payload matches the authenticated address
+        if (getAddress(payload.addLiquidity.owner) !== getAddress(address)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to add liquidity",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
+
+        try {
+            const response = await this.callApiEndpoint(payload, "add_liquidity");
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit liquidity addition. Please try again later."
+                );
+            }
+
+            const responseJson = await response.json();
+
+            if (!responseJson || !responseJson["intentHash"]) {
+                throw new TurbineError(
+                    "MISSING_INTENT_HASH",
+                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
+                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                );
+            }
+
+            return responseJson["intentHash"];
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /* UNAUTHENTICATED METHODS */
+
     async createPool(token0: Address, token1: Address, fee: number): Promise<string> {
         try {
             const poolKey = this.createPoolKey(token0, token1, fee);
@@ -527,56 +541,6 @@ export class TurbineClient {
         }
     }
 
-    /**
-     * Add liquidity using pre-signed permit data.
-     * This method is used when permit data has already been created via createAddLiquidityData()
-     * and the pool has been created. It submits the liquidity intent to Turbine without requiring
-     * additional Permit2 signatures.
-     *
-     * @param payload The AddLiquidity payload containing the intent and pre-signed permit data
-     * @returns A Promise that resolves to a string containing the submitted intent hash.
-     */
-    async addLiquidityWithSignedPermit(payload: AddLiquidity): Promise<string> {
-        const address = await this.ensureAuthenticated();
-
-        // Validate that the owner in the payload matches the authenticated address
-        if (getAddress(payload.addLiquidity.owner) !== getAddress(address)) {
-            throw new TurbineError(
-                "UNAUTHORIZED",
-                "User not authorized to add liquidity",
-                "Please authenticate with your wallet before making requests."
-            );
-        }
-
-        try {
-            const response = await this.callApiEndpoint(payload, "add_liquidity");
-
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to submit liquidity addition. Please try again later."
-                );
-            }
-
-            const responseJson = await response.json();
-
-            if (!responseJson || !responseJson["intentHash"]) {
-                throw new TurbineError(
-                    "MISSING_INTENT_HASH",
-                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
-                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
-                );
-            }
-
-            return responseJson["intentHash"];
-        } catch (error) {
-            throw toTurbineError(error);
-        }
-    }
-
-    /* UNAUTHENTICATED METHODS */
-
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
         let statuses = await this.getOrderStates(orderHashes);
         return statuses.map((status) => ({
@@ -584,8 +548,6 @@ export class TurbineClient {
             executedSellAmount: status.executedSellAmount,
         }));
     }
-
-    /* UNAUTHENTICATED METHODS */
 
     /**
      * Get the fee for a prospective order.
