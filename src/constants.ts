@@ -26,3 +26,5 @@ export const ADDR2TOKEN: Map<Address, Token> = new Map([
     [PEPE.address, PEPE],
     [WBTC.address, WBTC],
 ]);
+
+export const SQRT_PRICE_IDENTITY = 79228162514264337593543950336n;

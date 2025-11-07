@@ -8,6 +8,7 @@
         "test": "jest",
         "test-no-integration": "jest --testPathIgnorePatterns integration",
         "submit-orders": "ts-node scripts/submit-orders.ts",
+        "create-pool": "ts-node scripts/create-pool.ts",
         "add-liquidity": "ts-node scripts/add-liquidity.ts"
     },
     "dependencies": {
