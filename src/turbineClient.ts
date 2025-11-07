@@ -1,8 +1,16 @@
-import { Address, getAddress, Hex, PublicClient, WalletClient } from "viem";
+import {
+    Address,
+    BaseError,
+    ContractFunctionRevertedError,
+    getAddress,
+    Hex,
+    PublicClient,
+    WalletClient,
+} from "viem";
 import { createSiweMessage } from "viem/siwe";
-import { balanceOfABI, turbineHookABI } from "./abi";
+import { balanceOfABI, turbineHookABI, poolManagerABI } from "./abi";
 import { TURBINE_API_URL } from "./config";
-import { NULL_ADDRESS } from "./constants";
+import { NULL_ADDRESS, SQRT_PRICE_IDENTITY } from "./constants";
 import { toTurbineError, TurbineError } from "./errorHandling";
 import {
     AddLiquidity,
@@ -16,6 +24,7 @@ import {
     OrderIntent,
     OrderSettledAmount,
     OrderState,
+    PoolKey,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
@@ -137,6 +146,18 @@ export class TurbineClient {
         return response;
     }
 
+    private createPoolKey(token0: Address, token1: Address, fee: number): PoolKey {
+        const [currency0, currency1] =
+            token0 < token1 ? [token0, token1] : [token1, token0];
+        return {
+            currency0,
+            currency1,
+            fee,
+            tickSpacing: 1,
+            hooks: this.config.lpHookAddress,
+        };
+    }
+
     /* PUBLIC METHODS */
 
     /* AUTHENTICATED METHODS */
@@ -237,38 +258,9 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidity(intent: AddLiquidityIntent): Promise<string> {
-        const address = await this.ensureAuthenticated();
-        if (getAddress(intent.owner) !== getAddress(address)) {
-            throw new TurbineError(
-                "UNAUTHORIZED",
-                "User not authorized to add liquidity",
-                "Please authenticate with your wallet before making requests."
-            );
-        }
-
         try {
             const payload = await this.createAddLiquidityData(intent);
-            const response = await this.callApiEndpoint(payload, "add_liquidity");
-
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to submit liquidity addition. Please try again later."
-                );
-            }
-
-            const responseJson = await response.json();
-
-            if (!responseJson || !responseJson["intentHash"]) {
-                throw new TurbineError(
-                    "MISSING_INTENT_HASH",
-                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
-                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
-                );
-            }
-
-            return responseJson["intentHash"];
+            return await this.addLiquidityWithSignedPermit(payload);
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -441,6 +433,114 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Add liquidity using pre-signed permit data.
+     * This method is used when permit data has already been created via createAddLiquidityData()
+     * and the pool has been created. It submits the liquidity intent to Turbine without requiring
+     * additional Permit2 signatures.
+     *
+     * @param payload The AddLiquidity payload containing the intent and pre-signed permit data
+     * @returns A Promise that resolves to a string containing the submitted intent hash.
+     */
+    async addLiquidityWithSignedPermit(payload: AddLiquidity): Promise<string> {
+        const address = await this.ensureAuthenticated();
+
+        // Validate that the owner in the payload matches the authenticated address
+        if (getAddress(payload.addLiquidity.owner) !== getAddress(address)) {
+            throw new TurbineError(
+                "UNAUTHORIZED",
+                "User not authorized to add liquidity",
+                "Please authenticate with your wallet before making requests."
+            );
+        }
+
+        try {
+            const response = await this.callApiEndpoint(payload, "add_liquidity");
+
+            if (response.status < 200 || response.status >= 300) {
+                throw new TurbineError(
+                    "API_ERROR",
+                    `API returned status ${response.status}: ${response.statusText}`,
+                    "Failed to submit liquidity addition. Please try again later."
+                );
+            }
+
+            const responseJson = await response.json();
+
+            if (!responseJson || !responseJson["intentHash"]) {
+                throw new TurbineError(
+                    "MISSING_INTENT_HASH",
+                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
+                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                );
+            }
+
+            return responseJson["intentHash"];
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /* UNAUTHENTICATED METHODS */
+
+    async createPool(token0: Address, token1: Address, fee: number): Promise<string> {
+        try {
+            const poolKey = this.createPoolKey(token0, token1, fee);
+
+            const { request } = await this.publicClient.simulateContract({
+                address: this.config.poolManagerAddress,
+                abi: poolManagerABI,
+                functionName: "initialize",
+                args: [
+                    {
+                        currency0: poolKey.currency0,
+                        currency1: poolKey.currency1,
+                        fee: poolKey.fee,
+                        tickSpacing: poolKey.tickSpacing,
+                        hooks: poolKey.hooks,
+                    },
+                    SQRT_PRICE_IDENTITY,
+                ],
+                account: this.walletClient.account!,
+                chain: this.publicClient.chain!,
+            });
+
+            const txHash = await this.walletClient.writeContract(request);
+
+            const receipt = await this.publicClient.waitForTransactionReceipt({
+                hash: txHash,
+            });
+            if (receipt.status !== "success") {
+                throw new TurbineError(
+                    "POOL_CREATION_FAILED",
+                    "Pool creation transaction failed",
+                    "The pool creation transaction was reverted. Please try again."
+                );
+            }
+
+            return txHash;
+        } catch (err) {
+            if (err instanceof BaseError) {
+                const revertError = err.walk(
+                    (err) => err instanceof ContractFunctionRevertedError
+                );
+                // 0xb3e8301e is the selector of PoolAlreadyRegistered error from Hook contract.
+                // PoolManager returns it wrapped in WrappedError, which itself has a different selector.
+                if (
+                    revertError instanceof ContractFunctionRevertedError &&
+                    revertError.raw?.includes("b3e8301e")
+                ) {
+                    throw new TurbineError(
+                        "POOL_ALREADY_INITIALIZED",
+                        "Pool already initialized.",
+                        "The pool is already initialized. Please try creating a different pool."
+                    );
+                }
+            }
+            throw toTurbineError(err);
+        }
+    }
+
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
         let statuses = await this.getOrderStates(orderHashes);
         return statuses.map((status) => ({
@@ -448,8 +548,6 @@ export class TurbineClient {
             executedSellAmount: status.executedSellAmount,
         }));
     }
-
-    /* UNAUTHENTICATED METHODS */
 
     /**
      * Get the fee for a prospective order.
@@ -540,9 +638,7 @@ export class TurbineClient {
         };
     }
 
-    private async createAddLiquidityData(
-        intent: AddLiquidityIntent
-    ): Promise<AddLiquidity> {
+    async createAddLiquidityData(intent: AddLiquidityIntent): Promise<AddLiquidity> {
         intent = {
             ...intent,
             fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points

@@ -101,6 +101,29 @@ export const balanceOfABI = [
     },
 ] as const;
 
+export const poolManagerABI = [
+    {
+        inputs: [
+            {
+                components: [
+                    { name: "currency0", type: "address" },
+                    { name: "currency1", type: "address" },
+                    { name: "fee", type: "uint24" },
+                    { name: "tickSpacing", type: "int24" },
+                    { name: "hooks", type: "address" },
+                ],
+                name: "key",
+                type: "tuple",
+            },
+            { name: "sqrtPriceX96", type: "uint160" },
+        ],
+        name: "initialize",
+        outputs: [{ name: "tick", type: "int24" }],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+] as const;
+
 export const orderSettledABI = {
     anonymous: false,
     inputs: [

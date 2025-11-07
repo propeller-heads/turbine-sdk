@@ -311,3 +311,20 @@ export interface CancelOrderPayload {
 export interface GetOrderStatesPayload {
     orderHashes: Hex[];
 }
+
+/**
+ * PoolKey
+ */
+
+export interface PoolKey {
+    /** Lower-address token of the pair (must be lexicographically < token1) */
+    currency0: Address;
+    /** Higher-address token of the pair */
+    currency1: Address;
+    /** Pool LP fee in hundredths of a bip (uint24 onchain) */
+    fee: number;
+    /** Tick spacing used for liquidity positions (int24 onchain) */
+    tickSpacing: number;
+    /** Address of the hooks contract (Turbine Hook) */
+    hooks: Address;
+}
