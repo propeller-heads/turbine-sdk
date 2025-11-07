@@ -18,6 +18,7 @@ import {
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
 import { LiquidityIntentState } from "../src/models";
+import { turbineHookABI } from "../src/abi";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
@@ -211,10 +212,23 @@ describe("TurbineClient", () => {
             // Mock the readContract method using jest.spyOn
             const mockReadContract = jest
                 .spyOn(client.publicClient, "readContract")
-                .mockResolvedValue(mockContractData as any);
+                .mockResolvedValueOnce(BigInt(3))
+                .mockResolvedValueOnce(mockContractData as any);
 
             const pools = await withTurbineErrorHandling(() => client.getPools());
 
+            expect(mockReadContract).toHaveBeenNthCalledWith(1, {
+                address: MOCK_TURBINE_CONFIG.lpHookAddress,
+                abi: turbineHookABI,
+                functionName: "getNumberOfRegisteredPools",
+            });
+            expect(mockReadContract).toHaveBeenNthCalledWith(2, {
+                address: MOCK_TURBINE_CONFIG.lpHookAddress,
+                abi: turbineHookABI,
+                functionName: "getRegisteredPoolsSlice",
+                args: [0n, 3n],
+            });
+            expect(mockReadContract).toHaveBeenCalledTimes(2);
             // Restore the mock
             mockReadContract.mockRestore();
 
@@ -268,7 +282,8 @@ describe("TurbineClient", () => {
             // Mock the readContract method using jest.spyOn
             const mockReadContract = jest
                 .spyOn(PUBLIC_CLIENT, "readContract")
-                .mockResolvedValue(mockContractData as any);
+                .mockResolvedValueOnce(BigInt(3))
+                .mockResolvedValueOnce(mockContractData as any);
 
             const pools = await withTurbineErrorHandling(() =>
                 getPools(PUBLIC_CLIENT, MOCK_TURBINE_CONFIG.lpHookAddress)
@@ -334,7 +349,8 @@ describe("TurbineClient", () => {
             // Mock the readContract method for getPools
             const mockReadContract = jest
                 .spyOn(client.publicClient, "readContract")
-                .mockResolvedValue(mockPoolsData as any);
+                .mockResolvedValueOnce(BigInt(2))
+                .mockResolvedValueOnce(mockPoolsData as any);
 
             // Mock the multicall method for balance checks
             const mockMulticall = jest
@@ -401,7 +417,8 @@ describe("TurbineClient", () => {
             // Mock the readContract method for getPools
             const mockReadContract = jest
                 .spyOn(PUBLIC_CLIENT, "readContract")
-                .mockResolvedValue(mockPoolsData as any);
+                .mockResolvedValueOnce(BigInt(2))
+                .mockResolvedValueOnce(mockPoolsData as any);
 
             // Mock the multicall method for balance checks
             const mockMulticall = jest
@@ -472,7 +489,8 @@ describe("TurbineClient", () => {
             // Mock the readContract method for getPools
             const mockReadContract = jest
                 .spyOn(client.publicClient, "readContract")
-                .mockResolvedValue(mockPoolsData as any);
+                .mockResolvedValueOnce(BigInt(2))
+                .mockResolvedValueOnce(mockPoolsData as any);
 
             // Mock the multicall method for balance checks
             const mockMulticall = jest
