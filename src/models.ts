@@ -155,9 +155,13 @@ export interface AddLiquidityIntent {
     /** fee of the pool to which the liquidity is provided, in BIPs (30=0.3%) */
     fee: number;
     /** Maximum amount of token0 of the pool that the user is willing to provide */
-    maxToken0: bigint;
+    token0Amount: bigint;
     /** Maximum amount of token1 of the pool that the user is willing to provide */
-    maxToken1: bigint;
+    token1Amount: bigint;
+    /** Whether the user wants to provide exactly the specified amounts (and is willing to
+     * pay a swap fee first) or would rather like to provide liquidity in current ratio of pool
+     * reserves (in such case the specified token amounts are treated as maximum amounts). */
+    exact: boolean;
     /** Arbitrary value differentiating intents whose other fields are the same */
     salt: Hex;
 }

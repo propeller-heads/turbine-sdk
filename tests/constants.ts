@@ -65,8 +65,9 @@ export const ADD_LIQUIDITY_INTENT: AddLiquidityIntent = {
     token0: USDC.address,
     token1: WETH.address,
     fee: 30,
-    maxToken0: 200000000n,
-    maxToken1: 100000000000000000000000n,
+    token0Amount: 200000000n,
+    token1Amount: 100000000000000000000000n,
+    exact: true,
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
 

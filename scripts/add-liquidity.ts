@@ -59,8 +59,9 @@ async function main() {
         token0: pool.token0 as Hex,
         token1: pool.token1 as Hex,
         fee: pool.fee,
-        maxToken0: maxUSDCAmount,
-        maxToken1: maxWETHAmount,
+        token0Amount: maxUSDCAmount,
+        token1Amount: maxWETHAmount,
+        exact: true,
         salt: getRandomSalt(),
     };
 

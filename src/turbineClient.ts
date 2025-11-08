@@ -650,7 +650,7 @@ export class TurbineClient {
                 tokens: [intent.token0, intent.token1],
                 walletClient: this.walletClient,
                 publicClient: this.publicClient,
-                amounts: [intent.maxToken0, intent.maxToken1],
+                amounts: [intent.token0Amount, intent.token1Amount],
                 deadline: Number(deadline),
                 spender: this.config.lpRouterAddress,
             });

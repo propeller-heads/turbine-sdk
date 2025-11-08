@@ -247,7 +247,7 @@ describe("Integration test", () => {
 
         // Now get the order status
         const result = await withTurbineErrorHandling(() =>
-            turbineClient.getOrderStatuses([orderHash as Hex])
+            turbineClient.getOrderStates([orderHash as Hex])
         );
 
         expect(result).toBeDefined();
