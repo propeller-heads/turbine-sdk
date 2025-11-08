@@ -72,6 +72,11 @@ export interface SignedPermit {
     permit: AllowanceTransferPermitSingle;
 }
 
+export interface SignedPermitOnchain {
+    signature: Hex;
+    permit: AllowanceTransferPermitSingle;
+}
+
 export interface SignedPermitBatch {
     signature: PrimitiveSignature;
     permit: AllowanceTransferPermitBatch;
@@ -196,6 +201,20 @@ export interface RemoveLiquidityIntent {
     /** Quantity of LP tokens that the user wants to burn. */
     lpTokenAmount: bigint;
     /** Arbitrary value differentiating intents whose other fields are the same */
+    salt: Hex;
+}
+
+/**
+ * A struct for the intent to remove liquidity that user signs
+ */
+export interface RemoveLiquidityIntentOnchain {
+    /** The account withdrawing the liquidity */
+    owner: Address;
+    /** The identifier of the pool from which liquidity should be removed. */
+    poolId: Hex;
+    /** Amount of LP tokens to burn for withdrawal. */
+    lpTokenAmount: bigint;
+    /** Arbitrary user-provided salt to make the intent hash unique. */
     salt: Hex;
 }
 
