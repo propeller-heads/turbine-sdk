@@ -2,8 +2,10 @@ import {
     Address,
     BaseError,
     ContractFunctionRevertedError,
+    encodeAbiParameters,
     getAddress,
     Hex,
+    keccak256,
     PublicClient,
     WalletClient,
 } from "viem";
@@ -494,15 +496,26 @@ export class TurbineClient {
      * Submit a liquidity removal intent directly on-chain.
      * This method creates the onchain intent data and permit, then submits it to the TurbineLiquidityRouter contract.
      * @param intent The intent to remove liquidity
-     * @returns A Promise that resolves to the transaction hash of the submitted intent
+     * @returns A Promise that resolves to the transaction hash and intent hash of the submitted intent
      */
-    async removeLiquidityOnchain(intent: RemoveLiquidityIntent): Promise<string> {
+    async submitRemoveLiquidityIntentOnchain(
+        intent: RemoveLiquidityIntent
+    ): Promise<{ txHash: string; intentHash: Hex }> {
         try {
             const data = await this.createRemoveLiquidityDataOnchain(intent);
-            return await this.submitRemoveLiquidityIntentOnchain(
+            const txHash = await this.submitRemoveLiquidityTransaction(
                 data.intent,
                 data.permit
             );
+
+            // Compute the intent hash (matches keccak256(abi.encode(intent)) in the contract)
+            const intentHash = this.computeRemoveLiquidityIntentHash({
+                owner: intent.owner,
+                poolId: data.intent.poolId,
+                lpTokenAmount: intent.lpTokenAmount,
+                salt: intent.salt,
+            });
+            return { txHash, intentHash };
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -516,7 +529,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to the transaction hash
      * @throws {TurbineError} If the transaction fails or is reverted
      */
-    async submitRemoveLiquidityIntentOnchain(
+    async submitRemoveLiquidityTransaction(
         intent: RemoveLiquidityIntentOnchain,
         permit: SignedPermitOnchain
     ): Promise<string> {
@@ -641,6 +654,26 @@ export class TurbineClient {
         });
         const poolId = await this.publicClient.readContract(request);
         return poolId as Hex;
+    }
+
+    /**
+     * Compute the hash of a remove liquidity intent.
+     * This matches the hash computation in the TurbineLiquidityRouter contract:
+     * keccak256(abi.encode(intent))
+     * @param intent The onchain remove liquidity intent
+     * @returns The intent hash as a Hex string
+     */
+    computeRemoveLiquidityIntentHash(intent: RemoveLiquidityIntentOnchain): Hex {
+        const encoded = encodeAbiParameters(
+            [
+                { name: "owner", type: "address" },
+                { name: "poolId", type: "bytes32" },
+                { name: "lpTokenAmount", type: "uint256" },
+                { name: "salt", type: "bytes32" },
+            ],
+            [intent.owner, intent.poolId, intent.lpTokenAmount, intent.salt]
+        );
+        return keccak256(encoded);
     }
 
     /**

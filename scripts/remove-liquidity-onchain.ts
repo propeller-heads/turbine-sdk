@@ -57,7 +57,7 @@ async function main() {
         functionName: "balanceOf",
         args: [account.address],
     });
-    
+
     const lpTokenToBurn = lpTokenBalance / 5n; // Burn 20% of the balance
 
     const removeIntent: RemoveLiquidityIntent = {
@@ -73,17 +73,20 @@ async function main() {
     console.log("\n📊 Liquidity Removal Details:");
     console.log(`Pool: ${USDC.symbol}/${WETH.symbol} (${pool.fee / 10000}% fee)`);
     console.log(`LP Token: ${pool.lpToken}`);
-    console.log(`LP Token to burn: ${lpTokenToBurn.toString()} (wei units) (~${lpTokenToBurn * 100n / lpTokenBalance}% of balance)`);
+    console.log(
+        `LP Token to burn: ${lpTokenToBurn.toString()} (wei units) (~${(lpTokenToBurn * 100n) / lpTokenBalance}% of balance)`
+    );
 
     try {
         // Submit liquidity removal on-chain
         console.log("\n🔄 Submitting liquidity removal intent on-chain...");
 
-        const txHash = await turbineClient.removeLiquidityOnchain(removeIntent);
+        const { txHash, intentHash } =
+            await turbineClient.submitRemoveLiquidityIntentOnchain(removeIntent);
 
         console.log("\n✅ Liquidity removal intent submitted on-chain successfully!");
         console.log(`Transaction hash: ${txHash}`);
-        console.log(`Intent hash: ${removeIntent}`);
+        console.log(`Intent hash: ${intentHash}`);
         console.log(
             "\n💡 Note: The intent is now queued in the TurbineLiquidityRouter contract. It can be executed once eligible."
         );

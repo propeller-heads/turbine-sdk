@@ -7,6 +7,7 @@ import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { RemoveLiquidityIntent } from "../src/models";
 import { USDC, WETH } from "../src/constants";
 import { RPC_URL } from "../src/config";
+import { balanceOfABI } from "../src/abi";
 
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
@@ -45,12 +46,19 @@ async function main() {
     const pool = {
         token0: USDC.address,
         token1: WETH.address,
-        fee: 0xbb8, // 3000 = 0.3%
+        fee: 3000, // 0.3%
         lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
     };
 
-    // Amount of LP tokens to burn (assumes 18 decimals)
-    const lpTokenAmount = 1n * 10n ** 18n; // 1 LP token
+    // Get current LP token balance of walletClient account
+    const lpTokenBalance = await publicClient.readContract({
+        address: pool.lpToken as Hex,
+        abi: balanceOfABI,
+        functionName: "balanceOf",
+        args: [account.address],
+    });
+
+    const lpTokenToBurn = lpTokenBalance / 5n; // Burn 20% of the balance
 
     // Create liquidity removal intent
     const removeIntent: RemoveLiquidityIntent = {
@@ -59,14 +67,16 @@ async function main() {
         token1: pool.token1 as Hex,
         fee: pool.fee,
         lpToken: pool.lpToken as Hex,
-        lpTokenAmount,
+        lpTokenAmount: lpTokenToBurn,
         salt: getRandomSalt(),
     };
 
     console.log("\n📊 Liquidity Removal Details:");
     console.log(`Pool: ${USDC.symbol}/${WETH.symbol} (${pool.fee / 10000}% fee)`);
     console.log(`LP Token: ${pool.lpToken}`);
-    console.log(`LP Token Amount: ${lpTokenAmount.toString()} (wei units)`);
+    console.log(
+        `LP Token to burn: ${lpTokenToBurn.toString()} (wei units) (~${(lpTokenToBurn * 100n) / lpTokenBalance}% of balance)`
+    );
 
     try {
         // Submit liquidity removal
