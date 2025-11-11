@@ -4,9 +4,10 @@ import { createPublicClient, createWalletClient, http, Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
-import { AddLiquidityIntent } from "../src/models";
+import { RemoveLiquidityIntent } from "../src/models";
 import { USDC, WETH } from "../src/constants";
 import { RPC_URL } from "../src/config";
+import { balanceOfABI } from "../src/abi";
 
 // Configuration
 const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
@@ -18,12 +19,12 @@ if (!PRIVATE_KEY) {
 const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 
 async function main() {
-    console.log("🚀 Starting Turbine liquidity addition script...");
+    console.log("🚀 Starting Turbine liquidity removal script...");
 
     // Set up clients
     const account = privateKeyToAccount(PRIVATE_KEY);
     const walletClient = createWalletClient({
-        account: account,
+        account,
         chain: mainnet,
         transport: http(RPC_URL),
     });
@@ -42,63 +43,54 @@ async function main() {
     console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
 
     // Pool configuration
-    const pools = await turbineClient.getPools();
-    if (pools.length === 0) {
-        console.error("No pools found. Please create a pool first.");
-        process.exit(1);
-    }
-    // Find the first pool with USDC as token0 and WETH as token1
-    const pool = pools.find(
-        (p) =>
-            p.metadata.token0.toLowerCase() === USDC.address.toLowerCase() &&
-            p.metadata.token1.toLowerCase() === WETH.address.toLowerCase()
-    )?.metadata;
-    if (!pool) {
-        console.error(
-            "No USDC/WETH pool found. Please create one or adjust the script."
-        );
-        process.exit(1);
-    }
+    const pool = {
+        token0: USDC.address,
+        token1: WETH.address,
+        fee: 3000, // 0.3%
+        lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
+    };
 
-    // Liquidity amounts
-    const maxUSDCAmount = USDC.toOnchainAmount(10); // 10 USDC
-    const maxWETHAmount = WETH.toOnchainAmount(0.004); // 0.004 WETH ~ $10
+    // Get current LP token balance of walletClient account
+    const lpTokenBalance = await publicClient.readContract({
+        address: pool.lpToken as Hex,
+        abi: balanceOfABI,
+        functionName: "balanceOf",
+        args: [account.address],
+    });
 
-    // Create liquidity addition intent
-    const liquidityIntent: AddLiquidityIntent = {
+    const lpTokenToBurn = lpTokenBalance / 5n; // Burn 20% of the balance
+
+    // Create liquidity removal intent
+    const removeIntent: RemoveLiquidityIntent = {
         owner: account.address,
         token0: pool.token0 as Hex,
         token1: pool.token1 as Hex,
         fee: pool.fee,
-        token0Amount: maxUSDCAmount,
-        token1Amount: maxWETHAmount,
-        exact: true,
+        lpToken: pool.lpToken as Hex,
+        lpTokenAmount: lpTokenToBurn,
         salt: getRandomSalt(),
     };
 
-    console.log("\n📊 Liquidity Addition Details:");
+    console.log("\n📊 Liquidity Removal Details:");
     console.log(`Pool: ${USDC.symbol}/${WETH.symbol} (${pool.fee / 10000}% fee)`);
-    console.log(
-        `Token0 (${USDC.symbol}): ${USDC.fromOnchainAmount(maxUSDCAmount)} ${USDC.symbol}`
-    );
-    console.log(
-        `Token1 (${WETH.symbol}): ${WETH.fromOnchainAmount(maxWETHAmount)} ${WETH.symbol}`
-    );
     console.log(`LP Token: ${pool.lpToken}`);
+    console.log(
+        `LP Token to burn: ${lpTokenToBurn.toString()} (wei units) (~${(lpTokenToBurn * 100n) / lpTokenBalance}% of balance)`
+    );
 
     try {
-        // Submit liquidity addition
-        console.log("\n🔄 Submitting liquidity addition to Turbine...");
+        // Submit liquidity removal
+        console.log("\n🔄 Submitting liquidity removal to Turbine...");
 
-        const intentHash = await turbineClient.addLiquidity(liquidityIntent);
+        const intentHash = await turbineClient.removeLiquidity(removeIntent);
 
-        console.log("\n✅ Liquidity addition submitted successfully!");
+        console.log("\n✅ Liquidity removal submitted successfully!");
         console.log(`Intent Hash: ${intentHash}`);
         console.log(
-            "\n💡 Note: The actual liquidity addition will be executed by Turbine's settlement system."
+            "\n💡 Note: The actual liquidity removal will be executed by Turbine's settlement system."
         );
     } catch (error) {
-        console.error("\n❌ Error submitting liquidity addition:");
+        console.error("\n❌ Error submitting liquidity removal:");
         console.error(error);
         process.exit(1);
     }

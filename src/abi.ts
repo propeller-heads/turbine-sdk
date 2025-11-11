@@ -1,3 +1,102 @@
+export const turbineLiquidityRouterABI = [
+    {
+        type: "function",
+        name: "submitRemoveLiquidityIntent",
+        inputs: [
+            {
+                name: "intent",
+                type: "tuple",
+                internalType: "struct RemoveLiquidityIntent",
+                components: [
+                    { name: "owner", type: "address", internalType: "address" },
+                    { name: "poolId", type: "bytes32", internalType: "PoolId" },
+                    { name: "lpTokenAmount", type: "uint256", internalType: "uint256" },
+                    { name: "salt", type: "bytes32", internalType: "bytes32" },
+                ],
+            },
+            {
+                name: "permitParams",
+                type: "tuple",
+                internalType: "struct AllowanceParams",
+                components: [
+                    { name: "signature", type: "bytes", internalType: "bytes" },
+                    {
+                        name: "permit",
+                        type: "tuple",
+                        internalType: "struct IAllowanceTransfer.PermitSingle",
+                        components: [
+                            {
+                                name: "details",
+                                type: "tuple",
+                                internalType: "struct IAllowanceTransfer.PermitDetails",
+                                components: [
+                                    {
+                                        name: "token",
+                                        type: "address",
+                                        internalType: "address",
+                                    },
+                                    {
+                                        name: "amount",
+                                        type: "uint160",
+                                        internalType: "uint160",
+                                    },
+                                    {
+                                        name: "expiration",
+                                        type: "uint48",
+                                        internalType: "uint48",
+                                    },
+                                    {
+                                        name: "nonce",
+                                        type: "uint48",
+                                        internalType: "uint48",
+                                    },
+                                ],
+                            },
+                            {
+                                name: "spender",
+                                type: "address",
+                                internalType: "address",
+                            },
+                            {
+                                name: "sigDeadline",
+                                type: "uint256",
+                                internalType: "uint256",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+        outputs: [
+            {
+                name: "intentHash",
+                type: "bytes32",
+                internalType: "RemoveLiquidityIntentHash",
+            },
+        ],
+        stateMutability: "nonpayable",
+    },
+    {
+        inputs: [
+            {
+                internalType: "RemoveLiquidityIntentHash[]",
+                name: "hashes",
+                type: "bytes32[]",
+            },
+        ],
+        stateMutability: "nonpayable",
+        type: "function",
+        name: "executePendingIntents",
+    },
+    {
+        type: "function",
+        name: "flushExpiredIntents",
+        inputs: [],
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+] as const;
+
 export const turbineHookABI = [
     {
         type: "function",
@@ -11,6 +110,17 @@ export const turbineHookABI = [
             },
         ],
         stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "computePoolId",
+        inputs: [
+            { name: "currency0", type: "address", internalType: "address" },
+            { name: "currency1", type: "address", internalType: "address" },
+            { name: "fee", type: "uint24", internalType: "uint24" },
+        ],
+        outputs: [{ name: "", type: "bytes32", internalType: "bytes32" }],
+        stateMutability: "pure",
     },
     {
         type: "function",

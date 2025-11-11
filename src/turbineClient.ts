@@ -2,13 +2,20 @@ import {
     Address,
     BaseError,
     ContractFunctionRevertedError,
+    encodeAbiParameters,
     getAddress,
     Hex,
+    keccak256,
     PublicClient,
     WalletClient,
 } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import { balanceOfABI, turbineHookABI, poolManagerABI } from "./abi";
+import {
+    balanceOfABI,
+    turbineHookABI,
+    poolManagerABI,
+    turbineLiquidityRouterABI,
+} from "./abi";
 import { TURBINE_API_URL } from "./config";
 import { NULL_ADDRESS, SQRT_PRICE_IDENTITY } from "./constants";
 import { toTurbineError, TurbineError } from "./errorHandling";
@@ -28,6 +35,8 @@ import {
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
+    RemoveLiquidityIntentOnchain,
+    SignedPermitOnchain,
     TurbineConfig,
     TurbinePool,
     UserPosition,
@@ -483,6 +492,199 @@ export class TurbineClient {
 
     /* UNAUTHENTICATED METHODS */
 
+    /**
+     * Submit a liquidity removal intent directly on-chain.
+     * This method creates the onchain intent data and permit, then submits it to the TurbineLiquidityRouter contract.
+     * @param intent The intent to remove liquidity
+     * @returns A Promise that resolves to the transaction hash and intent hash of the submitted intent
+     */
+    async submitRemoveLiquidityIntentOnchain(
+        intent: RemoveLiquidityIntent
+    ): Promise<{ txHash: string; intentHash: Hex }> {
+        try {
+            const data = await this.createRemoveLiquidityDataOnchain(intent);
+            const txHash = await this.submitRemoveLiquidityTransaction(
+                data.intent,
+                data.permit
+            );
+
+            // Compute the intent hash (matches keccak256(abi.encode(intent)) in the contract)
+            const intentHash = this.computeRemoveLiquidityIntentHash({
+                owner: intent.owner,
+                poolId: data.intent.poolId,
+                lpTokenAmount: intent.lpTokenAmount,
+                salt: intent.salt,
+            });
+            return { txHash, intentHash };
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * Submit a remove liquidity intent directly to the TurbineLiquidityRouter contract on-chain.
+     * This method simulates the contract call, writes the transaction, and waits for confirmation.
+     * @param intent The onchain remove liquidity intent containing owner, poolId, lpTokenAmount, and salt
+     * @param permit The signed Permit2 permit allowing the router to spend LP tokens
+     * @returns A Promise that resolves to the transaction hash
+     * @throws {TurbineError} If the transaction fails or is reverted
+     */
+    async submitRemoveLiquidityTransaction(
+        intent: RemoveLiquidityIntentOnchain,
+        permit: SignedPermitOnchain
+    ): Promise<string> {
+        const { request } = await this.publicClient.simulateContract({
+            address: this.config.lpRouterAddress,
+            abi: turbineLiquidityRouterABI,
+            functionName: "submitRemoveLiquidityIntent",
+            args: [
+                {
+                    owner: intent.owner,
+                    poolId: intent.poolId,
+                    lpTokenAmount: intent.lpTokenAmount,
+                    salt: intent.salt,
+                },
+                {
+                    signature: permit.signature,
+                    permit: {
+                        details: {
+                            token: permit.permit.details.token,
+                            amount: permit.permit.details.amount,
+                            expiration: permit.permit.details.expiration,
+                            nonce: permit.permit.details.nonce,
+                        },
+                        spender: permit.permit.spender,
+                        sigDeadline: permit.permit.sigDeadline,
+                    },
+                },
+            ],
+            account: this.walletClient.account!,
+            chain: this.publicClient.chain!,
+        });
+        const txHash = await this.walletClient.writeContract(request);
+        const receipt = await this.publicClient.waitForTransactionReceipt({
+            hash: txHash,
+        });
+        if (receipt.status !== "success") {
+            throw new TurbineError(
+                "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
+                "Remove liquidity intent onchain transaction failed",
+                "The remove liquidity intent onchain transaction was reverted. Please try again."
+            );
+        }
+
+        return txHash;
+    }
+
+    /**
+     * Execute pending remove liquidity intents on-chain.
+     * This method calls the executePendingIntents function on the TurbineLiquidityRouter contract
+     * to process and execute previously submitted remove liquidity intents.
+     * @param hashes An array of intent hashes to execute
+     * @returns A Promise that resolves when the transaction is confirmed
+     * @throws {TurbineError} If the transaction fails or is reverted
+     */
+    async executePendingRemoveLiquidityIntentsOnchain(hashes: Hex[]): Promise<void> {
+        const { request } = await this.publicClient.simulateContract({
+            address: this.config.lpRouterAddress,
+            abi: turbineLiquidityRouterABI,
+            functionName: "executePendingIntents",
+            args: [hashes],
+            account: this.walletClient.account!,
+            chain: this.publicClient.chain!,
+        });
+        const txHash = await this.walletClient.writeContract(request);
+        const receipt = await this.publicClient.waitForTransactionReceipt({
+            hash: txHash,
+        });
+        if (receipt.status !== "success") {
+            throw new TurbineError(
+                "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
+                "Execute pending remove liquidity intents transaction failed",
+                "The execute pending remove liquidity intents transaction was reverted. Please try again."
+            );
+        }
+    }
+
+    /**
+     * Flush expired remove liquidity intents from the TurbineLiquidityRouter contract.
+     * This method calls the flushExpiredIntents function to remove all intents that have passed their expiration time.
+     * @returns A Promise that resolves when the transaction is confirmed
+     * @throws {TurbineError} If the transaction fails or is reverted
+     */
+    async flushExpiredRemoveLiquidityIntentsOnchain(): Promise<void> {
+        const { request } = await this.publicClient.simulateContract({
+            address: this.config.lpRouterAddress,
+            abi: turbineLiquidityRouterABI,
+            functionName: "flushExpiredIntents",
+            args: [],
+            account: this.walletClient.account!,
+            chain: this.publicClient.chain!,
+        });
+        const txHash = await this.walletClient.writeContract(request);
+        const receipt = await this.publicClient.waitForTransactionReceipt({
+            hash: txHash,
+        });
+        if (receipt.status !== "success") {
+            throw new TurbineError(
+                "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
+                "Flush expired remove liquidity intents transaction failed",
+                "The flush expired remove liquidity intents transaction was reverted. Please try again."
+            );
+        }
+    }
+
+    /**
+     * Get the pool ID for a given token pair and fee.
+     * Calls the computePoolId view function from the TurbineHook contract.
+     * @param token0 The first token address
+     * @param token1 The second token address
+     * @param fee The pool fee in basis points
+     * @returns A Promise that resolves to the pool ID as a Hex string
+     */
+    async getPoolId(token0: Address, token1: Address, fee: number): Promise<Hex> {
+        // Call computePoolId view function from TurbineHook contract
+        const { request } = await this.publicClient.simulateContract({
+            address: this.config.lpHookAddress,
+            abi: turbineHookABI,
+            functionName: "computePoolId",
+            args: [token0, token1, fee],
+            account: this.walletClient.account!,
+            chain: this.publicClient.chain!,
+        });
+        const poolId = await this.publicClient.readContract(request);
+        return poolId as Hex;
+    }
+
+    /**
+     * Compute the hash of a remove liquidity intent.
+     * This matches the hash computation in the TurbineLiquidityRouter contract:
+     * keccak256(abi.encode(intent))
+     * @param intent The onchain remove liquidity intent
+     * @returns The intent hash as a Hex string
+     */
+    computeRemoveLiquidityIntentHash(intent: RemoveLiquidityIntentOnchain): Hex {
+        const encoded = encodeAbiParameters(
+            [
+                { name: "owner", type: "address" },
+                { name: "poolId", type: "bytes32" },
+                { name: "lpTokenAmount", type: "uint256" },
+                { name: "salt", type: "bytes32" },
+            ],
+            [intent.owner, intent.poolId, intent.lpTokenAmount, intent.salt]
+        );
+        return keccak256(encoded);
+    }
+
+    /**
+     * Create a new liquidity pool on-chain.
+     * Initializes a new pool with the specified token pair and fee using the PoolManager contract.
+     * @param token0 The first token address
+     * @param token1 The second token address
+     * @param fee The pool fee in basis points
+     * @returns A Promise that resolves to the transaction hash of the pool creation
+     * @throws {TurbineError} If the pool already exists or the transaction fails
+     */
     async createPool(token0: Address, token1: Address, fee: number): Promise<string> {
         try {
             const poolKey = this.createPoolKey(token0, token1, fee);
@@ -541,6 +743,12 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Get the settled amounts for multiple orders.
+     * Retrieves order states and extracts the executed sell amounts for each order.
+     * @param orderHashes An array of order hashes to check
+     * @returns A Promise that resolves to an array of OrderSettledAmount objects containing order hash and executed sell amount
+     */
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
         let statuses = await this.getOrderStates(orderHashes);
         return statuses.map((status) => ({
@@ -585,10 +793,19 @@ export class TurbineClient {
         }
     }
 
+    /**
+     * Get all registered pools from the Turbine Hook contract.
+     * @returns A Promise that resolves to an array of TurbinePool objects
+     */
     async getPools(): Promise<TurbinePool[]> {
         return await getPools(this.publicClient, this.config.lpHookAddress);
     }
 
+    /**
+     * Get user positions for all registered pools.
+     * Returns positions where the user has a non-zero LP token balance.
+     * @returns A Promise that resolves to an array of UserPosition objects
+     */
     async getUserPositions(): Promise<UserPosition[]> {
         const address = await this.walletClient.getAddresses();
         return await getUserPositions(
@@ -598,6 +815,10 @@ export class TurbineClient {
         );
     }
 
+    /**
+     * Check if the Turbine service is available.
+     * @returns A Promise that resolves to true if the service is available, or throws an error if unavailable
+     */
     async checkStatus(): Promise<boolean> {
         return await checkStatus(this.turbineApiUrl);
     }
@@ -612,6 +833,12 @@ export class TurbineClient {
 
     /* PRIVATE METHODS */
 
+    /**
+     * Create add order data with Permit2 signature for non-smart orders.
+     * Smart orders skip permit data as they handle their own token transfers.
+     * @param intent The order intent to create data for
+     * @returns A Promise that resolves to AddOrder or AddSmartOrder payload
+     */
     private async createAddOrderData(
         intent: OrderIntent
     ): Promise<AddOrder | AddSmartOrder> {
@@ -638,6 +865,12 @@ export class TurbineClient {
         };
     }
 
+    /**
+     * Create add liquidity data with Permit2 signatures for both tokens.
+     * Converts fee to hundredths of basis points and creates batch permit signatures.
+     * @param intent The liquidity addition intent
+     * @returns A Promise that resolves to AddLiquidity payload with signed permits
+     */
     async createAddLiquidityData(intent: AddLiquidityIntent): Promise<AddLiquidity> {
         intent = {
             ...intent,
@@ -650,7 +883,7 @@ export class TurbineClient {
                 tokens: [intent.token0, intent.token1],
                 walletClient: this.walletClient,
                 publicClient: this.publicClient,
-                amounts: [intent.maxToken0, intent.maxToken1],
+                amounts: [intent.token0Amount, intent.token1Amount],
                 deadline: Number(deadline),
                 spender: this.config.lpRouterAddress,
             });
@@ -663,6 +896,12 @@ export class TurbineClient {
         };
     }
 
+    /**
+     * Create remove liquidity data with Permit2 signature for LP token.
+     * Converts fee to hundredths of basis points and creates permit signature.
+     * @param intent The liquidity removal intent
+     * @returns A Promise that resolves to RemoveLiquidity payload with signed permit
+     */
     private async createRemoveLiquidityData(
         intent: RemoveLiquidityIntent
     ): Promise<RemoveLiquidity> {
@@ -690,6 +929,47 @@ export class TurbineClient {
         };
     }
 
+    /**
+     * Create remove liquidity data for onchain submission.
+     * Computes the pool ID and creates the onchain intent format with Permit2 signature.
+     * @param intent The liquidity removal intent
+     * @returns A Promise that resolves to an object containing the onchain intent and signed permit
+     */
+    private async createRemoveLiquidityDataOnchain(
+        intent: RemoveLiquidityIntent
+    ): Promise<{ intent: RemoveLiquidityIntentOnchain; permit: SignedPermitOnchain }> {
+        const poolId = await this.getPoolId(intent.token0, intent.token1, intent.fee);
+        const removeLiquidityIntentOnchain: RemoveLiquidityIntentOnchain = {
+            owner: intent.owner,
+            poolId: poolId,
+            lpTokenAmount: intent.lpTokenAmount,
+            salt: intent.salt,
+        };
+        let deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 3); // 3 hours from now
+        let { permit: permit, permitSignature: permitSignature } =
+            await getSignedAllowance({
+                token: intent.lpToken,
+                walletClient: this.walletClient,
+                publicClient: this.publicClient,
+                amount: intent.lpTokenAmount,
+                deadline: Number(deadline),
+                spender: this.config.lpRouterAddress,
+            });
+        return {
+            intent: removeLiquidityIntentOnchain,
+            permit: {
+                signature: permitSignature,
+                permit: permit,
+            },
+        };
+    }
+
+    /**
+     * Check if an order intent is a smart order.
+     * Smart orders have a non-zero callDataTarget and non-empty callData.
+     * @param intent The order intent to check
+     * @returns true if the order is a smart order, false otherwise
+     */
     private is_smart_order(intent: OrderIntent): Boolean {
         return intent.callDataTarget != NULL_ADDRESS && intent.callData != "0x";
     }
