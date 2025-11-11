@@ -49,11 +49,14 @@ async function main() {
     }
     // Find the first pool with USDC as token0 and WETH as token1
     const pool = pools.find(
-        (p) => p.metadata.token0.toLowerCase() === USDC.address.toLowerCase() &&
-               p.metadata.token1.toLowerCase() === WETH.address.toLowerCase()
+        (p) =>
+            p.metadata.token0.toLowerCase() === USDC.address.toLowerCase() &&
+            p.metadata.token1.toLowerCase() === WETH.address.toLowerCase()
     )?.metadata;
     if (!pool) {
-        console.error("No USDC/WETH pool found. Please create one or adjust the script.");
+        console.error(
+            "No USDC/WETH pool found. Please create one or adjust the script."
+        );
         process.exit(1);
     }
 

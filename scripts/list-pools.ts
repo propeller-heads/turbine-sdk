@@ -37,7 +37,9 @@ async function main() {
             console.log(`Pool #${index + 1}:`);
             console.log(`  Token0: ${getTokenDisplay(pool.metadata.token0)}`);
             console.log(`  Token1: ${getTokenDisplay(pool.metadata.token1)}`);
-            console.log(`  Fee: ${pool.metadata.fee / 10000}% (raw: ${pool.metadata.fee})`);
+            console.log(
+                `  Fee: ${pool.metadata.fee / 10000}% (raw: ${pool.metadata.fee})`
+            );
             console.log(`  LP Token: ${pool.metadata.lpToken}`);
             console.log(`  Reserve0: ${pool.state.reserve0.toString()}`);
             console.log(`  Reserve1: ${pool.state.reserve1.toString()}`);
@@ -61,4 +63,3 @@ main().catch((error) => {
     console.error("Script failed:", error);
     process.exit(1);
 });
-
