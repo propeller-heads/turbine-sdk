@@ -42,12 +42,20 @@ async function main() {
     console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
 
     // Pool configuration
-    const pool = {
-        token0: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", // USDC
-        token1: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH
-        fee: 0xbb8, // 3000 = 0.3%
-        lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
-    };
+    const pools = await turbineClient.getPools();
+    if (pools.length === 0) {
+        console.error("No pools found. Please create a pool first.");
+        process.exit(1);
+    }
+    // Find the first pool with USDC as token0 and WETH as token1
+    const pool = pools.find(
+        (p) => p.metadata.token0.toLowerCase() === USDC.address.toLowerCase() &&
+               p.metadata.token1.toLowerCase() === WETH.address.toLowerCase()
+    )?.metadata;
+    if (!pool) {
+        console.error("No USDC/WETH pool found. Please create one or adjust the script.");
+        process.exit(1);
+    }
 
     // Liquidity amounts
     const maxUSDCAmount = USDC.toOnchainAmount(10); // 10 USDC
