@@ -26,8 +26,8 @@ import {
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatesPayload,
-    LiquidityIntentState,
     LiquidityIntentStatus,
+    LiquidityIntentState,
     OrderIntent,
     OrderSettledAmount,
     OrderState,
@@ -399,15 +399,15 @@ export class TurbineClient {
     }
 
     /**
-     * Get the status of multiple liquidity intents by their hashes.
+     * Get the state of multiple liquidity intents by their hashes.
      * @param intentHashes An array of liquidity intent hashes to check
-     * @returns A Promise that resolves to an array of liquidity intent status objects.
+     * @returns A Promise that resolves to an array of liquidity intent state objects.
      */
-    async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentStatus[]> {
+    async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentState[]> {
         await this.ensureAuthenticated();
 
         try {
-            const response = await this.fetchWithCookies("/liquidity_intent_statuses", {
+            const response = await this.fetchWithCookies("/liquidity_intent_states", {
                 method: "GET",
                 body: JSON.stringify({ intentHashes }),
             });
@@ -416,7 +416,7 @@ export class TurbineClient {
                 throw new TurbineError(
                     "API_ERROR",
                     `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to get liquidity intent statuses. Please try again later."
+                    "Failed to get liquidity intent states. Please try again later."
                 );
             }
 
@@ -430,12 +430,12 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((status: any) => {
-                const stateKey = status.state as keyof typeof LiquidityIntentState;
+            return responseJson.map((state: any) => {
+                const statusKey = state.status as keyof typeof LiquidityIntentStatus;
                 return {
-                    hash: status.hash,
-                    state: LiquidityIntentState[stateKey],
-                } as LiquidityIntentStatus;
+                    hash: state.hash,
+                    status: LiquidityIntentStatus[statusKey],
+                } as LiquidityIntentState;
             });
         } catch (error) {
             throw toTurbineError(error);

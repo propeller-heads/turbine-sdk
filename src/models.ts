@@ -299,7 +299,7 @@ export interface OrderState {
     executedBuyAmount: bigint;
 }
 
-export enum LiquidityIntentState {
+export enum LiquidityIntentStatus {
     Pending = "Pending",
     Invalid = "Invalid",
     Expired = "Expired",
@@ -309,11 +309,11 @@ export enum LiquidityIntentState {
 }
 
 /**
- * Represents the status of a liquidity intent
+ * Represents the state of a liquidity intent
  */
-export interface LiquidityIntentStatus {
+export interface LiquidityIntentState {
     hash: Hex;
-    state: LiquidityIntentState;
+    status: LiquidityIntentStatus;
 }
 
 export interface OrderSettledAmount {
