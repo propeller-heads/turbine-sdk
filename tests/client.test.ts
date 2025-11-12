@@ -17,7 +17,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
-import { LiquidityIntentState } from "../src/models";
+import { LiquidityIntentStatus } from "../src/models";
 import { turbineHookABI } from "../src/abi";
 
 // Helper function to mock authentication
@@ -859,7 +859,7 @@ describe("TurbineClient", () => {
             expect(result[0].hash).toBe(
                 "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
             );
-            expect(result[0].state).toBe(LiquidityIntentState.Pending);
+            expect(result[0].status).toBe(LiquidityIntentStatus.Pending);
         });
     });
 });
