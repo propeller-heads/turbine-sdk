@@ -824,11 +824,11 @@ describe("TurbineClient", () => {
     });
 
     describe("getLiquidityIntents", () => {
-        it("should call Turbine API and return liquidity intent statuses", async () => {
-            const mockStatuses = [
+        it("should call Turbine API and return liquidity intent states", async () => {
+            const mockStates = [
                 {
                     hash: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
-                    state: "Pending",
+                    status: "Pending",
                 },
             ];
 
@@ -841,7 +841,7 @@ describe("TurbineClient", () => {
             const mockFetchWithCookies = jest
                 .spyOn(client as any, "fetchWithCookies")
                 .mockResolvedValue(
-                    new Response(JSON.stringify(mockStatuses), {
+                    new Response(JSON.stringify(mockStates), {
                         status: 200,
                         statusText: "OK",
                     })

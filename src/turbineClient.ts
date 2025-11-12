@@ -390,8 +390,8 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((orderStatus: any) =>
-                this.parseOrderState(orderStatus)
+            return responseJson.map((orderState: any) =>
+                this.parseOrderState(orderState)
             );
         } catch (error) {
             throw toTurbineError(error);
@@ -408,7 +408,7 @@ export class TurbineClient {
 
         try {
             const response = await this.fetchWithCookies("/liquidity_intent_states", {
-                method: "GET",
+                method: "POST",
                 body: JSON.stringify({ intentHashes }),
             });
 
