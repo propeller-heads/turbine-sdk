@@ -1064,7 +1064,7 @@ export class TurbineClient {
      * @throws {TurbineError} If authentication fails or if there is an error checking authentication status.
      * @returns {Promise<Address>} The authenticated user's address.
      */
-    private async ensureAuthenticated(): Promise<Address> {
+    public async ensureAuthenticated(): Promise<Address> {
         // If authentication is already in progress, wait for it
         if (this.authenticationInProgress) {
             // Poll until authentication completes with 5 minute timeout
