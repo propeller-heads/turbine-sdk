@@ -1231,25 +1231,28 @@ export async function getPools(
             poolsData.push(...batch);
         }
 
-        return poolsData.map((poolData: any) => ({
-            metadata: {
-                token0: getAddress(poolData.token0),
-                token1: getAddress(poolData.token1),
-                fee: poolData.fee,
-                lpToken: getAddress(poolData.lpToken),
-            },
-            state: {
-                reserve0: BigInt(poolData.reserve0),
-                reserve1: BigInt(poolData.reserve1),
-                liquidity: BigInt(poolData.liquidity),
-            },
-            stats: {
-                // Note: Weekly volume data is not available from the contract
-                // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
-                weeklySellVolumeToken0: 0n,
-                weeklySellVolumeToken1: 0n,
-            },
-        } as TurbinePool));
+        return poolsData.map(
+            (poolData: any) =>
+                ({
+                    metadata: {
+                        token0: getAddress(poolData.token0),
+                        token1: getAddress(poolData.token1),
+                        fee: poolData.fee,
+                        lpToken: getAddress(poolData.lpToken),
+                    },
+                    state: {
+                        reserve0: BigInt(poolData.reserve0),
+                        reserve1: BigInt(poolData.reserve1),
+                        liquidity: BigInt(poolData.liquidity),
+                    },
+                    stats: {
+                        // Note: Weekly volume data is not available from the contract
+                        // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
+                        weeklySellVolumeToken0: 0n,
+                        weeklySellVolumeToken1: 0n,
+                    },
+                }) as TurbinePool
+        );
     } catch (error) {
         throw toTurbineError(error);
     }
