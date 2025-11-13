@@ -19,7 +19,14 @@
  *   ts-node scripts/approve-lp-token.ts
  */
 
-import { createPublicClient, createWalletClient, http, Address, Hex, maxUint256 } from "viem";
+import {
+    createPublicClient,
+    createWalletClient,
+    http,
+    Address,
+    Hex,
+    maxUint256,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { PERMIT2_ADDRESS } from "@uniswap/permit2-sdk";
@@ -99,7 +106,9 @@ async function main() {
 
         // Limit to first 10 pools
         const poolsToShow = pools.slice(0, 10);
-        console.log(`Found ${pools.length} registered pool(s) (showing first ${poolsToShow.length}):\n`);
+        console.log(
+            `Found ${pools.length} registered pool(s) (showing first ${poolsToShow.length}):\n`
+        );
 
         // Display pools
         poolsToShow.forEach((pool, index) => {
@@ -121,8 +130,14 @@ async function main() {
 
         const selectedIndex = parseInt(answer.trim());
 
-        if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= poolsToShow.length) {
-            console.error(`Invalid selection. Please choose a number between 0 and ${poolsToShow.length - 1}.`);
+        if (
+            isNaN(selectedIndex) ||
+            selectedIndex < 0 ||
+            selectedIndex >= poolsToShow.length
+        ) {
+            console.error(
+                `Invalid selection. Please choose a number between 0 and ${poolsToShow.length - 1}.`
+            );
             process.exit(1);
         }
 
@@ -207,4 +222,3 @@ main().catch((error) => {
     console.error("Script failed:", error);
     process.exit(1);
 });
-
