@@ -26,8 +26,8 @@ import {
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatesPayload,
-    LiquidityIntentState,
     LiquidityIntentStatus,
+    LiquidityIntentState,
     OrderIntent,
     OrderSettledAmount,
     OrderState,
@@ -390,8 +390,8 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((orderStatus: any) =>
-                this.parseOrderState(orderStatus)
+            return responseJson.map((orderState: any) =>
+                this.parseOrderState(orderState)
             );
         } catch (error) {
             throw toTurbineError(error);
@@ -399,16 +399,16 @@ export class TurbineClient {
     }
 
     /**
-     * Get the status of multiple liquidity intents by their hashes.
+     * Get the state of multiple liquidity intents by their hashes.
      * @param intentHashes An array of liquidity intent hashes to check
-     * @returns A Promise that resolves to an array of liquidity intent status objects.
+     * @returns A Promise that resolves to an array of liquidity intent state objects.
      */
-    async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentStatus[]> {
+    async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentState[]> {
         await this.ensureAuthenticated();
 
         try {
-            const response = await this.fetchWithCookies("/liquidity_intent_statuses", {
-                method: "GET",
+            const response = await this.fetchWithCookies("/liquidity_intent_states", {
+                method: "POST",
                 body: JSON.stringify({ intentHashes }),
             });
 
@@ -416,7 +416,7 @@ export class TurbineClient {
                 throw new TurbineError(
                     "API_ERROR",
                     `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to get liquidity intent statuses. Please try again later."
+                    "Failed to get liquidity intent states. Please try again later."
                 );
             }
 
@@ -430,12 +430,12 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((status: any) => {
-                const stateKey = status.state as keyof typeof LiquidityIntentState;
+            return responseJson.map((state: any) => {
+                const statusKey = state.status as keyof typeof LiquidityIntentStatus;
                 return {
-                    hash: status.hash,
-                    state: LiquidityIntentState[stateKey],
-                } as LiquidityIntentStatus;
+                    hash: state.hash,
+                    status: LiquidityIntentStatus[statusKey],
+                } as LiquidityIntentState;
             });
         } catch (error) {
             throw toTurbineError(error);
@@ -639,7 +639,7 @@ export class TurbineClient {
      * Calls the computePoolId view function from the TurbineHook contract.
      * @param token0 The first token address
      * @param token1 The second token address
-     * @param fee The pool fee in basis points
+     * @param fee The pool fee in hundredths of basis point
      * @returns A Promise that resolves to the pool ID as a Hex string
      */
     async getPoolId(token0: Address, token1: Address, fee: number): Promise<Hex> {
@@ -681,7 +681,7 @@ export class TurbineClient {
      * Initializes a new pool with the specified token pair and fee using the PoolManager contract.
      * @param token0 The first token address
      * @param token1 The second token address
-     * @param fee The pool fee in basis points
+     * @param fee The pool fee in hundredths of basis point
      * @returns A Promise that resolves to the transaction hash of the pool creation
      * @throws {TurbineError} If the pool already exists or the transaction fails
      */
@@ -872,11 +872,6 @@ export class TurbineClient {
      * @returns A Promise that resolves to AddLiquidity payload with signed permits
      */
     async createAddLiquidityData(intent: AddLiquidityIntent): Promise<AddLiquidity> {
-        intent = {
-            ...intent,
-            fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
-        };
-
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =
             await getBatchSignedAllowance({
@@ -905,11 +900,6 @@ export class TurbineClient {
     private async createRemoveLiquidityData(
         intent: RemoveLiquidityIntent
     ): Promise<RemoveLiquidity> {
-        intent = {
-            ...intent,
-            fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
-        };
-
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =
             await getSignedAllowance({
@@ -1064,7 +1054,7 @@ export class TurbineClient {
      * @throws {TurbineError} If authentication fails or if there is an error checking authentication status.
      * @returns {Promise<Address>} The authenticated user's address.
      */
-    private async ensureAuthenticated(): Promise<Address> {
+    public async ensureAuthenticated(): Promise<Address> {
         // If authentication is already in progress, wait for it
         if (this.authenticationInProgress) {
             // Poll until authentication completes with 5 minute timeout
@@ -1241,25 +1231,28 @@ export async function getPools(
             poolsData.push(...batch);
         }
 
-        return poolsData.map((poolData: any) => ({
-            metadata: {
-                token0: getAddress(poolData.token0),
-                token1: getAddress(poolData.token1),
-                fee: poolData.fee / 100, // original fee is in hundredths of basis points
-                lpToken: getAddress(poolData.lpToken),
-            },
-            state: {
-                reserve0: BigInt(poolData.reserve0),
-                reserve1: BigInt(poolData.reserve1),
-                liquidity: BigInt(poolData.liquidity),
-            },
-            stats: {
-                // Note: Weekly volume data is not available from the contract
-                // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
-                weeklySellVolumeToken0: 0n,
-                weeklySellVolumeToken1: 0n,
-            },
-        }));
+        return poolsData.map(
+            (poolData: any) =>
+                ({
+                    metadata: {
+                        token0: getAddress(poolData.token0),
+                        token1: getAddress(poolData.token1),
+                        fee: poolData.fee,
+                        lpToken: getAddress(poolData.lpToken),
+                    },
+                    state: {
+                        reserve0: BigInt(poolData.reserve0),
+                        reserve1: BigInt(poolData.reserve1),
+                        liquidity: BigInt(poolData.liquidity),
+                    },
+                    stats: {
+                        // Note: Weekly volume data is not available from the contract
+                        // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
+                        weeklySellVolumeToken0: 0n,
+                        weeklySellVolumeToken1: 0n,
+                    },
+                }) as TurbinePool
+        );
     } catch (error) {
         throw toTurbineError(error);
     }
