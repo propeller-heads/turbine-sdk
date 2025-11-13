@@ -639,7 +639,7 @@ export class TurbineClient {
      * Calls the computePoolId view function from the TurbineHook contract.
      * @param token0 The first token address
      * @param token1 The second token address
-     * @param fee The pool fee in basis points
+     * @param fee The pool fee in hundredths of basis point
      * @returns A Promise that resolves to the pool ID as a Hex string
      */
     async getPoolId(token0: Address, token1: Address, fee: number): Promise<Hex> {
@@ -681,7 +681,7 @@ export class TurbineClient {
      * Initializes a new pool with the specified token pair and fee using the PoolManager contract.
      * @param token0 The first token address
      * @param token1 The second token address
-     * @param fee The pool fee in basis points
+     * @param fee The pool fee in hundredths of basis point
      * @returns A Promise that resolves to the transaction hash of the pool creation
      * @throws {TurbineError} If the pool already exists or the transaction fails
      */
@@ -872,11 +872,6 @@ export class TurbineClient {
      * @returns A Promise that resolves to AddLiquidity payload with signed permits
      */
     async createAddLiquidityData(intent: AddLiquidityIntent): Promise<AddLiquidity> {
-        intent = {
-            ...intent,
-            fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
-        };
-
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =
             await getBatchSignedAllowance({
@@ -905,11 +900,6 @@ export class TurbineClient {
     private async createRemoveLiquidityData(
         intent: RemoveLiquidityIntent
     ): Promise<RemoveLiquidity> {
-        intent = {
-            ...intent,
-            fee: intent.fee * 100, // Turbine expects fee in hundredths of basis points
-        };
-
         let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
         let { permit: permit, permitSignature: permitSignature } =
             await getSignedAllowance({
@@ -1245,7 +1235,7 @@ export async function getPools(
             metadata: {
                 token0: getAddress(poolData.token0),
                 token1: getAddress(poolData.token1),
-                fee: poolData.fee / 100, // original fee is in hundredths of basis points
+                fee: poolData.fee,
                 lpToken: getAddress(poolData.lpToken),
             },
             state: {
@@ -1259,7 +1249,7 @@ export async function getPools(
                 weeklySellVolumeToken0: 0n,
                 weeklySellVolumeToken1: 0n,
             },
-        }));
+        } as TurbinePool));
     } catch (error) {
         throw toTurbineError(error);
     }

@@ -31,7 +31,7 @@ export const MOCKED_TURBINE_POOL = {
     metadata: {
         token0: getAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"), // USDC
         token1: getAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
-        fee: 30, // 0.3% in basis points
+        fee: 3000, // 0.3% in hundredths of basis point
         lpToken: getAddress("0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307"),
     },
     state: {

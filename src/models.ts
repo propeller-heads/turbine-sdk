@@ -194,7 +194,7 @@ export interface RemoveLiquidityIntent {
     token0: Address;
     /** token1 of the pool to which the liquidity is withdrawing */
     token1: Address;
-    /** fee of the pool to which the liquidity is withdrawing, in BIPs (30=0.3%) */
+    /** fee of the pool to which the liquidity is withdrawing, in hundredths of basis point (3000=0.3%) */
     fee: number;
     /** Address of the LP token that the user wants to burn. */
     lpToken: Address;
@@ -222,10 +222,10 @@ export interface TurbinePool {
     metadata: {
         token0: Address;
         token1: Address;
-        fee: number; // in basis point; i.e. 100 = 1%
+        fee: number; // in hundredths of basis point; i.e. 10000 = 1%
         lpToken: Address;
     };
-    // reserves and weekly sell volumes are in onchain amounts (in base units)
+    // reserves and weekly sell volumes are in onchain amounts (in atomic units)
     state: {
         reserve0: bigint;
         reserve1: bigint;
@@ -241,7 +241,7 @@ export interface UserPosition {
     poolMetadata: {
         token0: Address;
         token1: Address;
-        fee: number; // in basis point; i.e. 100 = 1%
+        fee: number; // in hundredths of basis point; i.e. 10000 = 1%
         lpToken: Address;
     };
     userAddress: Address;

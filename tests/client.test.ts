@@ -235,7 +235,7 @@ describe("TurbineClient", () => {
             expect(pools).toHaveLength(3);
             expect(pools[0].metadata.token0).toEqual(mockContractData[0].token0);
             expect(pools[0].metadata.token1).toEqual(mockContractData[0].token1);
-            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee / 100);
+            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee);
             expect(pools[0].metadata.lpToken).toEqual(mockContractData[0].lpToken);
             expect(pools[0].state.reserve0).toEqual(mockContractData[0].reserve0);
             expect(pools[0].state.reserve1).toEqual(mockContractData[0].reserve1);
@@ -295,7 +295,7 @@ describe("TurbineClient", () => {
             expect(pools).toHaveLength(3);
             expect(pools[0].metadata.token0).toEqual(mockContractData[0].token0);
             expect(pools[0].metadata.token1).toEqual(mockContractData[0].token1);
-            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee / 100);
+            expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee);
             expect(pools[0].metadata.lpToken).toEqual(mockContractData[0].lpToken);
             expect(pools[0].state.reserve0).toEqual(mockContractData[0].reserve0);
             expect(pools[0].state.reserve1).toEqual(mockContractData[0].reserve1);
@@ -369,7 +369,7 @@ describe("TurbineClient", () => {
             expect(positions).toHaveLength(1);
             expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[0].token0);
             expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[0].token1);
-            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee / 100);
+            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee);
             expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[0].lpToken);
             expect(positions[0].userAddress).toEqual(getAddress(testUserAddress));
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[0].result);
@@ -441,7 +441,7 @@ describe("TurbineClient", () => {
             expect(positions).toHaveLength(1);
             expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[0].token0);
             expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[0].token1);
-            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee / 100);
+            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[0].fee);
             expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[0].lpToken);
             expect(positions[0].userAddress).toEqual(getAddress(testUserAddress));
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[0].result);
@@ -509,7 +509,7 @@ describe("TurbineClient", () => {
             expect(positions).toHaveLength(1);
             expect(positions[0].poolMetadata.token0).toEqual(mockPoolsData[1].token0);
             expect(positions[0].poolMetadata.token1).toEqual(mockPoolsData[1].token1);
-            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[1].fee / 100);
+            expect(positions[0].poolMetadata.fee).toEqual(mockPoolsData[1].fee);
             expect(positions[0].poolMetadata.lpToken).toEqual(mockPoolsData[1].lpToken);
             expect(positions[0].lpTokenBalance).toEqual(mockMulticallResults[1].result);
         });
