@@ -34,7 +34,7 @@ async function main() {
         console.log(`Found ${pools.length} registered pool(s):\n`);
 
         pools.forEach((pool, index) => {
-            console.log(`Pool #${index + 1}:`);
+            console.log(`Pool #${index}:`);
             console.log(`  Token0: ${getTokenDisplay(pool.metadata.token0)}`);
             console.log(`  Token1: ${getTokenDisplay(pool.metadata.token1)}`);
             console.log(
