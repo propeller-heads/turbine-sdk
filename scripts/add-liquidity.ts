@@ -86,6 +86,32 @@ async function main() {
     );
     console.log(`LP Token: ${pool.lpToken}`);
 
+    // Ask the user to confirm before submitting
+    const readline = require("readline");
+
+    async function promptConfirmation(message: string): Promise<boolean> {
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+        });
+
+        return new Promise((resolve) => {
+            rl.question(`${message} (y/N): `, (answer: string) => {
+                rl.close();
+                resolve(answer.trim().toLowerCase() === 'y');
+            });
+        });
+    }
+
+    const confirmed = await promptConfirmation(
+        "Do you want to proceed with the liquidity provision above?"
+    );
+
+    if (!confirmed) {
+        console.log("❌ Liquidity provision cancelled by user.");
+        process.exit(0);
+    }
+
     try {
         // Submit liquidity addition
         console.log("\n🔄 Submitting liquidity addition to Turbine...");
