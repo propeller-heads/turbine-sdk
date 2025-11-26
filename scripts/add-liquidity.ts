@@ -98,7 +98,7 @@ async function main() {
         return new Promise((resolve) => {
             rl.question(`${message} (y/N): `, (answer: string) => {
                 rl.close();
-                resolve(answer.trim().toLowerCase() === 'y');
+                resolve(answer.trim().toLowerCase() === "y");
             });
         });
     }

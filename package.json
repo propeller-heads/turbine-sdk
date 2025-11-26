@@ -7,6 +7,7 @@
         "build": "tsc",
         "test": "jest",
         "test-no-integration": "jest --testPathIgnorePatterns integration",
+        "lint": "prettier --write .",
         "submit-orders": "ts-node scripts/submit-orders.ts",
         "list-pools": "ts-node scripts/list-pools.ts",
         "create-pool": "ts-node scripts/create-pool.ts",

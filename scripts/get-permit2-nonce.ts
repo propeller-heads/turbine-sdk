@@ -32,7 +32,9 @@ const [ownerArg, tokenArg, spenderArg] = args;
 function validateAddress(address: string, name: string): Address {
     if (!address.startsWith("0x") || address.length !== 42) {
         console.error(`Invalid ${name} address: ${address}`);
-        console.error("Address must be a valid Ethereum address (0x followed by 40 hex characters)");
+        console.error(
+            "Address must be a valid Ethereum address (0x followed by 40 hex characters)"
+        );
         process.exit(1);
     }
     return address as Address;
@@ -76,4 +78,3 @@ main().catch((error) => {
     console.error("Script failed:", error);
     process.exit(1);
 });
-

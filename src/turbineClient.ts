@@ -1175,8 +1175,14 @@ export class TurbineClient {
             hash: orderState.hash,
             status: orderState.status,
             execution: execution,
-            executedSellAmount: execution.reduce((acc, exec) => acc + exec.soldAmount, 0n),
-            executedBuyAmount: execution.reduce((acc, exec) => acc + exec.boughtAmount, 0n),
+            executedSellAmount: execution.reduce(
+                (acc, exec) => acc + exec.soldAmount,
+                0n
+            ),
+            executedBuyAmount: execution.reduce(
+                (acc, exec) => acc + exec.boughtAmount,
+                0n
+            ),
         } as OrderState;
     }
 
