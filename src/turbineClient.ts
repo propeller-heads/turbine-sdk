@@ -40,6 +40,7 @@ import {
     TurbineConfig,
     TurbinePool,
     UserPosition,
+    OrderExecution,
 } from "./models";
 import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
 
@@ -1163,18 +1164,19 @@ export class TurbineClient {
      * @returns The parsed OrderState object
      */
     private parseOrderState(orderState: any): OrderState {
+        const execution: OrderExecution[] = orderState.execution.map((exec: any) => ({
+            batchId: Number(exec.batch_id),
+            txHash: exec.tx_hash,
+            clearedAt: new Date(exec.cleared_at * 1000),
+            soldAmount: BigInt(exec.sold_amount),
+            boughtAmount: BigInt(exec.bought_amount),
+        }));
         return {
             hash: orderState.hash,
             status: orderState.status,
-            execution: orderState.execution.map((exec: any) => ({
-                batchId: Number(exec.batch_id),
-                txHash: exec.tx_hash,
-                clearedAt: new Date(exec.cleared_at * 1000),
-                soldAmount: BigInt(exec.sold_amount),
-                boughtAmount: BigInt(exec.bought_amount),
-            })),
-            executedSellAmount: BigInt(orderState.executed_sell_amount),
-            executedBuyAmount: BigInt(orderState.executed_buy_amount),
+            execution: execution,
+            executedSellAmount: execution.reduce((acc, exec) => acc + exec.soldAmount, 0n),
+            executedBuyAmount: execution.reduce((acc, exec) => acc + exec.boughtAmount, 0n),
         } as OrderState;
     }
 

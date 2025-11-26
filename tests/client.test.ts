@@ -773,9 +773,13 @@ describe("TurbineClient", () => {
                             sold_amount: "1000000",
                             bought_amount: "950000",
                         },
+                        {
+                            batch_id: "456",
+                            cleared_at: "1751642854",
+                            sold_amount: "2000000",
+                            bought_amount: "1900000",
+                        },
                     ],
-                    executed_sell_amount: "1000000",
-                    executed_buy_amount: "950000",
                 },
             ];
 
@@ -807,15 +811,21 @@ describe("TurbineClient", () => {
                 "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce"
             );
             expect(result[0].status).toBe("Invalid");
-            expect(result[0].executedSellAmount).toBe(BigInt("1000000"));
-            expect(result[0].execution).toHaveLength(1);
+            expect(result[0].executedSellAmount).toBe(BigInt("3000000"));
+            expect(result[0].executedBuyAmount).toBe(BigInt("2850000"));
+            expect(result[0].execution).toHaveLength(2);
             expect(result[0].execution[0].batchId).toBe(123);
             expect(result[0].execution[0].clearedAt).toEqual(
                 new Date(1751642853 * 1000)
             );
             expect(result[0].execution[0].soldAmount).toBe(BigInt("1000000"));
             expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
-
+            expect(result[0].execution[1].batchId).toBe(456);
+            expect(result[0].execution[1].clearedAt).toEqual(
+                new Date(1751642854 * 1000)
+            );
+            expect(result[0].execution[1].soldAmount).toBe(BigInt("2000000"));
+            expect(result[0].execution[1].boughtAmount).toBe(BigInt("1900000"));
             expect(mockCallAPI).toHaveBeenCalledWith(
                 { orderHashes: orderHashes },
                 "order_states"
