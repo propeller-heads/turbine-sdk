@@ -8,6 +8,7 @@ import {
     keccak256,
     PublicClient,
     WalletClient,
+    withCache,
 } from "viem";
 import { createSiweMessage } from "viem/siwe";
 import {
@@ -391,10 +392,13 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((orderState: any) =>
+            const orderStatesPromises = responseJson.map((orderState: any) =>
                 this.parseOrderState(orderState)
             );
+            const orderStates = await Promise.all(orderStatesPromises);
+            return orderStates;
         } catch (error) {
+            throw error;
             throw toTurbineError(error);
         }
     }
@@ -1163,23 +1167,24 @@ export class TurbineClient {
      * @param orderState The raw order status from the API
      * @returns The parsed OrderState object
      */
-    private parseOrderState(orderState: any): OrderState {
-        const execution: OrderExecution[] = orderState.execution.map((exec: any) => ({
-            batchId: Number(exec.batch_id),
+    private async parseOrderState(orderState: any): Promise<OrderState> {
+        const executionsPromises = orderState.execution.map(async (exec: any) => ({
             txHash: exec.tx_hash,
-            clearedAt: new Date(exec.cleared_at * 1000),
+            clearedAt: new Date((await this.getBlockTimestamp(Number(exec.block_number))) * 1000),
             soldAmount: BigInt(exec.sold_amount),
             boughtAmount: BigInt(exec.bought_amount),
+            surplusBoughtAmount: BigInt(exec.surplus_buy_amount),
         }));
+        const executions = await Promise.all(executionsPromises);
         return {
             hash: orderState.hash,
             status: orderState.status,
-            execution: execution,
-            executedSellAmount: execution.reduce(
+            execution: executions,
+            executedSellAmount: executions.reduce(
                 (acc, exec) => acc + exec.soldAmount,
                 0n
             ),
-            executedBuyAmount: execution.reduce(
+            executedBuyAmount: executions.reduce(
                 (acc, exec) => acc + exec.boughtAmount,
                 0n
             ),
@@ -1205,6 +1210,18 @@ export class TurbineClient {
             v: `0x${v.toString(16)}`,
         };
     }
+
+    private async getBlockTimestamp(  
+        blockNumber: number,  
+      ): Promise<number> {  
+        return await withCache(  
+          () => this.publicClient.getBlock({ blockNumber: BigInt(blockNumber) }).then((block) => Number(block.timestamp)),  
+          {  
+            cacheKey: `blockTimestamp.${this.publicClient.uid}.${blockNumber}`,  
+            cacheTime: Number.POSITIVE_INFINITY,  
+          }  
+        )  
+      }
 }
 
 /**

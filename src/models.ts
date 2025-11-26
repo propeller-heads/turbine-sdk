@@ -281,11 +281,11 @@ export interface OrderStatusOrder {
  * Represents a single, possibly partial, execution of an order
  */
 export interface OrderExecution {
-    batchId: number;
     txHash: Hex;
     clearedAt: Date;
     soldAmount: bigint;
     boughtAmount: bigint;
+    surplusBoughtAmount: bigint;
 }
 
 /**

@@ -768,16 +768,18 @@ describe("TurbineClient", () => {
                     status: "Invalid",
                     execution: [
                         {
-                            batch_id: "123",
-                            cleared_at: "1751642853",
+                            tx_hash: "0x1111111111111111111111111111111111111111111111111111111111111111",
+                            block_number: "23882001",
                             sold_amount: "1000000",
                             bought_amount: "950000",
+                            surplus_buy_amount: "10",
                         },
                         {
-                            batch_id: "456",
-                            cleared_at: "1751642854",
+                            tx_hash: "0x2222222222222222222222222222222222222222222222222222222222222222",
+                            block_number: "23882281",
                             sold_amount: "2000000",
                             bought_amount: "1900000",
+                            surplus_buy_amount: "11",
                         },
                     ],
                 },
@@ -802,9 +804,9 @@ describe("TurbineClient", () => {
                 "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
             ];
 
-            const result = await withTurbineErrorHandling(() =>
-                client.getOrderStates(orderHashes)
-            );
+            // const result = await withTurbineErrorHandling(() =>
+                const result = await client.getOrderStates(orderHashes);
+            // );
 
             expect(result).toHaveLength(1);
             expect(result[0].hash).toBe(
@@ -814,15 +816,15 @@ describe("TurbineClient", () => {
             expect(result[0].executedSellAmount).toBe(BigInt("3000000"));
             expect(result[0].executedBuyAmount).toBe(BigInt("2850000"));
             expect(result[0].execution).toHaveLength(2);
-            expect(result[0].execution[0].batchId).toBe(123);
+            expect(result[0].execution[0].txHash).toBe("0x1111111111111111111111111111111111111111111111111111111111111111");
             expect(result[0].execution[0].clearedAt).toEqual(
-                new Date(1751642853 * 1000)
+                new Date(1764148979 * 1000)
             );
             expect(result[0].execution[0].soldAmount).toBe(BigInt("1000000"));
             expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
-            expect(result[0].execution[1].batchId).toBe(456);
+            expect(result[0].execution[1].txHash).toBe("0x2222222222222222222222222222222222222222222222222222222222222222");
             expect(result[0].execution[1].clearedAt).toEqual(
-                new Date(1751642854 * 1000)
+                new Date(1764152387 * 1000)
             );
             expect(result[0].execution[1].soldAmount).toBe(BigInt("2000000"));
             expect(result[0].execution[1].boughtAmount).toBe(BigInt("1900000"));
