@@ -768,14 +768,16 @@ describe("TurbineClient", () => {
                     status: "Invalid",
                     execution: [
                         {
-                            tx_hash: "0x1111111111111111111111111111111111111111111111111111111111111111",
+                            tx_hash:
+                                "0x1111111111111111111111111111111111111111111111111111111111111111",
                             block_number: "23882001",
                             sold_amount: "1000000",
                             bought_amount: "950000",
                             surplus_buy_amount: "10",
                         },
                         {
-                            tx_hash: "0x2222222222222222222222222222222222222222222222222222222222222222",
+                            tx_hash:
+                                "0x2222222222222222222222222222222222222222222222222222222222222222",
                             block_number: "23882281",
                             sold_amount: "2000000",
                             bought_amount: "1900000",
@@ -805,7 +807,7 @@ describe("TurbineClient", () => {
             ];
 
             // const result = await withTurbineErrorHandling(() =>
-                const result = await client.getOrderStates(orderHashes);
+            const result = await client.getOrderStates(orderHashes);
             // );
 
             expect(result).toHaveLength(1);
@@ -816,13 +818,17 @@ describe("TurbineClient", () => {
             expect(result[0].executedSellAmount).toBe(BigInt("3000000"));
             expect(result[0].executedBuyAmount).toBe(BigInt("2850000"));
             expect(result[0].execution).toHaveLength(2);
-            expect(result[0].execution[0].txHash).toBe("0x1111111111111111111111111111111111111111111111111111111111111111");
+            expect(result[0].execution[0].txHash).toBe(
+                "0x1111111111111111111111111111111111111111111111111111111111111111"
+            );
             expect(result[0].execution[0].clearedAt).toEqual(
                 new Date(1764148979 * 1000)
             );
             expect(result[0].execution[0].soldAmount).toBe(BigInt("1000000"));
             expect(result[0].execution[0].boughtAmount).toBe(BigInt("950000"));
-            expect(result[0].execution[1].txHash).toBe("0x2222222222222222222222222222222222222222222222222222222222222222");
+            expect(result[0].execution[1].txHash).toBe(
+                "0x2222222222222222222222222222222222222222222222222222222222222222"
+            );
             expect(result[0].execution[1].clearedAt).toEqual(
                 new Date(1764152387 * 1000)
             );

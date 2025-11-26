@@ -1170,7 +1170,9 @@ export class TurbineClient {
     private async parseOrderState(orderState: any): Promise<OrderState> {
         const executionsPromises = orderState.execution.map(async (exec: any) => ({
             txHash: exec.tx_hash,
-            clearedAt: new Date((await this.getBlockTimestamp(Number(exec.block_number))) * 1000),
+            clearedAt: new Date(
+                (await this.getBlockTimestamp(Number(exec.block_number))) * 1000
+            ),
             soldAmount: BigInt(exec.sold_amount),
             boughtAmount: BigInt(exec.bought_amount),
             surplusBoughtAmount: BigInt(exec.surplus_buy_amount),
@@ -1211,17 +1213,18 @@ export class TurbineClient {
         };
     }
 
-    private async getBlockTimestamp(  
-        blockNumber: number,  
-      ): Promise<number> {  
-        return await withCache(  
-          () => this.publicClient.getBlock({ blockNumber: BigInt(blockNumber) }).then((block) => Number(block.timestamp)),  
-          {  
-            cacheKey: `blockTimestamp.${this.publicClient.uid}.${blockNumber}`,  
-            cacheTime: Number.POSITIVE_INFINITY,  
-          }  
-        )  
-      }
+    private async getBlockTimestamp(blockNumber: number): Promise<number> {
+        return await withCache(
+            () =>
+                this.publicClient
+                    .getBlock({ blockNumber: BigInt(blockNumber) })
+                    .then((block) => Number(block.timestamp)),
+            {
+                cacheKey: `blockTimestamp.${this.publicClient.uid}.${blockNumber}`,
+                cacheTime: Number.POSITIVE_INFINITY,
+            }
+        );
+    }
 }
 
 /**
