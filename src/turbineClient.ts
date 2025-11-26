@@ -751,10 +751,10 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of OrderSettledAmount objects containing order hash and executed sell amount
      */
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
-        let statuses = await this.getOrderStates(orderHashes);
-        return statuses.map((status) => ({
-            hash: status.hash,
-            executedSellAmount: status.executedSellAmount,
+        let states = await this.getOrderStates(orderHashes);
+        return states.map((state) => ({
+            hash: state.hash,
+            executedSellAmount: state.executedSellAmount,
         }));
     }
 
