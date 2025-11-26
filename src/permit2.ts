@@ -18,7 +18,7 @@ import { toTurbineError } from "./errorHandling";
 /* Get current nonce of Permit2 AllowanceTransfer.
  * This nonce should be used in a new allowance.
  */
-async function getNonce(
+export async function getNonce(
     owner: Address,
     token: Address,
     spender: Address,
