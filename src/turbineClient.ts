@@ -8,6 +8,7 @@ import {
     keccak256,
     PublicClient,
     WalletClient,
+    withCache,
 } from "viem";
 import { createSiweMessage } from "viem/siwe";
 import {
@@ -40,6 +41,7 @@ import {
     TurbineConfig,
     TurbinePool,
     UserPosition,
+    OrderExecution,
 } from "./models";
 import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
 
@@ -390,10 +392,13 @@ export class TurbineClient {
                 );
             }
 
-            return responseJson.map((orderState: any) =>
+            const orderStatesPromises = responseJson.map((orderState: any) =>
                 this.parseOrderState(orderState)
             );
+            const orderStates = await Promise.all(orderStatesPromises);
+            return orderStates;
         } catch (error) {
+            throw error;
             throw toTurbineError(error);
         }
     }
@@ -750,10 +755,10 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of OrderSettledAmount objects containing order hash and executed sell amount
      */
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
-        let statuses = await this.getOrderStates(orderHashes);
-        return statuses.map((status) => ({
-            hash: status.hash,
-            executedSellAmount: status.executedSellAmount,
+        let states = await this.getOrderStates(orderHashes);
+        return states.map((state) => ({
+            hash: state.hash,
+            executedSellAmount: state.executedSellAmount,
         }));
     }
 
@@ -1162,19 +1167,29 @@ export class TurbineClient {
      * @param orderState The raw order status from the API
      * @returns The parsed OrderState object
      */
-    private parseOrderState(orderState: any): OrderState {
+    private async parseOrderState(orderState: any): Promise<OrderState> {
+        const executionsPromises = orderState.execution.map(async (exec: any) => ({
+            txHash: exec.tx_hash,
+            clearedAt: new Date(
+                (await this.getBlockTimestamp(Number(exec.block_number))) * 1000
+            ),
+            soldAmount: BigInt(exec.sold_amount),
+            boughtAmount: BigInt(exec.bought_amount),
+            surplusBoughtAmount: BigInt(exec.surplus_buy_amount),
+        }));
+        const executions = await Promise.all(executionsPromises);
         return {
             hash: orderState.hash,
             status: orderState.status,
-            execution: orderState.execution.map((exec: any) => ({
-                batchId: Number(exec.batch_id),
-                txHash: exec.tx_hash,
-                clearedAt: new Date(exec.cleared_at * 1000),
-                soldAmount: BigInt(exec.sold_amount),
-                boughtAmount: BigInt(exec.bought_amount),
-            })),
-            executedSellAmount: BigInt(orderState.executed_sell_amount),
-            executedBuyAmount: BigInt(orderState.executed_buy_amount),
+            execution: executions,
+            executedSellAmount: executions.reduce(
+                (acc, exec) => acc + exec.soldAmount,
+                0n
+            ),
+            executedBuyAmount: executions.reduce(
+                (acc, exec) => acc + exec.boughtAmount,
+                0n
+            ),
         } as OrderState;
     }
 
@@ -1196,6 +1211,19 @@ export class TurbineClient {
             yParity: yParity,
             v: `0x${v.toString(16)}`,
         };
+    }
+
+    private async getBlockTimestamp(blockNumber: number): Promise<number> {
+        return await withCache(
+            () =>
+                this.publicClient
+                    .getBlock({ blockNumber: BigInt(blockNumber) })
+                    .then((block) => Number(block.timestamp)),
+            {
+                cacheKey: `blockTimestamp.${this.publicClient.uid}.${blockNumber}`,
+                cacheTime: Number.POSITIVE_INFINITY,
+            }
+        );
     }
 }
 

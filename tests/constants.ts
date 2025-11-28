@@ -122,6 +122,19 @@ export async function createMockTurbineClient(
         customApiUrl
     );
 
+    jest.spyOn(client as any, "getBlockTimestamp").mockImplementation(
+        (...args: unknown[]) => {
+            const blockNumber = args[0] as number;
+            if (blockNumber === 23882001) {
+                return Promise.resolve(1764148979);
+            }
+            if (blockNumber === 23882281) {
+                return Promise.resolve(1764152387);
+            }
+            throw new Error(`Unmocked block number: ${blockNumber}`);
+        }
+    );
+
     // Mock the getSignedAllowance function to prevent real blockchain calls
     jest.spyOn(await import("../src/permit2"), "getSignedAllowance").mockResolvedValue({
         permit: {
