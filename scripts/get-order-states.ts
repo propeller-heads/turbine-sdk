@@ -48,7 +48,7 @@ function displayOrderStates(orderStates: OrderState[]): void {
     console.log("\n" + "=".repeat(80));
     console.log(`Order States (${orderStates.length} orders):`);
     console.log("=".repeat(80));
-    
+
     orderStates.forEach((state, index) => {
         console.log(`\nOrder ${index + 1}:`);
         console.log(`  Hash: ${state.hash}`);
@@ -56,7 +56,7 @@ function displayOrderStates(orderStates: OrderState[]): void {
         console.log(`  Executed Sell Amount: ${state.executedSellAmount.toString()}`);
         console.log(`  Executed Buy Amount: ${state.executedBuyAmount.toString()}`);
         console.log(`  Executions: ${state.execution.length}`);
-        
+
         if (state.execution.length > 0) {
             state.execution.forEach((exec, execIndex) => {
                 console.log(`    Execution ${execIndex + 1}:`);
@@ -64,7 +64,9 @@ function displayOrderStates(orderStates: OrderState[]): void {
                 console.log(`      Cleared At: ${exec.clearedAt.toISOString()}`);
                 console.log(`      Sold Amount: ${exec.soldAmount.toString()}`);
                 console.log(`      Bought Amount: ${exec.boughtAmount.toString()}`);
-                console.log(`      Surplus Bought Amount: ${exec.surplusBoughtAmount.toString()}`);
+                console.log(
+                    `      Surplus Bought Amount: ${exec.surplusBoughtAmount.toString()}`
+                );
             });
         }
     });
@@ -125,14 +127,17 @@ async function main() {
 
             // Check if we should continue polling
             if (!shouldContinuePolling(allOrderStates)) {
-                console.log("\n✅ All orders have reached final states (not Active or PendingCancellation).");
+                console.log(
+                    "\n✅ All orders have reached final states (not Active or PendingCancellation)."
+                );
                 console.log("Stopping polling...\n");
                 break;
             }
 
             // Show which orders are still being polled
             const activeOrders = allOrderStates.filter(
-                (state) => state.status === "Active" || state.status === "PendingCancellation"
+                (state) =>
+                    state.status === "Active" || state.status === "PendingCancellation"
             );
             console.log(
                 `\n⏳ Continuing to poll ${activeOrders.length} order(s) with status Active or PendingCancellation...`
@@ -142,7 +147,9 @@ async function main() {
             });
 
             // Wait before next poll
-            console.log(`\n⏱️  Waiting ${POLL_INTERVAL_MS / 1000} seconds before next poll...`);
+            console.log(
+                `\n⏱️  Waiting ${POLL_INTERVAL_MS / 1000} seconds before next poll...`
+            );
             await sleep(POLL_INTERVAL_MS);
         }
 
@@ -166,4 +173,3 @@ main().catch((error) => {
     console.error("Script failed:", error);
     process.exit(1);
 });
-
