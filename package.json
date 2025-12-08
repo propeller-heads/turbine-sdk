@@ -9,6 +9,7 @@
         "test-no-integration": "jest --testPathIgnorePatterns integration",
         "lint": "prettier --write .",
         "submit-orders": "ts-node scripts/submit-orders.ts",
+        "get-order-states": "ts-node scripts/get-order-states.ts",
         "list-pools": "ts-node scripts/list-pools.ts",
         "create-pool": "ts-node scripts/create-pool.ts",
         "add-liquidity": "ts-node scripts/add-liquidity.ts",

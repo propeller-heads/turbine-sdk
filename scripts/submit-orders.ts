@@ -104,6 +104,8 @@ async function main() {
         orderHashes.forEach((hash, index) => {
             console.log(`Order ${index + 1} Hash: ${hash}`);
         });
+        console.log(`\n💻 Run the following command to watch the orders:`);
+        console.log(`yarn get-order-states ${orderHashes.join(" ")}`);
     } catch (error) {
         console.error("\n❌ Error submitting orders:");
         console.error(error);
