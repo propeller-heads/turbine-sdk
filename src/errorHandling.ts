@@ -1,20 +1,81 @@
 /**
+ * All possible Turbine error codes
+ * Includes both backend error codes and SDK-specific error codes
+ */
+const TURBINE_ERROR_CODES = [
+    // Backend error codes
+    "INTERNAL_ERROR",
+    "TEE_ERROR",
+    "INPUT_VALIDATION_ERROR",
+    "ORDERBOOK_CAPACITY_ERROR",
+    "USER_ORDER_LIMIT_REACHED",
+    "MAX_ORDERS_IN_PAYLOAD",
+    "VALIDATION_ERRORS",
+    "ORDER_ALREADY_EXISTS",
+    "DUPLICATED_ORDER",
+    "USER_NOT_AUTHORIZED",
+    "ALREADY_AUTHENTICATED",
+    "NO_NONCE_GENERATED",
+    "AUTHENTICATED_WITH_NONCE",
+    "VERIFICATION_FAILED",
+    "ORDER_NOT_AVAILABLE",
+    "MID_PRICE_NOT_FOUND",
+    // SDK-specific error codes
+    "PARSE_ERROR",
+    "MISSING_FIELD",
+    "MISSING_ORDER_HASH",
+    "MISSING_ORDER_HASHES",
+    "MISSING_INTENT_HASH",
+    "USER_REJECTION",
+    "AUTHENTICATION_FAILED",
+    "AUTHENTICATION_ERROR",
+    "UNAUTHORIZED",
+    "INVALID_RESPONSE",
+    "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
+    "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
+    "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
+    "POOL_CREATION_FAILED",
+    "POOL_ALREADY_INITIALIZED",
+    "CONFIG_FETCH_FAILED",
+    "SERVICE_UNAVAILABLE",
+    "UNKNOWN_ERROR",
+] as const;
+
+/**
+ * Union type for all possible Turbine error codes
+ */
+export type TurbineErrorCode = (typeof TURBINE_ERROR_CODES)[number];
+
+/**
+ * Error response payload structure matching the backend format
+ */
+export interface ErrorResponsePayload {
+    /** Error code in SNAKE_CASE format */
+    code: TurbineErrorCode;
+    /** Human-readable error message */
+    message: string;
+    /** Optional array of nested errors */
+    inner?: ErrorResponsePayload[];
+}
+
+/**
  * TurbineError class provides structured error handling for Turbine SDK.
- * It formats technical error messages into user-friendly versions while
- * preserving the original technical details for debugging.
  */
 export class TurbineError extends Error {
-    public readonly code: string;
-    public readonly originalMessage: string;
-    public readonly userMessage: string;
+    public readonly code: TurbineErrorCode;
+    public readonly message: string;
+    public readonly inner?: TurbineError[];
 
-    constructor(code: string, originalMessage: string, userMessage: string) {
-        // Pass the user-friendly message to the Error constructor
-        super(userMessage);
+    constructor(
+        code: TurbineErrorCode,
+        message: string,
+        inner?: TurbineError[]
+    ) {
+        super(message);
 
         this.code = code;
-        this.originalMessage = originalMessage;
-        this.userMessage = userMessage;
+        this.message = message;
+        this.inner = inner;
 
         // Set the name to match the class name
         this.name = "TurbineError";
@@ -29,84 +90,102 @@ export class TurbineError extends Error {
      * Returns the raw error with technical details for logging
      */
     public getTechnicalDetails(): string {
-        return `[${this.code}] ${this.originalMessage}`;
+        let details = `[${this.code}] ${this.message}`;
+        if (this.inner && this.inner.length > 0) {
+            details += `\nNested errors:\n${this.inner
+                .map((err) => `  - ${err.getTechnicalDetails()}`)
+                .join("\n")}`;
+        }
+        return details;
     }
+}
+
+/**
+ * Validates and normalizes an error code to a TurbineErrorCode
+ */
+function validateErrorCode(code: string): TurbineErrorCode {
+    return (TURBINE_ERROR_CODES.includes(code as TurbineErrorCode)
+        ? code
+        : "UNKNOWN_ERROR") as TurbineErrorCode;
+}
+
+/**
+ * Parses an error response from the API
+ * @param responseText The response text body
+ * @returns ErrorResponsePayload or null if parsing fails
+ */
+function parseErrorResponse(responseText: string): ErrorResponsePayload | null {
+    try {
+        if (!responseText) {
+            return null;
+        }
+
+        const parsed = JSON.parse(responseText);
+
+        // Validate structure matches ErrorResponsePayload
+        if (
+            parsed &&
+            typeof parsed === "object" &&
+            typeof parsed.code === "string" &&
+            typeof parsed.message === "string"
+        ) {
+            return {
+                code: validateErrorCode(parsed.code),
+                message: parsed.message,
+                inner: parsed.inner,
+            };
+        }
+
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Converts an ErrorResponsePayload to a TurbineError, handling nested errors
+ * @param payload The error response payload
+ * @returns A TurbineError instance
+ */
+function errorPayloadToTurbineError(payload: ErrorResponsePayload): TurbineError {
+    let innerErrors: TurbineError[] | undefined;
+    if (payload.inner && payload.inner.length > 0) {
+        innerErrors = payload.inner.map((innerPayload) => {
+            // Log warning if nested errors have their own nested errors
+            if (innerPayload.inner && innerPayload.inner.length > 0) {
+                console.error(
+                    "Warning: More than one level of nested errors detected. Only parsing first level."
+                );
+            }
+            return new TurbineError(innerPayload.code, innerPayload.message);
+        });
+    }
+
+    return new TurbineError(payload.code, payload.message, innerErrors);
 }
 
 /**
  * Creates a TurbineError from an API response error
  * @param response The response object from the fetch API
- * @param responseText The response text body
- * @param code Optional error code to use (if not provided, will be determined from response status)
- * @param userMessage Optional user-friendly message (if not provided, will be determined from response status)
+ * @returns A TurbineError instance
  */
-export function unsuccessfulResponseToTurbineError(
-    response: Response,
-    responseText: string,
-    code?: string,
-    userMessage?: string
-): TurbineError {
-    // Parse the response text to extract error details if possible
-    let errorDetails;
-    try {
-        const parsedError = JSON.parse(responseText);
-        if (parsedError && parsedError.error) {
-            errorDetails = parsedError.error;
-        }
-    } catch (e) {
-        // If parsing fails, use the original response text
-        errorDetails = responseText;
+export async function unsuccessfulResponseToTurbineError(
+    response: Response
+): Promise<TurbineError> {
+    const responseText = await response.text();
+
+    // Try to parse the new error format
+    const errorPayload = parseErrorResponse(responseText);
+
+    if (errorPayload) {
+        return errorPayloadToTurbineError(errorPayload);
     }
 
-    const originalMessage = `Failed to process request: ${response.status} ${response.statusText}, ${responseText}`;
-
-    // If code and userMessage are provided, use those directly
-    if (code && userMessage) {
-        return new TurbineError(code, originalMessage, userMessage);
-    }
-
-    // Otherwise, determine code and message based on response status
-    switch (response.status) {
-        case 400:
-            return new TurbineError(
-                "API_BAD_REQUEST",
-                originalMessage,
-                "The request couldn't be processed. Please try again with different parameters."
-            );
-        case 401:
-        case 403:
-            return new TurbineError(
-                "API_UNAUTHORIZED",
-                originalMessage,
-                "Authorization failed. Please check your credentials."
-            );
-        case 404:
-            return new TurbineError(
-                "API_NOT_FOUND",
-                originalMessage,
-                "The requested resource was not found."
-            );
-        case 500:
-            return new TurbineError(
-                "API_SERVER_ERROR",
-                originalMessage,
-                "Server error occurred. Our team has been notified. Please try again later."
-            );
-        default:
-            if (response.status >= 500) {
-                return new TurbineError(
-                    "API_SERVER_ERROR",
-                    originalMessage,
-                    "Server error occurred. Please try again later."
-                );
-            } else {
-                return new TurbineError(
-                    "API_UNKNOWN_ERROR",
-                    originalMessage,
-                    "An error occurred while processing your request. Please try again."
-                );
-            }
-    }
+    // Fallback to backward compatibility: set code to UNKNOWN_ERROR and use raw body text
+    return new TurbineError(
+        "UNKNOWN_ERROR",
+        responseText || "An error occurred while processing your request. Please try again."
+    );
 }
 
 /**
@@ -123,17 +202,14 @@ export function toTurbineError(error: unknown): TurbineError {
     if (errorMessage.includes("Failed to parse response as JSON")) {
         return new TurbineError(
             "PARSE_ERROR",
-            errorMessage,
             "Failed to process the server response. Please try again later."
         );
     }
 
     // Handle missing field errors
     if (errorMessage.includes("Response missing required")) {
-        // General case for missing fields in responses
         return new TurbineError(
             "MISSING_FIELD",
-            errorMessage,
             "Transaction was submitted but some confirmation details are missing. Please check your orders/transactions to verify if it was processed."
         );
     }
@@ -145,7 +221,6 @@ export function toTurbineError(error: unknown): TurbineError {
     ) {
         return new TurbineError(
             "USER_REJECTION",
-            errorMessage,
             "Rejected by the wallet. Please try again if you want to complete this operation."
         );
     }
@@ -154,7 +229,6 @@ export function toTurbineError(error: unknown): TurbineError {
     if (errorMessage.includes("Verify endpoint failed:")) {
         return new TurbineError(
             "AUTHENTICATION_FAILED",
-            errorMessage,
             `Authentication failed: ${errorMessage}`
         );
     }
@@ -162,7 +236,6 @@ export function toTurbineError(error: unknown): TurbineError {
     // Default error
     return new TurbineError(
         "UNKNOWN_ERROR",
-        errorMessage,
         "An unexpected error occurred. Please try again."
     );
 }
