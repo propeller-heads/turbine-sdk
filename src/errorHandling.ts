@@ -21,6 +21,7 @@ const TURBINE_ERROR_CODES = [
     "ORDER_NOT_AVAILABLE",
     "MID_PRICE_NOT_FOUND",
     // SDK-specific error codes
+    "SDK_ERROR", // wrong usage of the SDK
     "PARSE_ERROR",
     "MISSING_FIELD",
     "MISSING_ORDER_HASH",
@@ -31,6 +32,7 @@ const TURBINE_ERROR_CODES = [
     "AUTHENTICATION_ERROR",
     "UNAUTHORIZED",
     "INVALID_RESPONSE",
+    "INTERNAL_SERVER_ERROR",
     "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
     "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
     "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
@@ -110,6 +112,45 @@ function validateErrorCode(code: string): TurbineErrorCode {
 }
 
 /**
+ * Validates that a value is a valid ErrorResponsePayload array
+ * @param inner The inner field value to validate
+ * @returns Validated ErrorResponsePayload array or undefined
+ */
+function validateInnerArray(
+    inner: unknown
+): ErrorResponsePayload[] | undefined {
+    // If inner is undefined or null, return undefined
+    if (inner === undefined || inner === null) {
+        return undefined;
+    }
+
+    // If inner is not an array, return undefined (ignore invalid values)
+    if (!Array.isArray(inner)) {
+        return undefined;
+    }
+
+    // Validate and filter out invalid entries
+    const validInner: ErrorResponsePayload[] = [];
+    for (const item of inner) {
+        // Only include items that have the correct structure
+        if (
+            item &&
+            typeof item === "object" &&
+            typeof item.code === "string" &&
+            typeof item.message === "string"
+        ) {
+            validInner.push({
+                code: validateErrorCode(item.code),
+                message: item.message,
+                inner: undefined,
+            });
+        }
+    }
+
+    return validInner.length > 0 ? validInner : undefined;
+}
+
+/**
  * Parses an error response from the API
  * @param responseText The response text body
  * @returns ErrorResponsePayload or null if parsing fails
@@ -132,7 +173,7 @@ function parseErrorResponse(responseText: string): ErrorResponsePayload | null {
             return {
                 code: validateErrorCode(parsed.code),
                 message: parsed.message,
-                inner: parsed.inner,
+                inner: validateInnerArray(parsed.inner),
             };
         }
 
@@ -181,9 +222,11 @@ export async function unsuccessfulResponseToTurbineError(
         return errorPayloadToTurbineError(errorPayload);
     }
 
-    // Fallback to backward compatibility: set code to UNKNOWN_ERROR and use raw body text
+    // Use INTERNAL_SERVER_ERROR for HTTP 500 status, otherwise UNKNOWN_ERROR
+    const errorCode: TurbineErrorCode =
+        response.status === 500 ? "INTERNAL_SERVER_ERROR" : "UNKNOWN_ERROR";
     return new TurbineError(
-        "UNKNOWN_ERROR",
+        errorCode,
         responseText || "An error occurred while processing your request. Please try again."
     );
 }
@@ -196,46 +239,7 @@ export function toTurbineError(error: unknown): TurbineError {
         return error;
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // Handle parse errors
-    if (errorMessage.includes("Failed to parse response as JSON")) {
-        return new TurbineError(
-            "PARSE_ERROR",
-            "Failed to process the server response. Please try again later."
-        );
-    }
-
-    // Handle missing field errors
-    if (errorMessage.includes("Response missing required")) {
-        return new TurbineError(
-            "MISSING_FIELD",
-            "Transaction was submitted but some confirmation details are missing. Please check your orders/transactions to verify if it was processed."
-        );
-    }
-
-    // Handle user rejection errors
-    if (
-        errorMessage.includes("User rejected") ||
-        errorMessage.includes("user rejected")
-    ) {
-        return new TurbineError(
-            "USER_REJECTION",
-            "Rejected by the wallet. Please try again if you want to complete this operation."
-        );
-    }
-
-    // Handle authentication/verification endpoint errors with detailed server response
-    if (errorMessage.includes("Verify endpoint failed:")) {
-        return new TurbineError(
-            "AUTHENTICATION_FAILED",
-            `Authentication failed: ${errorMessage}`
-        );
-    }
-
     // Default error
-    return new TurbineError(
-        "UNKNOWN_ERROR",
-        "An unexpected error occurred. Please try again."
-    );
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new TurbineError("UNKNOWN_ERROR", errorMessage);
 }

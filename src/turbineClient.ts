@@ -374,7 +374,6 @@ export class TurbineClient {
             const orderStates = await Promise.all(orderStatesPromises);
             return orderStates;
         } catch (error) {
-            throw error;
             throw toTurbineError(error);
         }
     }
@@ -1333,9 +1332,6 @@ export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
         }
         return true;
     } catch (error: any) {
-        if (error instanceof TurbineError) {
-            throw error;
-        }
         throw new TurbineError(
             "SERVICE_UNAVAILABLE",
             "Turbine is currently unavailable. Try again later."

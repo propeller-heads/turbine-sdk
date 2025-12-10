@@ -13,7 +13,7 @@ import {
     AllowanceTransferPermitSingle,
     PermitDetails,
 } from "./models";
-import { toTurbineError } from "./errorHandling";
+import { TurbineError } from "./errorHandling";
 
 /* Get current nonce of Permit2 AllowanceTransfer.
  * This nonce should be used in a new allowance.
@@ -186,7 +186,7 @@ export async function getSignature(
             CHAIN_ID // TODO use chainId from wallet?
         ) as PermitBatchData;
     } else {
-        throw toTurbineError("Invalid permit type");
+        throw new TurbineError("SDK_ERROR", "Invalid permit type");
     }
     const signature = await wallet.signTypedData({
         account: wallet.account!,
