@@ -66,17 +66,19 @@ export interface ErrorResponsePayload {
 export class TurbineError extends Error {
     public readonly code: TurbineErrorCode;
     public readonly message: string;
-    public readonly inner?: TurbineError[];
-
+    public readonly details: any;
+    public readonly inner: TurbineError[] | null;
     constructor(
         code: TurbineErrorCode,
         message: string,
-        inner?: TurbineError[]
+        details: any = null,
+        inner: TurbineError[] | null = null
     ) {
         super(message);
 
         this.code = code;
         this.message = message;
+        this.details = details;
         this.inner = inner;
 
         // Set the name to match the class name
@@ -186,15 +188,16 @@ function parseErrorResponse(responseText: string): ErrorResponsePayload | null {
 /**
  * Converts an ErrorResponsePayload to a TurbineError, handling nested errors
  * @param payload The error response payload
+ * @param details Additional details to include in the error
  * @returns A TurbineError instance
  */
-function errorPayloadToTurbineError(payload: ErrorResponsePayload): TurbineError {
-    let innerErrors: TurbineError[] | undefined;
+function errorPayloadToTurbineError(payload: ErrorResponsePayload, details: any = null): TurbineError {
+    let innerErrors: TurbineError[] | null = null;
     if (payload.inner && payload.inner.length > 0) {
         innerErrors = payload.inner.map((innerPayload) => {
             // Log warning if nested errors have their own nested errors
             if (innerPayload.inner && innerPayload.inner.length > 0) {
-                console.error(
+                console.warn(
                     "Warning: More than one level of nested errors detected. Only parsing first level."
                 );
             }
@@ -202,7 +205,7 @@ function errorPayloadToTurbineError(payload: ErrorResponsePayload): TurbineError
         });
     }
 
-    return new TurbineError(payload.code, payload.message, innerErrors);
+    return new TurbineError(payload.code, payload.message, details, innerErrors);
 }
 
 /**
@@ -215,11 +218,11 @@ export async function unsuccessfulResponseToTurbineError(
 ): Promise<TurbineError> {
     const responseText = await response.text();
 
-    // Try to parse the new error format
-    const errorPayload = parseErrorResponse(responseText);
+    // Try to parse the response into the expected error format
+    const errorPayload: ErrorResponsePayload | null = parseErrorResponse(responseText);
 
     if (errorPayload) {
-        return errorPayloadToTurbineError(errorPayload);
+        return errorPayloadToTurbineError(errorPayload, responseText);
     }
 
     // Use INTERNAL_SERVER_ERROR for HTTP 500 status, otherwise UNKNOWN_ERROR
@@ -232,7 +235,7 @@ export async function unsuccessfulResponseToTurbineError(
 }
 
 /**
- * Creates appropriate TurbineError from various types of errors
+ * Casts to TurbineError if needed
  */
 export function toTurbineError(error: unknown): TurbineError {
     if (error instanceof TurbineError) {
@@ -241,5 +244,5 @@ export function toTurbineError(error: unknown): TurbineError {
 
     // Default error
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return new TurbineError("UNKNOWN_ERROR", errorMessage);
+    return new TurbineError("UNKNOWN_ERROR", errorMessage, error);
 }

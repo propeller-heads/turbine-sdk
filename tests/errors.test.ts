@@ -21,13 +21,13 @@ describe("TurbineError", () => {
         expect(error.code).toBe("INPUT_VALIDATION_ERROR");
         expect(error.message).toBe("Invalid order parameters");
         expect(error.name).toBe("TurbineError");
-        expect(error.inner).toBeUndefined();
+        expect(error.inner).toBeNull();
     });
 
     it("should create a TurbineError with nested errors", () => {
         const innerError1 = new TurbineError("VALIDATION_ERRORS", "Token address is invalid");
         const innerError2 = new TurbineError("VALIDATION_ERRORS", "Amount must be positive");
-        const error = new TurbineError("INPUT_VALIDATION_ERROR", "Multiple validation errors occurred", [
+        const error = new TurbineError("INPUT_VALIDATION_ERROR", "Multiple validation errors occurred", null, [
             innerError1,
             innerError2,
         ]);
@@ -58,7 +58,7 @@ describe("unsuccessfulResponseToTurbineError", () => {
         expect(error).toBeInstanceOf(TurbineError);
         expect(error.code).toBe("INPUT_VALIDATION_ERROR");
         expect(error.message).toBe("Invalid order parameters provided");
-        expect(error.inner).toBeUndefined();
+        expect(error.inner).toBeNull();
     });
 
     it("should parse error with nested errors", async () => {

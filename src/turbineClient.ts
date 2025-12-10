@@ -204,7 +204,8 @@ export class TurbineClient {
             if (!responseJson || !responseJson["orderHash"]) {
                 throw new TurbineError(
                     "MISSING_ORDER_HASH",
-                    "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed."
+                    "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -245,7 +246,8 @@ export class TurbineClient {
             if (!responseJson || !responseJson.length) {
                 throw new TurbineError(
                     "MISSING_ORDER_HASHES",
-                    "Orders were submitted but confirmations are missing. Please check your orders to verify if they were processed."
+                    "Orders were submitted but confirmations are missing. Please check your orders to verify if they were processed.",
+                    responseJson
                 );
             }
 
@@ -296,7 +298,8 @@ export class TurbineClient {
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
                     "MISSING_INTENT_HASH",
-                    "Liquidity removal was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                    "Liquidity removal was submitted but confirmation is missing. Please check your transactions to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -329,8 +332,9 @@ export class TurbineClient {
 
             if (!responseJson || !responseJson.orderHash) {
                 throw new TurbineError(
-                    "MISSING_FIELD",
-                    "Order cancellation was submitted but confirmation is missing. Please check your orders to verify if it was processed."
+                    "UNEXPECTED_CANCELLATION_RESPONSE",
+                    "Order cancellation was submitted but confirmation is missing. Please check your orders to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -364,7 +368,8 @@ export class TurbineClient {
             if (!Array.isArray(responseJson)) {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
-                    "Received unexpected response format from server. Please try again later."
+                    "Received unexpected response format from server. Please try again later.",
+                    responseJson
                 );
             }
 
@@ -401,7 +406,8 @@ export class TurbineClient {
             if (!Array.isArray(responseJson)) {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
-                    "Received unexpected response format from server. Please try again later."
+                    "Received unexpected response format from server. Please try again later.",
+                    responseJson
                 );
             }
 
@@ -449,7 +455,8 @@ export class TurbineClient {
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
                     "MISSING_INTENT_HASH",
-                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -537,7 +544,8 @@ export class TurbineClient {
         if (receipt.status !== "success") {
             throw new TurbineError(
                 "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
-                "The remove liquidity intent onchain transaction was reverted. Please try again."
+                "The remove liquidity intent onchain transaction was reverted. Please try again.",
+                receipt,
             );
         }
 
@@ -568,7 +576,8 @@ export class TurbineClient {
         if (receipt.status !== "success") {
             throw new TurbineError(
                 "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
-                "The execute pending remove liquidity intents transaction was reverted. Please try again."
+                "The execute pending remove liquidity intents transaction was reverted. Please try again.",
+                receipt,
             );
         }
     }
@@ -595,7 +604,8 @@ export class TurbineClient {
         if (receipt.status !== "success") {
             throw new TurbineError(
                 "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
-                "The flush expired remove liquidity intents transaction was reverted. Please try again."
+                "The flush expired remove liquidity intents transaction was reverted. Please try again.",
+                receipt,
             );
         }
     }
@@ -681,7 +691,8 @@ export class TurbineClient {
             if (receipt.status !== "success") {
                 throw new TurbineError(
                     "POOL_CREATION_FAILED",
-                    "The pool creation transaction failed. Please try again."
+                    "The pool creation transaction failed. Please try again.",
+                    receipt,
                 );
             }
 
@@ -699,7 +710,8 @@ export class TurbineClient {
                 ) {
                     throw new TurbineError(
                         "POOL_ALREADY_INITIALIZED",
-                        "The pool is already initialized. Please try creating a different pool."
+                        "The pool is already initialized. Please try creating a different pool.",
+                        revertError,
                     );
                 }
             }
@@ -742,7 +754,8 @@ export class TurbineClient {
             if (typeof feeJson !== "string") {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
-                    "Received unexpected response format from server. Please try again later."
+                    "Received unexpected response format from server. Please try again later.",
+                    feeJson,
                 );
             }
 
@@ -1053,17 +1066,15 @@ export class TurbineClient {
 
             const retryResponse = await this.fetchWithCookies("/me");
             if (!retryResponse.ok) {
-                throw new TurbineError(
-                    "AUTHENTICATION_FAILED",
-                    "Unable to authenticate with your wallet. Please try again."
-                );
+                throw await unsuccessfulResponseToTurbineError(retryResponse);
             }
             const retryAuthStatus = await retryResponse.json();
 
             if (!retryAuthStatus.authenticated || !retryAuthStatus.address) {
                 throw new TurbineError(
                     "AUTHENTICATION_FAILED",
-                    "Unable to authenticate with your wallet. Please try again."
+                    "Unable to authenticate with your wallet. Please try again.",
+                    retryAuthStatus,
                 );
             }
 
@@ -1314,7 +1325,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         console.log(error);
         throw new TurbineError(
             "CONFIG_FETCH_FAILED",
-            "Unable to fetch configuration. Please try again later."
+            "Unable to fetch configuration. Please try again later.",
         );
     }
 }
@@ -1334,7 +1345,8 @@ export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
     } catch (error: any) {
         throw new TurbineError(
             "SERVICE_UNAVAILABLE",
-            "Turbine is currently unavailable. Try again later."
+            "Turbine is currently unavailable. Try again later.",
+            error,
         );
     }
 }
