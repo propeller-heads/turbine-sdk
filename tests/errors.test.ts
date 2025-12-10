@@ -336,7 +336,7 @@ describe("TurbineClient Error Handling", () => {
 
             await client.addOrders([]).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBe("MISSING_ORDER_HASHES");
+                expect(error.code).toBe("UNEXPECTED_ADD_ORDER_RESPONSE");
                 expect(error.message).toBeTruthy();
             });
         });

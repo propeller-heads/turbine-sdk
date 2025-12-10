@@ -4,43 +4,42 @@
  */
 const TURBINE_ERROR_CODES = [
     // Backend error codes
-    "INTERNAL_ERROR",
-    "TEE_ERROR",
-    "INPUT_VALIDATION_ERROR",
-    "ORDERBOOK_CAPACITY_ERROR",
-    "USER_ORDER_LIMIT_REACHED",
-    "MAX_ORDERS_IN_PAYLOAD",
-    "VALIDATION_ERRORS",
-    "ORDER_ALREADY_EXISTS",
-    "DUPLICATED_ORDER",
-    "USER_NOT_AUTHORIZED",
-    "ALREADY_AUTHENTICATED",
-    "NO_NONCE_GENERATED",
-    "AUTHENTICATED_WITH_NONCE",
-    "VERIFICATION_FAILED",
-    "ORDER_NOT_AVAILABLE",
-    "MID_PRICE_NOT_FOUND",
+    "INTERNAL_ERROR", // something went very wrong and Turbine is aware of it
+    "TEE_ERROR", // problem related to the trusted execution environment
+    "INPUT_VALIDATION_ERROR", // specific validation errors
+    "ORDERBOOK_CAPACITY_ERROR", // orderbook is full
+    "USER_ORDER_LIMIT_REACHED", // user has reached the maximum number of orders they can have
+    "MAX_ORDERS_IN_PAYLOAD", // the number of orders in the payload is too large
+    "VALIDATION_ERRORS", // multiple validation errors occurred, expect inner errors
+    "ORDER_ALREADY_EXISTS", // order already exists (can be returned only when the SAME user submits the same order again)
+    "DUPLICATED_ORDER", // same order present in a single payload multiple times
+    "USER_NOT_AUTHORIZED", // user not authenticated or authenticated with a different address
+    "ALREADY_AUTHENTICATED", // tried to authenticate again without logging out first
+    "NO_NONCE_GENERATED", // tried to verify without generating a nonce first
+    "AUTHENTICATED_WITH_NONCE", // authenticated, but nonce still present in the backend; this should never happen
+    "VERIFICATION_FAILED", // failed to verify authentication request
+    "ORDER_NOT_AVAILABLE", // order not found or owner is not authenticated
+    "MID_PRICE_NOT_FOUND", // Turbine coudln't determine mid-price necessary to perform the operation
     // SDK-specific error codes
-    "SDK_ERROR", // wrong usage of the SDK
-    "PARSE_ERROR",
-    "MISSING_FIELD",
-    "MISSING_ORDER_HASH",
-    "MISSING_ORDER_HASHES",
-    "MISSING_INTENT_HASH",
-    "USER_REJECTION",
-    "AUTHENTICATION_FAILED",
-    "AUTHENTICATION_ERROR",
-    "UNAUTHORIZED",
-    "INVALID_RESPONSE",
-    "INTERNAL_SERVER_ERROR",
-    "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
-    "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
-    "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
-    "POOL_CREATION_FAILED",
-    "POOL_ALREADY_INITIALIZED",
-    "CONFIG_FETCH_FAILED",
-    "SERVICE_UNAVAILABLE",
-    "UNKNOWN_ERROR",
+    "SDK_ERROR", // developer error, wrong usage of the SDK
+    "UNEXPECTED_CANCELLATION_RESPONSE", // server returned a successful but unexpected response format for a cancellation request
+    "UNEXPECTED_ADD_ORDER_RESPONSE", // server returned a successful but unexpected response format for an add order(s) request
+    "UNEXPECTED_REMOVE_LIQUIDITY_RESPONSE", // server returned a successful but unexpected response format for a remove liquidity request
+    "UNEXPECTED_ADD_LIQUIDITY_RESPONSE", // server returned a successful but unexpected response format for an add liquidity request
+    "USER_REJECTION", // user rejected the operation in the wallet
+    "AUTHENTICATION_FAILED", // tried to authenticate but backend still answers as if unauthenticated
+    "AUTHENTICATION_ERROR", // some other error occurred during authentication
+    "UNAUTHORIZED", // authenticated user does not match the owner of submitted intent
+    "INVALID_RESPONSE", // server returned an unexpected response format; the response is in the details field
+    "INTERNAL_SERVER_ERROR", // server returned a 500 error
+    "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED", // remove liquidity intent onchain transaction was reverted
+    "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED", // execute pending remove liquidity intents transaction was reverted
+    "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED", // flush expired remove liquidity intents transaction was reverted
+    "POOL_ALREADY_INITIALIZED", // pool already initialized
+    "POOL_CREATION_FAILED", // pool creation transaction was reverted for some other reason
+    "CONFIG_FETCH_FAILED", // unable to fetch configuration
+    "SERVICE_UNAVAILABLE", // Turbine is currently unavailable
+    "UNKNOWN_ERROR", // unknown error occurred
 ] as const;
 
 /**
@@ -242,7 +241,12 @@ export function toTurbineError(error: unknown): TurbineError {
         return error;
     }
 
-    // Default error
     const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Handle user rejection errors
+    if (errorMessage.toLowerCase().includes("user rejected")) {
+        return new TurbineError("USER_REJECTION", "Rejected by the wallet. Please try again if you want to complete this operation.", errorMessage);
+    }
+
     return new TurbineError("UNKNOWN_ERROR", errorMessage, error);
 }

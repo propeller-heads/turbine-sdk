@@ -203,7 +203,7 @@ export class TurbineClient {
 
             if (!responseJson || !responseJson["orderHash"]) {
                 throw new TurbineError(
-                    "MISSING_ORDER_HASH",
+                    "UNEXPECTED_ADD_ORDER_RESPONSE",
                     "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed.",
                     responseJson
                 );
@@ -245,7 +245,7 @@ export class TurbineClient {
 
             if (!responseJson || !responseJson.length) {
                 throw new TurbineError(
-                    "MISSING_ORDER_HASHES",
+                    "UNEXPECTED_ADD_ORDER_RESPONSE",
                     "Orders were submitted but confirmations are missing. Please check your orders to verify if they were processed.",
                     responseJson
                 );
@@ -297,7 +297,7 @@ export class TurbineClient {
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
-                    "MISSING_INTENT_HASH",
+                    "UNEXPECTED_REMOVE_LIQUIDITY_RESPONSE",
                     "Liquidity removal was submitted but confirmation is missing. Please check your transactions to verify if it was processed.",
                     responseJson
                 );
@@ -454,7 +454,7 @@ export class TurbineClient {
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
-                    "MISSING_INTENT_HASH",
+                    "UNEXPECTED_ADD_LIQUIDITY_RESPONSE",
                     "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed.",
                     responseJson
                 );
@@ -1086,7 +1086,10 @@ export class TurbineClient {
 
             // If it's already a detailed authentication error, preserve it
             if (error.message && error.message.includes("Authentication failed:")) {
-                throw error;
+                throw new TurbineError(
+                    "AUTHENTICATION_ERROR",
+                    error.message,
+                );
             }
 
             throw new TurbineError(
@@ -1319,13 +1322,11 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         }
         return await response.json();
     } catch (error: any) {
-        if (error instanceof TurbineError) {
-            throw error;
-        }
         console.log(error);
         throw new TurbineError(
             "CONFIG_FETCH_FAILED",
             "Unable to fetch configuration. Please try again later.",
+            error,
         );
     }
 }
