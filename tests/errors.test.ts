@@ -1,8 +1,5 @@
 import { describe, expect, jest, it } from "@jest/globals";
-import {
-    TurbineError,
-    unsuccessfulResponseToTurbineError,
-} from "../src/errorHandling";
+import { TurbineError, unsuccessfulResponseToTurbineError } from "../src/errorHandling";
 import { TurbineClient } from "../src/turbineClient";
 import {
     ORDER_INTENT,
@@ -14,7 +11,10 @@ import { Hex } from "viem";
 
 describe("TurbineError", () => {
     it("should create a TurbineError with all properties", () => {
-        const error = new TurbineError("INPUT_VALIDATION_ERROR", "Invalid order parameters");
+        const error = new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "Invalid order parameters"
+        );
 
         expect(error).toBeInstanceOf(Error);
         expect(error).toBeInstanceOf(TurbineError);
@@ -25,12 +25,20 @@ describe("TurbineError", () => {
     });
 
     it("should create a TurbineError with nested errors", () => {
-        const innerError1 = new TurbineError("VALIDATION_ERRORS", "Token address is invalid");
-        const innerError2 = new TurbineError("VALIDATION_ERRORS", "Amount must be positive");
-        const error = new TurbineError("INPUT_VALIDATION_ERROR", "Multiple validation errors occurred", null, [
-            innerError1,
-            innerError2,
-        ]);
+        const innerError1 = new TurbineError(
+            "VALIDATION_ERRORS",
+            "Token address is invalid"
+        );
+        const innerError2 = new TurbineError(
+            "VALIDATION_ERRORS",
+            "Amount must be positive"
+        );
+        const error = new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "Multiple validation errors occurred",
+            null,
+            [innerError1, innerError2]
+        );
 
         expect(error.message).toBe("Multiple validation errors occurred");
         expect(error.inner).toHaveLength(2);
@@ -40,7 +48,6 @@ describe("TurbineError", () => {
         expect(error.getTechnicalDetails()).toContain("Nested errors");
     });
 });
-
 
 describe("unsuccessfulResponseToTurbineError", () => {
     it("should parse backend error format with code and message", async () => {
@@ -92,7 +99,6 @@ describe("unsuccessfulResponseToTurbineError", () => {
         expect(error.inner![1].code).toBe("INPUT_VALIDATION_ERROR");
         expect(error.inner![1].message).toBe("Amount must be positive");
     });
-
 
     it("should fallback to INTERNAL_SERVER_ERROR for HTTP 500 with invalid error format", async () => {
         const response = new Response("Invalid JSON response", {
@@ -285,7 +291,9 @@ describe("TurbineClient Error Handling", () => {
             await client.addOrders([ORDER_INTENT]).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
                 expect(error.code).toBe("MAX_ORDERS_IN_PAYLOAD");
-                expect(error.message).toBe("The payload contains too many orders. Maximum allowed is 100");
+                expect(error.message).toBe(
+                    "The payload contains too many orders. Maximum allowed is 100"
+                );
             });
         });
 
@@ -350,7 +358,8 @@ describe("TurbineClient Error Handling", () => {
 
             const errorPayload = {
                 code: "ORDER_NOT_AVAILABLE",
-                message: "The order you are trying to cancel does not exist or has already been cancelled",
+                message:
+                    "The order you are trying to cancel does not exist or has already been cancelled",
             };
             const mockResponse = {
                 ok: false,
@@ -375,7 +384,9 @@ describe("TurbineClient Error Handling", () => {
             await client.cancelOrder(mockOrderHash as Hex).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
                 expect(error.code).toBe("ORDER_NOT_AVAILABLE");
-                expect(error.message).toBe("The order you are trying to cancel does not exist or has already been cancelled");
+                expect(error.message).toBe(
+                    "The order you are trying to cancel does not exist or has already been cancelled"
+                );
             });
         });
 
@@ -441,7 +452,9 @@ describe("TurbineClient Error Handling", () => {
             await client.cancelOrder(mockOrderHash as Hex).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
                 expect(error.code).toBe("USER_NOT_AUTHORIZED");
-                expect(error.message).toBe("You are not authorized to cancel this order");
+                expect(error.message).toBe(
+                    "You are not authorized to cancel this order"
+                );
             });
         });
     });

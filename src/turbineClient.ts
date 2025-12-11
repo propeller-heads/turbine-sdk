@@ -545,7 +545,7 @@ export class TurbineClient {
             throw new TurbineError(
                 "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
                 "The remove liquidity intent onchain transaction was reverted. Please try again.",
-                receipt,
+                receipt
             );
         }
 
@@ -577,7 +577,7 @@ export class TurbineClient {
             throw new TurbineError(
                 "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
                 "The execute pending remove liquidity intents transaction was reverted. Please try again.",
-                receipt,
+                receipt
             );
         }
     }
@@ -605,7 +605,7 @@ export class TurbineClient {
             throw new TurbineError(
                 "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
                 "The flush expired remove liquidity intents transaction was reverted. Please try again.",
-                receipt,
+                receipt
             );
         }
     }
@@ -692,7 +692,7 @@ export class TurbineClient {
                 throw new TurbineError(
                     "POOL_CREATION_FAILED",
                     "The pool creation transaction failed. Please try again.",
-                    receipt,
+                    receipt
                 );
             }
 
@@ -711,7 +711,7 @@ export class TurbineClient {
                     throw new TurbineError(
                         "POOL_ALREADY_INITIALIZED",
                         "The pool is already initialized. Please try creating a different pool.",
-                        revertError,
+                        revertError
                     );
                 }
             }
@@ -755,7 +755,7 @@ export class TurbineClient {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
                     "Received unexpected response format from server. Please try again later.",
-                    feeJson,
+                    feeJson
                 );
             }
 
@@ -1000,7 +1000,10 @@ export class TurbineClient {
                 return { authenticated: false };
             }
             const authStatus = await response.json();
-            return { authenticated: authStatus.authenticated, address: authStatus.address };
+            return {
+                authenticated: authStatus.authenticated,
+                address: authStatus.address,
+            };
         } catch (error) {
             console.error(error);
             return { authenticated: false };
@@ -1079,7 +1082,7 @@ export class TurbineClient {
                 throw new TurbineError(
                     "AUTHENTICATION_FAILED",
                     "Unable to authenticate with your wallet. Please try again.",
-                    retryAuthStatus,
+                    retryAuthStatus
                 );
             }
 
@@ -1091,10 +1094,7 @@ export class TurbineClient {
 
             // If it's already a detailed authentication error, preserve it
             if (error.message && error.message.includes("Authentication failed:")) {
-                throw new TurbineError(
-                    "AUTHENTICATION_ERROR",
-                    error.message,
-                );
+                throw new TurbineError("AUTHENTICATION_ERROR", error.message);
             }
 
             throw new TurbineError(
@@ -1331,7 +1331,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         throw new TurbineError(
             "CONFIG_FETCH_FAILED",
             "Unable to fetch configuration. Please try again later.",
-            error,
+            error
         );
     }
 }
@@ -1352,7 +1352,7 @@ export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
         throw new TurbineError(
             "SERVICE_UNAVAILABLE",
             "Turbine is currently unavailable. Try again later.",
-            error,
+            error
         );
     }
 }

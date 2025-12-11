@@ -19,7 +19,7 @@ const TURBINE_ERROR_CODES = [
     "AUTHENTICATED_WITH_NONCE", // authenticated, but nonce still present in the backend; this should never happen
     "VERIFICATION_FAILED", // failed to verify authentication request
     "ORDER_NOT_AVAILABLE", // order not found or owner is not authenticated
-    "MID_PRICE_NOT_FOUND", // Turbine coudln't determine mid-price necessary to perform the operation
+    "MID_PRICE_NOT_FOUND", // Turbine couldn't determine mid-price necessary to perform the operation
     // SDK-specific error codes
     "SDK_ERROR", // developer error, wrong usage of the SDK
     "UNEXPECTED_CANCELLATION_RESPONSE", // server returned a successful but unexpected response format for a cancellation request
@@ -49,7 +49,7 @@ export type TurbineErrorCode = (typeof TURBINE_ERROR_CODES)[number];
 
 /**
  * TurbineError class provides structured error handling for Turbine SDK.
- * 
+ *
  * @param code - The error code; one of the TURBINE_ERROR_CODES
  * @param message - A human-readable error message
  * @param details - Optional technical details about the error; e.g. the response body from the server
@@ -97,12 +97,17 @@ export class TurbineError extends Error {
 }
 
 function isValidTurbineError(item: any): boolean {
-    return item && typeof item === "object" && typeof item.code === "string" && typeof item.message === "string";
+    return (
+        item &&
+        typeof item === "object" &&
+        typeof item.code === "string" &&
+        typeof item.message === "string"
+    );
 }
 
 /**
  * Parses an error response from the API into a TurbineError
- * 
+ *
  * @param responseText The response text body
  * @returns TurbineError
  * @throws Error if the response is not a valid TurbineError
@@ -122,21 +127,23 @@ function parseErrorResponse(responseText: string): TurbineError {
         }
 
         if (parsed.inner && Array.isArray(parsed.inner)) {
-            inner = parsed.inner.map((item: any) => {
-                if (isValidTurbineError(item)) {
-                    let innerCode = item.code;
-                    let innerMessage = item.message;
-                    let innerDetails = null;
-                    if (!TURBINE_ERROR_CODES.includes(item.code)) {
-                        innerCode = "UNKNOWN_ERROR";
-                        innerDetails = { originalCode: item.code };
+            inner = parsed.inner
+                .map((item: any) => {
+                    if (isValidTurbineError(item)) {
+                        let innerCode = item.code;
+                        let innerMessage = item.message;
+                        let innerDetails = null;
+                        if (!TURBINE_ERROR_CODES.includes(item.code)) {
+                            innerCode = "UNKNOWN_ERROR";
+                            innerDetails = { originalCode: item.code };
+                        }
+                        // We don't attempt to parse nested errors any further
+                        return new TurbineError(innerCode, innerMessage, innerDetails);
+                    } else {
+                        return null;
                     }
-                    // We don't attempt to parse nested errors any further
-                    return new TurbineError(innerCode, innerMessage, innerDetails);
-                } else {
-                    return null;
-                }
-            }).filter((item: TurbineError | null) => item !== null);
+                })
+                .filter((item: TurbineError | null) => item !== null);
         }
 
         return new TurbineError(code, message, details, inner);
@@ -159,7 +166,8 @@ export async function unsuccessfulResponseToTurbineError(
     } catch (error) {
         return new TurbineError(
             response.status === 500 ? "INTERNAL_SERVER_ERROR" : "UNKNOWN_ERROR",
-            responseText || "An error occurred while processing your request. Please try again."
+            responseText ||
+                "An error occurred while processing your request. Please try again."
         );
     }
 }
@@ -176,7 +184,11 @@ export function toTurbineError(error: unknown): TurbineError {
 
     // Handle user rejection errors
     if (errorMessage.toLowerCase().includes("user rejected")) {
-        return new TurbineError("USER_REJECTION", "Rejected by the wallet. Please try again if you want to complete this operation.", errorMessage);
+        return new TurbineError(
+            "USER_REJECTION",
+            "Rejected by the wallet. Please try again if you want to complete this operation.",
+            errorMessage
+        );
     }
 
     return new TurbineError("UNKNOWN_ERROR", errorMessage, error);
