@@ -96,7 +96,18 @@ export class TurbineError extends Error {
     }
 }
 
-function isValidTurbineError(item: any): boolean {
+export function isTurbineError(error: unknown): error is TurbineError {
+    return (
+        error instanceof Error &&
+        "code" in error &&
+        typeof (error as any).code === "string" &&
+        "message" in error &&
+        typeof (error as any).message === "string" &&
+        error.name === "TurbineError"
+    );
+}
+
+function isValidTurbineErrorPayload(item: any): boolean {
     return (
         item &&
         typeof item === "object" &&
@@ -115,7 +126,7 @@ function isValidTurbineError(item: any): boolean {
 function parseErrorResponse(responseText: string): TurbineError {
     const parsed = JSON.parse(responseText);
 
-    if (isValidTurbineError(parsed)) {
+    if (isValidTurbineErrorPayload(parsed)) {
         let code = parsed.code;
         let message = parsed.message;
         let inner = null;
@@ -129,7 +140,7 @@ function parseErrorResponse(responseText: string): TurbineError {
         if (parsed.inner && Array.isArray(parsed.inner)) {
             inner = parsed.inner
                 .map((item: any) => {
-                    if (isValidTurbineError(item)) {
+                    if (isValidTurbineErrorPayload(item)) {
                         let innerCode = item.code;
                         let innerMessage = item.message;
                         let innerDetails = null;
