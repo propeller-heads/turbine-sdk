@@ -996,8 +996,13 @@ export class TurbineClient {
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
         try {
             const response = await this.fetchWithCookies("/me");
-            return await response.json();
+            if (!response.ok) {
+                return { authenticated: false };
+            }
+            const authStatus = await response.json();
+            return { authenticated: authStatus.authenticated, address: authStatus.address };
         } catch (error) {
+            console.error(error);
             return { authenticated: false };
         }
     }
