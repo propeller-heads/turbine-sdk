@@ -64,7 +64,7 @@ export const ADD_LIQUIDITY_INTENT: AddLiquidityIntent = {
     owner: ACCOUNT.address,
     token0: USDC.address,
     token1: WETH.address,
-    fee: 30,
+    fee: 3000,
     token0Amount: 200000000n,
     token1Amount: 100000000000000000000000n,
     exact: true,
@@ -75,8 +75,8 @@ export const REMOVE_LIQUIDITY_INTENT: RemoveLiquidityIntent = {
     owner: ACCOUNT.address,
     token0: USDC.address,
     token1: WETH.address,
-    fee: 30,
-    lpToken: "0xeE7f609036A1eF63e7b0b001cc488b2C98771503",
+    fee: 3000,
+    lpToken: "0x0000000000000000000000000000000000000000", // to be filled in by the test
     lpTokenAmount: 2000000000000n,
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
