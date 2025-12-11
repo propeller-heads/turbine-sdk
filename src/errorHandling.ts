@@ -48,19 +48,12 @@ const TURBINE_ERROR_CODES = [
 export type TurbineErrorCode = (typeof TURBINE_ERROR_CODES)[number];
 
 /**
- * Error response payload structure matching the backend format
- */
-export interface ErrorResponsePayload {
-    /** Error code in SNAKE_CASE format */
-    code: TurbineErrorCode;
-    /** Human-readable error message */
-    message: string;
-    /** Optional array of nested errors */
-    inner?: ErrorResponsePayload[];
-}
-
-/**
  * TurbineError class provides structured error handling for Turbine SDK.
+ * 
+ * @param code - The error code; one of the TURBINE_ERROR_CODES
+ * @param message - A human-readable error message
+ * @param details - Optional technical details about the error; e.g. the response body from the server
+ * @param inner - Optional inner errors if the main error wraps multiple errors
  */
 export class TurbineError extends Error {
     public readonly code: TurbineErrorCode;
@@ -103,108 +96,53 @@ export class TurbineError extends Error {
     }
 }
 
-/**
- * Validates and normalizes an error code to a TurbineErrorCode
- */
-function validateErrorCode(code: string): TurbineErrorCode {
-    return (TURBINE_ERROR_CODES.includes(code as TurbineErrorCode)
-        ? code
-        : "UNKNOWN_ERROR") as TurbineErrorCode;
+function isValidTurbineError(item: any): boolean {
+    return item && typeof item === "object" && typeof item.code === "string" && typeof item.message === "string";
 }
 
 /**
- * Validates that a value is a valid ErrorResponsePayload array
- * @param inner The inner field value to validate
- * @returns Validated ErrorResponsePayload array or undefined
- */
-function validateInnerArray(
-    inner: unknown
-): ErrorResponsePayload[] | undefined {
-    // If inner is undefined or null, return undefined
-    if (inner === undefined || inner === null) {
-        return undefined;
-    }
-
-    // If inner is not an array, return undefined (ignore invalid values)
-    if (!Array.isArray(inner)) {
-        return undefined;
-    }
-
-    // Validate and filter out invalid entries
-    const validInner: ErrorResponsePayload[] = [];
-    for (const item of inner) {
-        // Only include items that have the correct structure
-        if (
-            item &&
-            typeof item === "object" &&
-            typeof item.code === "string" &&
-            typeof item.message === "string"
-        ) {
-            validInner.push({
-                code: validateErrorCode(item.code),
-                message: item.message,
-                inner: undefined,
-            });
-        }
-    }
-
-    return validInner.length > 0 ? validInner : undefined;
-}
-
-/**
- * Parses an error response from the API
+ * Parses an error response from the API into a TurbineError
+ * 
  * @param responseText The response text body
- * @returns ErrorResponsePayload or null if parsing fails
+ * @returns TurbineError
+ * @throws Error if the response is not a valid TurbineError
  */
-function parseErrorResponse(responseText: string): ErrorResponsePayload | null {
-    try {
-        if (!responseText) {
-            return null;
+function parseErrorResponse(responseText: string): TurbineError {
+    const parsed = JSON.parse(responseText);
+
+    if (isValidTurbineError(parsed)) {
+        let code = parsed.code;
+        let message = parsed.message;
+        let inner = null;
+        let details = null;
+
+        if (!TURBINE_ERROR_CODES.includes(parsed.code)) {
+            code = "UNKNOWN_ERROR";
+            details = { originalCode: parsed.code };
         }
 
-        const parsed = JSON.parse(responseText);
-
-        // Validate structure matches ErrorResponsePayload
-        if (
-            parsed &&
-            typeof parsed === "object" &&
-            typeof parsed.code === "string" &&
-            typeof parsed.message === "string"
-        ) {
-            return {
-                code: validateErrorCode(parsed.code),
-                message: parsed.message,
-                inner: validateInnerArray(parsed.inner),
-            };
+        if (parsed.inner && Array.isArray(parsed.inner)) {
+            inner = parsed.inner.map((item: any) => {
+                if (isValidTurbineError(item)) {
+                    let innerCode = item.code;
+                    let innerMessage = item.message;
+                    let innerDetails = null;
+                    if (!TURBINE_ERROR_CODES.includes(item.code)) {
+                        innerCode = "UNKNOWN_ERROR";
+                        innerDetails = { originalCode: item.code };
+                    }
+                    // We don't attempt to parse nested errors any further
+                    return new TurbineError(innerCode, innerMessage, innerDetails);
+                } else {
+                    return null;
+                }
+            }).filter((item: TurbineError | null) => item !== null);
         }
 
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
-
-/**
- * Converts an ErrorResponsePayload to a TurbineError, handling nested errors
- * @param payload The error response payload
- * @param details Additional details to include in the error
- * @returns A TurbineError instance
- */
-function errorPayloadToTurbineError(payload: ErrorResponsePayload, details: any = null): TurbineError {
-    let innerErrors: TurbineError[] | null = null;
-    if (payload.inner && payload.inner.length > 0) {
-        innerErrors = payload.inner.map((innerPayload) => {
-            // Log warning if nested errors have their own nested errors
-            if (innerPayload.inner && innerPayload.inner.length > 0) {
-                console.warn(
-                    "Warning: More than one level of nested errors detected. Only parsing first level."
-                );
-            }
-            return new TurbineError(innerPayload.code, innerPayload.message);
-        });
+        return new TurbineError(code, message, details, inner);
     }
 
-    return new TurbineError(payload.code, payload.message, details, innerErrors);
+    throw new Error("Invalid error response format");
 }
 
 /**
@@ -216,21 +154,14 @@ export async function unsuccessfulResponseToTurbineError(
     response: Response
 ): Promise<TurbineError> {
     const responseText = await response.text();
-
-    // Try to parse the response into the expected error format
-    const errorPayload: ErrorResponsePayload | null = parseErrorResponse(responseText);
-
-    if (errorPayload) {
-        return errorPayloadToTurbineError(errorPayload, responseText);
+    try {
+        return parseErrorResponse(responseText);
+    } catch (error) {
+        return new TurbineError(
+            response.status === 500 ? "INTERNAL_SERVER_ERROR" : "UNKNOWN_ERROR",
+            responseText || "An error occurred while processing your request. Please try again."
+        );
     }
-
-    // Use INTERNAL_SERVER_ERROR for HTTP 500 status, otherwise UNKNOWN_ERROR
-    const errorCode: TurbineErrorCode =
-        response.status === 500 ? "INTERNAL_SERVER_ERROR" : "UNKNOWN_ERROR";
-    return new TurbineError(
-        errorCode,
-        responseText || "An error occurred while processing your request. Please try again."
-    );
 }
 
 /**
