@@ -2,7 +2,7 @@ import { TurbineError } from "../src/errorHandling";
 
 /**
  * Executes a closure and returns its return value. If the closure throws a TurbineError,
- * the helper will console.error its originalMessage.
+ * the helper will console.error its message.
  * @param closure The closure to execute
  * @returns The return value of the closure
  */
@@ -13,7 +13,7 @@ export async function withTurbineErrorHandling<T>(
         return await closure();
     } catch (error) {
         if (error instanceof TurbineError) {
-            console.error(error.originalMessage);
+            console.error(error.message);
         }
         throw error;
     }

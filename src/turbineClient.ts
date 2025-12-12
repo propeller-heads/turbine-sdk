@@ -19,7 +19,11 @@ import {
 } from "./abi";
 import { TURBINE_API_URL } from "./config";
 import { NULL_ADDRESS, SQRT_PRICE_IDENTITY } from "./constants";
-import { toTurbineError, TurbineError } from "./errorHandling";
+import {
+    toTurbineError,
+    TurbineError,
+    unsuccessfulResponseToTurbineError,
+} from "./errorHandling";
 import {
     AddLiquidity,
     AddLiquidityIntent,
@@ -183,8 +187,7 @@ export class TurbineClient {
         if (getAddress(address) !== getAddress(intent.owner)) {
             throw new TurbineError(
                 "UNAUTHORIZED",
-                "User not authorized to add order",
-                "Please authenticate with your wallet before making requests."
+                "Authenticated user does not match order owner."
             );
         }
 
@@ -192,21 +195,17 @@ export class TurbineClient {
             const payload = await this.createAddOrderData(intent);
             const response = await this.callApiEndpoint(payload, "add_order");
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to submit order. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
 
             if (!responseJson || !responseJson["orderHash"]) {
                 throw new TurbineError(
-                    "MISSING_ORDER_HASH",
-                    `Response missing required orderHash field: ${JSON.stringify(responseJson)}`,
-                    "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed."
+                    "UNEXPECTED_ADD_ORDER_RESPONSE",
+                    "Order was submitted but confirmation is missing. Please check your orders to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -228,8 +227,7 @@ export class TurbineClient {
         ) {
             throw new TurbineError(
                 "UNAUTHORIZED",
-                "User not authorized to add orders",
-                "Please authenticate with your wallet before making requests."
+                "Authenticated user does not match some of the orders' owner."
             );
         }
 
@@ -239,21 +237,17 @@ export class TurbineClient {
             );
             const response = await this.callApiEndpoint(payloads, "add_orders");
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to submit orders. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
 
             if (!responseJson || !responseJson.length) {
                 throw new TurbineError(
-                    "MISSING_ORDER_HASHES",
-                    `Response missing required order hashes: ${JSON.stringify(responseJson)}`,
-                    "Orders were submitted but confirmations are missing. Please check your orders to verify if they were processed."
+                    "UNEXPECTED_ADD_ORDER_RESPONSE",
+                    "Orders were submitted but confirmations are missing. Please check your orders to verify if they were processed.",
+                    responseJson
                 );
             }
 
@@ -287,8 +281,7 @@ export class TurbineClient {
         if (getAddress(intent.owner) !== getAddress(address)) {
             throw new TurbineError(
                 "UNAUTHORIZED",
-                "User not authorized to remove liquidity",
-                "Please authenticate with your wallet before making requests."
+                "Authenticated user does not match the intent owner."
             );
         }
 
@@ -296,21 +289,17 @@ export class TurbineClient {
             const payload = await this.createRemoveLiquidityData(intent);
             const response = await this.callApiEndpoint(payload, "remove_liquidity");
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to submit liquidity removal. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
-                    "MISSING_INTENT_HASH",
-                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
-                    "Liquidity removal was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                    "UNEXPECTED_REMOVE_LIQUIDITY_RESPONSE",
+                    "Liquidity removal was submitted but confirmation is missing. Please check your transactions to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -335,21 +324,17 @@ export class TurbineClient {
 
             const response = await this.callApiEndpoint(payload, "cancel_order");
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to cancel order. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
 
             if (!responseJson || !responseJson.orderHash) {
                 throw new TurbineError(
-                    "MISSING_FIELD",
-                    `Response missing required fields: ${JSON.stringify(responseJson)}`,
-                    "Order cancellation was submitted but confirmation is missing. Please check your orders to verify if it was processed."
+                    "UNEXPECTED_CANCELLATION_RESPONSE",
+                    "Order cancellation was submitted but confirmation is missing. Please check your orders to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -374,12 +359,8 @@ export class TurbineClient {
 
             const response = await this.callApiEndpoint(payload, "order_states");
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to get order statuses. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
@@ -387,8 +368,8 @@ export class TurbineClient {
             if (!Array.isArray(responseJson)) {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
-                    `Expected array response but got: ${JSON.stringify(responseJson)}`,
-                    "Received unexpected response format from server. Please try again later."
+                    "Received unexpected response format from server. Please try again later.",
+                    responseJson
                 );
             }
 
@@ -398,7 +379,6 @@ export class TurbineClient {
             const orderStates = await Promise.all(orderStatesPromises);
             return orderStates;
         } catch (error) {
-            throw error;
             throw toTurbineError(error);
         }
     }
@@ -417,12 +397,8 @@ export class TurbineClient {
                 body: JSON.stringify({ intentHashes }),
             });
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to get liquidity intent states. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
@@ -430,8 +406,8 @@ export class TurbineClient {
             if (!Array.isArray(responseJson)) {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
-                    `Expected array response but got: ${JSON.stringify(responseJson)}`,
-                    "Received unexpected response format from server. Please try again later."
+                    "Received unexpected response format from server. Please try again later.",
+                    responseJson
                 );
             }
 
@@ -463,29 +439,24 @@ export class TurbineClient {
         if (getAddress(payload.addLiquidity.owner) !== getAddress(address)) {
             throw new TurbineError(
                 "UNAUTHORIZED",
-                "User not authorized to add liquidity",
-                "Please authenticate with your wallet before making requests."
+                "Authenticated user does not match the intent owner."
             );
         }
 
         try {
             const response = await this.callApiEndpoint(payload, "add_liquidity");
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to submit liquidity addition. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const responseJson = await response.json();
 
             if (!responseJson || !responseJson["intentHash"]) {
                 throw new TurbineError(
-                    "MISSING_INTENT_HASH",
-                    `Response missing required hash field: ${JSON.stringify(responseJson)}`,
-                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed."
+                    "UNEXPECTED_ADD_LIQUIDITY_RESPONSE",
+                    "Liquidity addition was submitted but confirmation is missing. Please check your transactions to verify if it was processed.",
+                    responseJson
                 );
             }
 
@@ -573,8 +544,8 @@ export class TurbineClient {
         if (receipt.status !== "success") {
             throw new TurbineError(
                 "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
-                "Remove liquidity intent onchain transaction failed",
-                "The remove liquidity intent onchain transaction was reverted. Please try again."
+                "The remove liquidity intent onchain transaction was reverted. Please try again.",
+                receipt
             );
         }
 
@@ -605,8 +576,8 @@ export class TurbineClient {
         if (receipt.status !== "success") {
             throw new TurbineError(
                 "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
-                "Execute pending remove liquidity intents transaction failed",
-                "The execute pending remove liquidity intents transaction was reverted. Please try again."
+                "The execute pending remove liquidity intents transaction was reverted. Please try again.",
+                receipt
             );
         }
     }
@@ -633,8 +604,8 @@ export class TurbineClient {
         if (receipt.status !== "success") {
             throw new TurbineError(
                 "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
-                "Flush expired remove liquidity intents transaction failed",
-                "The flush expired remove liquidity intents transaction was reverted. Please try again."
+                "The flush expired remove liquidity intents transaction was reverted. Please try again.",
+                receipt
             );
         }
     }
@@ -720,8 +691,8 @@ export class TurbineClient {
             if (receipt.status !== "success") {
                 throw new TurbineError(
                     "POOL_CREATION_FAILED",
-                    "Pool creation transaction failed",
-                    "The pool creation transaction was reverted. Please try again."
+                    "The pool creation transaction failed. Please try again.",
+                    receipt
                 );
             }
 
@@ -739,8 +710,8 @@ export class TurbineClient {
                 ) {
                     throw new TurbineError(
                         "POOL_ALREADY_INITIALIZED",
-                        "Pool already initialized.",
-                        "The pool is already initialized. Please try creating a different pool."
+                        "The pool is already initialized. Please try creating a different pool.",
+                        revertError
                     );
                 }
             }
@@ -774,12 +745,8 @@ export class TurbineClient {
                 body: JSON.stringify(intent, bigIntReplacer),
             });
 
-            if (response.status < 200 || response.status >= 300) {
-                throw new TurbineError(
-                    "API_ERROR",
-                    `API returned status ${response.status}: ${response.statusText}`,
-                    "Failed to get order fee. Please try again later."
-                );
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
             }
 
             const feeJson = await response.json();
@@ -787,8 +754,8 @@ export class TurbineClient {
             if (typeof feeJson !== "string") {
                 throw new TurbineError(
                     "INVALID_RESPONSE",
-                    `Unexpected fee response: ${JSON.stringify(feeJson)}`,
-                    "Received unexpected response format from server. Please try again later."
+                    "Received unexpected response format from server. Please try again later.",
+                    feeJson
                 );
             }
 
@@ -1015,9 +982,7 @@ export class TurbineClient {
             });
 
             if (!verifyResponse.ok) {
-                const responseText = await verifyResponse.text();
-                const errorMessage = `Verify endpoint failed: ${verifyResponse.status} ${verifyResponse.statusText} - ${responseText}`;
-                throw new Error(errorMessage);
+                throw await unsuccessfulResponseToTurbineError(verifyResponse);
             }
         } catch (error: any) {
             throw toTurbineError(error);
@@ -1031,8 +996,16 @@ export class TurbineClient {
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
         try {
             const response = await this.fetchWithCookies("/me");
-            return await response.json();
+            if (!response.ok) {
+                return { authenticated: false };
+            }
+            const authStatus = await response.json();
+            return {
+                authenticated: authStatus.authenticated,
+                address: authStatus.address,
+            };
         } catch (error) {
+            console.error(error);
             return { authenticated: false };
         }
     }
@@ -1101,19 +1074,15 @@ export class TurbineClient {
 
             const retryResponse = await this.fetchWithCookies("/me");
             if (!retryResponse.ok) {
-                throw new TurbineError(
-                    "AUTHENTICATION_FAILED",
-                    `Authentication check failed with status ${retryResponse.status}`,
-                    "Unable to authenticate with your wallet. Please try again."
-                );
+                throw await unsuccessfulResponseToTurbineError(retryResponse);
             }
             const retryAuthStatus = await retryResponse.json();
 
             if (!retryAuthStatus.authenticated || !retryAuthStatus.address) {
                 throw new TurbineError(
                     "AUTHENTICATION_FAILED",
-                    "Authentication failed after authentication attempt",
-                    "Unable to authenticate with your wallet. Please try again."
+                    "Unable to authenticate with your wallet. Please try again.",
+                    retryAuthStatus
                 );
             }
 
@@ -1125,12 +1094,11 @@ export class TurbineClient {
 
             // If it's already a detailed authentication error, preserve it
             if (error.message && error.message.includes("Authentication failed:")) {
-                throw error;
+                throw new TurbineError("AUTHENTICATION_ERROR", error.message);
             }
 
             throw new TurbineError(
                 "AUTHENTICATION_ERROR",
-                `Failed to ensure authentication: ${error.message}`,
                 "Unable to authenticate with your wallet. Please try again."
             );
         } finally {
@@ -1355,23 +1323,15 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
     try {
         const response = await fetch(`${turbineApiUrl}/config`);
         if (!response.ok) {
-            console.log(response);
-            throw new TurbineError(
-                "CONFIG_FETCH_FAILED",
-                `Config fetch failed with status ${response.status}: ${response.statusText}`,
-                "Unable to fetch configuration. Please try again later."
-            );
+            throw await unsuccessfulResponseToTurbineError(response);
         }
         return await response.json();
     } catch (error: any) {
-        if (error instanceof TurbineError) {
-            throw error;
-        }
         console.log(error);
         throw new TurbineError(
             "CONFIG_FETCH_FAILED",
-            `Failed to fetch config: ${error.message}`,
-            "Unable to fetch configuration. Please try again later."
+            "Unable to fetch configuration. Please try again later.",
+            error
         );
     }
 }
@@ -1385,21 +1345,14 @@ export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
     try {
         const response = await fetch(`${turbineApiUrl}/status`);
         if (!response.ok) {
-            throw new TurbineError(
-                "SERVICE_UNAVAILABLE",
-                `Service returned status ${response.status}: ${response.statusText}`,
-                "Turbine is currently unavailable. Try again later."
-            );
+            throw await unsuccessfulResponseToTurbineError(response);
         }
         return true;
     } catch (error: any) {
-        if (error instanceof TurbineError) {
-            throw error;
-        }
         throw new TurbineError(
             "SERVICE_UNAVAILABLE",
-            `Failed to connect to Turbine service: ${error.message}`,
-            "Turbine is currently unavailable. Try again later."
+            "Turbine is currently unavailable. Try again later.",
+            error
         );
     }
 }

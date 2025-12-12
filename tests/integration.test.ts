@@ -138,8 +138,12 @@ describe("Integration test", () => {
     it("should successfully submit a remove liquidity intent", async () => {
         const turbineClient = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
 
+        const pool = await withTurbineErrorHandling(() => turbineClient.getPools());
+        const lpToken = pool[0].metadata.lpToken;
+
         const intent: RemoveLiquidityIntent = {
             ...REMOVE_LIQUIDITY_INTENT,
+            lpToken: lpToken,
             salt: getRandomSalt(),
         };
 
@@ -185,7 +189,7 @@ describe("Integration test", () => {
         expect(pool.metadata).toBeDefined();
         expect(pool.metadata.token0).toBe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
-        expect(pool.metadata.fee).toBe(30);
+        expect(pool.metadata.fee).toBe(3000);
         expect(pool.metadata.lpToken).toBeDefined();
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();
@@ -205,7 +209,7 @@ describe("Integration test", () => {
         expect(pool.metadata).toBeDefined();
         expect(pool.metadata.token0).toBe("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
         expect(pool.metadata.token1).toBe("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
-        expect(pool.metadata.fee).toBe(30);
+        expect(pool.metadata.fee).toBe(3000);
         expect(pool.metadata.lpToken).toBeDefined();
         expect(pool.state).toBeDefined();
         expect(pool.stats).toBeDefined();

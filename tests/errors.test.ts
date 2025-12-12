@@ -1,9 +1,5 @@
 import { describe, expect, jest, it } from "@jest/globals";
-import {
-    toTurbineError,
-    TurbineError,
-    unsuccessfulResponseToTurbineError,
-} from "../src/errorHandling";
+import { TurbineError, unsuccessfulResponseToTurbineError } from "../src/errorHandling";
 import { TurbineClient } from "../src/turbineClient";
 import {
     ORDER_INTENT,
@@ -16,145 +12,173 @@ import { Hex } from "viem";
 describe("TurbineError", () => {
     it("should create a TurbineError with all properties", () => {
         const error = new TurbineError(
-            "TEST_CODE",
-            "Original technical message",
-            "User-friendly message"
+            "INPUT_VALIDATION_ERROR",
+            "Invalid order parameters"
         );
 
         expect(error).toBeInstanceOf(Error);
         expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("TEST_CODE");
-        expect(error.originalMessage).toBe("Original technical message");
-        expect(error.userMessage).toBe("User-friendly message");
-        expect(error.message).toBe("User-friendly message"); // Error.message should be user-friendly
+        expect(error.code).toBe("INPUT_VALIDATION_ERROR");
+        expect(error.message).toBe("Invalid order parameters");
         expect(error.name).toBe("TurbineError");
+        expect(error.inner).toBeNull();
     });
 
-    it("should preserve technical details while providing user-friendly message", () => {
+    it("should create a TurbineError with nested errors", () => {
+        const innerError1 = new TurbineError(
+            "VALIDATION_ERRORS",
+            "Token address is invalid"
+        );
+        const innerError2 = new TurbineError(
+            "VALIDATION_ERRORS",
+            "Amount must be positive"
+        );
         const error = new TurbineError(
-            "TEST_CODE",
-            'Original technical message with JSON: {"error":"Invalid order"}',
-            "Your order couldn't be processed"
+            "INPUT_VALIDATION_ERROR",
+            "Multiple validation errors occurred",
+            null,
+            [innerError1, innerError2]
         );
 
-        expect(error.message).toBe("Your order couldn't be processed");
-        expect(error.getTechnicalDetails()).toContain("TEST_CODE");
-        expect(error.getTechnicalDetails()).toContain("Original technical message");
-    });
-});
-
-describe("toTurbineError", () => {
-    it("should pass through TurbineError instances", () => {
-        const original = new TurbineError("TEST", "Original", "User");
-        const result = toTurbineError(original);
-
-        expect(result).toBe(original);
-    });
-
-    it("should convert parse errors to appropriate TurbineError", () => {
-        const parseError = new Error("Failed to parse response as JSON: SyntaxError");
-        const result = toTurbineError(parseError);
-
-        expect(result).toBeInstanceOf(TurbineError);
-        expect(result.code).toBe("PARSE_ERROR");
-        expect(result.originalMessage).toBe(
-            "Failed to parse response as JSON: SyntaxError"
-        );
-        expect(result.message).toContain("Failed to process the server response");
-    });
-
-    it("should convert missing field errors to appropriate TurbineError", () => {
-        const missingFieldError = new Error(
-            "Response missing required orderHash field: {}"
-        );
-        const result = toTurbineError(missingFieldError);
-
-        expect(result).toBeInstanceOf(TurbineError);
-        expect(result.code).toBe("MISSING_FIELD");
-        expect(result.originalMessage).toBe(
-            "Response missing required orderHash field: {}"
-        );
-        expect(result.message).toContain("Transaction was submitted but");
-    });
-
-    it("should convert user rejection errors to appropriate TurbineError", () => {
-        const rejectionError = new Error("User rejected the request");
-        const result = toTurbineError(rejectionError);
-
-        expect(result).toBeInstanceOf(TurbineError);
-        expect(result.code).toBe("USER_REJECTION");
-        expect(result.message).toContain("Rejected by the wallet");
-    });
-
-    it("should convert unknown errors to default TurbineError", () => {
-        const unknownError = new Error("Some unexpected error");
-        const result = toTurbineError(unknownError);
-
-        expect(result).toBeInstanceOf(TurbineError);
-        expect(result.code).toBe("UNKNOWN_ERROR");
-        expect(result.message).toContain("unexpected error occurred");
+        expect(error.message).toBe("Multiple validation errors occurred");
+        expect(error.inner).toHaveLength(2);
+        expect(error.inner![0].code).toBe("VALIDATION_ERRORS");
+        expect(error.inner![1].code).toBe("VALIDATION_ERRORS");
+        expect(error.getTechnicalDetails()).toContain("INPUT_VALIDATION_ERROR");
+        expect(error.getTechnicalDetails()).toContain("Nested errors");
     });
 });
 
 describe("unsuccessfulResponseToTurbineError", () => {
-    it("should create appropriate error for bad request", () => {
-        const response = {
-            ok: false,
+    it("should parse backend error format with code and message", async () => {
+        const errorPayload = {
+            code: "INPUT_VALIDATION_ERROR",
+            message: "Invalid order parameters provided",
+        };
+        const response = new Response(JSON.stringify(errorPayload), {
             status: 400,
             statusText: "Bad Request",
-        } as Response;
+        });
 
-        const responseText = JSON.stringify({ error: "Some bad request error" });
-        const error = unsuccessfulResponseToTurbineError(response, responseText);
+        const error = await unsuccessfulResponseToTurbineError(response);
 
         expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("API_BAD_REQUEST");
-        expect(error.message).toContain("The request couldn't be processed");
+        expect(error.code).toBe("INPUT_VALIDATION_ERROR");
+        expect(error.message).toBe("Invalid order parameters provided");
+        expect(error.inner).toBeNull();
     });
 
-    it("should create appropriate error for server errors", () => {
-        const response = {
-            ok: false,
+    it("should parse error with nested errors", async () => {
+        const errorPayload = {
+            code: "VALIDATION_ERRORS",
+            message: "Multiple validation errors occurred",
+            inner: [
+                {
+                    code: "INPUT_VALIDATION_ERROR",
+                    message: "Token address is invalid",
+                },
+                {
+                    code: "INPUT_VALIDATION_ERROR",
+                    message: "Amount must be positive",
+                },
+            ],
+        };
+        const response = new Response(JSON.stringify(errorPayload), {
+            status: 400,
+            statusText: "Bad Request",
+        });
+
+        const error = await unsuccessfulResponseToTurbineError(response);
+
+        expect(error).toBeInstanceOf(TurbineError);
+        expect(error.code).toBe("VALIDATION_ERRORS");
+        expect(error.message).toBe("Multiple validation errors occurred");
+        expect(error.inner).toHaveLength(2);
+        expect(error.inner![0].code).toBe("INPUT_VALIDATION_ERROR");
+        expect(error.inner![0].message).toBe("Token address is invalid");
+        expect(error.inner![1].code).toBe("INPUT_VALIDATION_ERROR");
+        expect(error.inner![1].message).toBe("Amount must be positive");
+    });
+
+    it("should fallback to INTERNAL_SERVER_ERROR for HTTP 500 with invalid error format", async () => {
+        const response = new Response("Invalid JSON response", {
             status: 500,
             statusText: "Internal Server Error",
-        } as Response;
+        });
 
-        const responseText = JSON.stringify({ error: "Server processing error" });
-        const error = unsuccessfulResponseToTurbineError(response, responseText);
+        const error = await unsuccessfulResponseToTurbineError(response);
 
         expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("API_SERVER_ERROR");
-        expect(error.message).toContain("Server error occurred");
+        expect(error.code).toBe("INTERNAL_SERVER_ERROR");
+        expect(error.message).toBe("Invalid JSON response");
     });
 
-    it("should respect custom code and message when provided", () => {
-        const response = {
-            ok: false,
+    it("should fallback to UNKNOWN_ERROR for non-500 status with invalid error format", async () => {
+        const response = new Response("Invalid JSON response", {
             status: 400,
             statusText: "Bad Request",
-        } as Response;
+        });
 
-        const responseText = JSON.stringify({ error: "Insufficient balance" });
-        const error = unsuccessfulResponseToTurbineError(
-            response,
-            responseText,
-            "CUSTOM_ERROR_CODE",
-            "Custom error message"
-        );
+        const error = await unsuccessfulResponseToTurbineError(response);
 
         expect(error).toBeInstanceOf(TurbineError);
-        expect(error.code).toBe("CUSTOM_ERROR_CODE");
-        expect(error.message).toBe("Custom error message");
+        expect(error.code).toBe("UNKNOWN_ERROR");
+        expect(error.message).toBe("Invalid JSON response");
+    });
+
+    it("should fallback to UNKNOWN_ERROR for missing code field", async () => {
+        const errorPayload = {
+            message: "Error without code field",
+        };
+        const response = new Response(JSON.stringify(errorPayload), {
+            status: 400,
+            statusText: "Bad Request",
+        });
+
+        const error = await unsuccessfulResponseToTurbineError(response);
+
+        expect(error).toBeInstanceOf(TurbineError);
+        expect(error.code).toBe("UNKNOWN_ERROR");
+        expect(error.message).toBe(JSON.stringify(errorPayload));
+    });
+
+    it("should normalize invalid error codes to UNKNOWN_ERROR", async () => {
+        const errorPayload = {
+            code: "INVALID_ERROR_CODE",
+            message: "This error code is not recognized",
+        };
+        const response = new Response(JSON.stringify(errorPayload), {
+            status: 400,
+            statusText: "Bad Request",
+        });
+
+        const error = await unsuccessfulResponseToTurbineError(response);
+
+        expect(error).toBeInstanceOf(TurbineError);
+        expect(error.code).toBe("UNKNOWN_ERROR");
+        expect(error.message).toBe("This error code is not recognized");
     });
 });
 
 describe("TurbineClient Error Handling", () => {
     describe("addOrder", () => {
-        it("should throw TurbineError in case of unexpected API response in json", async () => {
+        it("should throw TurbineError with backend error format", async () => {
             const client = await createMockTurbineClient();
 
-            const mockResponse = new Response(
-                JSON.stringify({ message: "something went wrong" })
+            const errorPayload = {
+                code: "ORDER_ALREADY_EXISTS",
+                message: "An order with this hash already exists",
+            };
+            const mockResponse = {
+                ok: false,
+                status: 409,
+                statusText: "Conflict",
+                text: async () => JSON.stringify(errorPayload),
+                json: async () => errorPayload,
+                headers: { get: () => null },
+            } as unknown as Response;
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
             );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
@@ -164,16 +188,39 @@ describe("TurbineClient Error Handling", () => {
 
             await client.addOrder(ORDER_INTENT).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBeTruthy();
-                expect(error.originalMessage).toBeTruthy();
-                expect(error.message).toBeTruthy(); // user-friendly message
+                expect(error.code).toBe("ORDER_ALREADY_EXISTS");
+                expect(error.message).toBe("An order with this hash already exists");
             });
         });
 
-        it("should throw TurbineError in case of malformed API response", async () => {
+        it("should throw TurbineError with validation errors and nested errors", async () => {
             const client = await createMockTurbineClient();
 
-            const mockResponse = new Response("happy chrysler");
+            const errorPayload = {
+                code: "VALIDATION_ERRORS",
+                message: "Multiple validation errors occurred",
+                inner: [
+                    {
+                        code: "INPUT_VALIDATION_ERROR",
+                        message: "Sell token address is invalid",
+                    },
+                    {
+                        code: "INPUT_VALIDATION_ERROR",
+                        message: "Buy amount must be greater than zero",
+                    },
+                ],
+            };
+            const mockResponse = {
+                ok: false,
+                status: 400,
+                statusText: "Bad Request",
+                text: async () => JSON.stringify(errorPayload),
+                json: async () => errorPayload,
+                headers: { get: () => null },
+            } as unknown as Response;
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
@@ -181,18 +228,57 @@ describe("TurbineClient Error Handling", () => {
             const error = await client.addOrder(ORDER_INTENT).catch((e) => e);
 
             expect(error).toBeInstanceOf(TurbineError);
-            expect(error.code).toBeTruthy();
-            expect(error.originalMessage).toBeTruthy();
-            expect(error.message).toBeTruthy();
+            expect(error.code).toBe("VALIDATION_ERRORS");
+            expect(error.message).toBe("Multiple validation errors occurred");
+            expect(error.inner).toHaveLength(2);
+            expect(error.inner![0].code).toBe("INPUT_VALIDATION_ERROR");
+            expect(error.inner![1].code).toBe("INPUT_VALIDATION_ERROR");
+        });
+
+        it("should throw TurbineError in case of malformed API response", async () => {
+            const client = await createMockTurbineClient();
+
+            const mockResponse = {
+                ok: false,
+                status: 500,
+                statusText: "Internal Server Error",
+                text: async () => "happy chrysler",
+                json: async () => "happy chrysler",
+                headers: { get: () => null },
+            } as unknown as Response;
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                mockResponse
+            );
+
+            const error = await client.addOrder(ORDER_INTENT).catch((e) => e);
+
+            expect(error).toBeInstanceOf(TurbineError);
+            expect(error.code).toBe("INTERNAL_SERVER_ERROR");
+            expect(error.message).toBe("happy chrysler");
         });
     });
 
     describe("addOrders", () => {
-        it("should throw TurbineError in case of unexpected API response in json", async () => {
+        it("should throw TurbineError with MAX_ORDERS_IN_PAYLOAD error", async () => {
             const client = await createMockTurbineClient();
 
-            const mockResponse = new Response(
-                JSON.stringify({ message: "something went wrong" })
+            const errorPayload = {
+                code: "MAX_ORDERS_IN_PAYLOAD",
+                message: "The payload contains too many orders. Maximum allowed is 100",
+            };
+            const mockResponse = {
+                ok: false,
+                status: 400,
+                statusText: "Bad Request",
+                text: async () => JSON.stringify(errorPayload),
+                json: async () => errorPayload,
+                headers: { get: () => null },
+            } as unknown as Response;
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
             );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
@@ -204,16 +290,27 @@ describe("TurbineClient Error Handling", () => {
 
             await client.addOrders([ORDER_INTENT]).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBeTruthy();
-                expect(error.originalMessage).toBeTruthy();
-                expect(error.message).toBeTruthy();
+                expect(error.code).toBe("MAX_ORDERS_IN_PAYLOAD");
+                expect(error.message).toBe(
+                    "The payload contains too many orders. Maximum allowed is 100"
+                );
             });
         });
 
         it("should throw TurbineError in case of malformed API response", async () => {
             const client = await createMockTurbineClient();
 
-            const mockResponse = new Response("happy chrysler");
+            const mockResponse = {
+                ok: false,
+                status: 500,
+                statusText: "Internal Server Error",
+                text: async () => "happy chrysler",
+                json: async () => "happy chrysler",
+                headers: { get: () => null },
+            } as unknown as Response;
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
@@ -221,15 +318,24 @@ describe("TurbineClient Error Handling", () => {
             const error = await client.addOrders([ORDER_INTENT]).catch((e) => e);
 
             expect(error).toBeInstanceOf(TurbineError);
-            expect(error.code).toBeTruthy();
-            expect(error.originalMessage).toBeTruthy();
-            expect(error.message).toBeTruthy();
+            expect(error.code).toBe("INTERNAL_SERVER_ERROR");
+            expect(error.message).toBe("happy chrysler");
         });
 
         it("should throw TurbineError for empty array of orders", async () => {
             const client = await createMockTurbineClient();
 
-            const mockResponse = new Response(JSON.stringify([]));
+            const mockResponse = {
+                ok: true,
+                status: 200,
+                statusText: "OK",
+                text: async () => JSON.stringify([]),
+                json: async () => [],
+                headers: { get: () => null },
+            } as unknown as Response;
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
@@ -238,30 +344,35 @@ describe("TurbineClient Error Handling", () => {
 
             await client.addOrders([]).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBeTruthy();
-                expect(error.originalMessage).toBeTruthy();
+                expect(error.code).toBe("UNEXPECTED_ADD_ORDER_RESPONSE");
                 expect(error.message).toBeTruthy();
             });
         });
     });
 
     describe("cancelOrder", () => {
-        it("should throw TurbineError in case of unexpected API response in json", async () => {
+        it("should throw TurbineError with ORDER_NOT_AVAILABLE error", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             const client = await createMockTurbineClient();
 
-            // Mock the response
+            const errorPayload = {
+                code: "ORDER_NOT_AVAILABLE",
+                message:
+                    "The order you are trying to cancel does not exist or has already been cancelled",
+            };
             const mockResponse = {
-                ok: true,
-                status: 200,
-                statusText: "OK",
-                text: async () => JSON.stringify({ error: "something went wrong" }),
-                json: async () => ({ error: "something went wrong" }),
+                ok: false,
+                status: 404,
+                statusText: "Not Found",
+                text: async () => JSON.stringify(errorPayload),
+                json: async () => errorPayload,
                 headers: { get: () => null },
             } as unknown as Response;
 
-            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
@@ -272,9 +383,10 @@ describe("TurbineClient Error Handling", () => {
 
             await client.cancelOrder(mockOrderHash as Hex).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBeTruthy();
-                expect(error.originalMessage).toBeTruthy();
-                expect(error.message).toBeTruthy();
+                expect(error.code).toBe("ORDER_NOT_AVAILABLE");
+                expect(error.message).toBe(
+                    "The order you are trying to cancel does not exist or has already been cancelled"
+                );
             });
         });
 
@@ -283,17 +395,18 @@ describe("TurbineClient Error Handling", () => {
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             const client = await createMockTurbineClient();
 
-            // Mock with invalid JSON
             const mockResponse = {
-                ok: true,
-                status: 200,
-                statusText: "OK",
+                ok: false,
+                status: 500,
+                statusText: "Internal Server Error",
                 text: async () => "happy chrysler",
                 json: async () => "happy chrysler",
                 headers: { get: () => null },
             } as unknown as Response;
 
-            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
@@ -303,27 +416,31 @@ describe("TurbineClient Error Handling", () => {
                 .catch((e) => e);
 
             expect(error).toBeInstanceOf(TurbineError);
-            expect(error.code).toBeTruthy();
-            expect(error.originalMessage).toBeTruthy();
-            expect(error.message).toBeTruthy();
+            expect(error.code).toBe("INTERNAL_SERVER_ERROR");
+            expect(error.message).toBe("happy chrysler");
         });
 
-        it("should throw TurbineError when API returns non-ok response", async () => {
+        it("should throw TurbineError when API returns non-ok response with backend error format", async () => {
             const mockOrderHash =
                 "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
             const client = await createMockTurbineClient();
 
-            // Mock a failed response
+            const errorPayload = {
+                code: "USER_NOT_AUTHORIZED",
+                message: "You are not authorized to cancel this order",
+            };
             const mockResponse = {
                 ok: false,
-                status: 404,
-                statusText: "Not Found",
-                text: async () => "Order not found",
-                json: async () => "Order not found",
+                status: 403,
+                statusText: "Forbidden",
+                text: async () => JSON.stringify(errorPayload),
+                json: async () => errorPayload,
                 headers: { get: () => null },
             } as unknown as Response;
 
-            // Mock the callApiEndpoint method
+            jest.spyOn(client as any, "ensureAuthenticated").mockResolvedValue(
+                ORDER_INTENT.owner
+            );
             jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
                 mockResponse
             );
@@ -334,9 +451,10 @@ describe("TurbineClient Error Handling", () => {
 
             await client.cancelOrder(mockOrderHash as Hex).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBeTruthy();
-                expect(error.originalMessage).toBeTruthy();
-                expect(error.message).toBeTruthy();
+                expect(error.code).toBe("USER_NOT_AUTHORIZED");
+                expect(error.message).toBe(
+                    "You are not authorized to cancel this order"
+                );
             });
         });
     });
