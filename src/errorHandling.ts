@@ -50,10 +50,12 @@ export type TurbineErrorCode = (typeof TURBINE_ERROR_CODES)[number];
 /**
  * TurbineError class provides structured error handling for Turbine SDK.
  *
- * @param code - The error code; one of the TURBINE_ERROR_CODES
- * @param message - A human-readable error message
- * @param details - Optional technical details about the error; e.g. the response body from the server
- * @param inner - Optional inner errors if the main error wraps multiple errors
+ * @param code - The error code; one of the TURBINE_ERROR_CODES. They match the error codes returned by the Turbine API.
+ * @param message - A human-readable error message. It is typically the same as the message returned by the Turbine API.
+ * @param details - Optional technical details about the error; e.g. the response body from the server. It is provided
+ * by the SDK for debugging purposes. May contain the original response body, or any other details that are useful
+ * for debugging.
+ * @param inner - Optional inner errors if the main error wraps multiple errors. Only one level of nesting is supported.
  */
 export class TurbineError extends Error {
     public readonly code: TurbineErrorCode;
@@ -148,7 +150,7 @@ function parseErrorResponse(responseText: string): TurbineError {
                             innerCode = "UNKNOWN_ERROR";
                             innerDetails = { originalCode: item.code };
                         }
-                        // We don't attempt to parse nested errors any further
+                        // Only one level of nesting is supported. We don't attempt to parse inner errors of inner errors.
                         return new TurbineError(innerCode, innerMessage, innerDetails);
                     } else {
                         return null;
