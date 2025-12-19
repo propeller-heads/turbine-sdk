@@ -15,20 +15,20 @@ export const turbineLiquidityRouterABI = [
                 ],
             },
             {
-                name: "permitParams",
+                name: "signatureTransferParams",
                 type: "tuple",
-                internalType: "struct AllowanceParams",
+                internalType: "struct SignatureTransferParams",
                 components: [
-                    { name: "signature", type: "bytes", internalType: "bytes" },
                     {
                         name: "permit",
                         type: "tuple",
-                        internalType: "struct IAllowanceTransfer.PermitSingle",
+                        internalType: "struct ISignatureTransfer.PermitTransferFrom",
                         components: [
                             {
-                                name: "details",
+                                name: "permitted",
                                 type: "tuple",
-                                internalType: "struct IAllowanceTransfer.PermitDetails",
+                                internalType:
+                                    "struct ISignatureTransfer.TokenPermissions",
                                 components: [
                                     {
                                         name: "token",
@@ -37,33 +37,24 @@ export const turbineLiquidityRouterABI = [
                                     },
                                     {
                                         name: "amount",
-                                        type: "uint160",
-                                        internalType: "uint160",
-                                    },
-                                    {
-                                        name: "expiration",
-                                        type: "uint48",
-                                        internalType: "uint48",
-                                    },
-                                    {
-                                        name: "nonce",
-                                        type: "uint48",
-                                        internalType: "uint48",
+                                        type: "uint256",
+                                        internalType: "uint256",
                                     },
                                 ],
                             },
                             {
-                                name: "spender",
-                                type: "address",
-                                internalType: "address",
+                                name: "nonce",
+                                type: "uint256",
+                                internalType: "uint256",
                             },
                             {
-                                name: "sigDeadline",
+                                name: "deadline",
                                 type: "uint256",
                                 internalType: "uint256",
                             },
                         ],
                     },
+                    { name: "signature", type: "bytes", internalType: "bytes" },
                 ],
             },
         ],
