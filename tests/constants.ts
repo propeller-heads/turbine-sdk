@@ -135,6 +135,45 @@ export async function createMockTurbineClient(
         }
     );
 
+    // Mock SignatureTransfer permit helpers to prevent real blockchain calls (nonceBitmap reads).
+    jest.spyOn(
+        await import("../src/permit2SignatureTransfer"),
+        "getSignedSignatureTransfer"
+    ).mockResolvedValue({
+        permit: {
+            permitted: {
+                token: USDC.address as Address,
+                amount: BigInt("1000000000000000000000000000000"),
+            },
+            nonce: 0n,
+            deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+        },
+        permitSignature:
+            "0x11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111" as Hex,
+    });
+
+    jest.spyOn(
+        await import("../src/permit2SignatureTransfer"),
+        "getSignedBatchSignatureTransfer"
+    ).mockResolvedValue({
+        permit: {
+            permitted: [
+                {
+                    token: USDC.address as Address,
+                    amount: BigInt("1000000000000000000000000000000"),
+                },
+                {
+                    token: WETH.address as Address,
+                    amount: BigInt("1000000000000000000000000000000"),
+                },
+            ],
+            nonce: 0n,
+            deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+        },
+        permitSignature:
+            "0x22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222" as Hex,
+    });
+
     // Mock the getSignedAllowance function to prevent real blockchain calls
     jest.spyOn(await import("../src/permit2"), "getSignedAllowance").mockResolvedValue({
         permit: {
