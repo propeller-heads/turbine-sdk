@@ -29,10 +29,9 @@ Install dependencies with:
 yarn
 ```
 
-
 ## Basic setup
 
-The main entry point is the `TurbineClient` class. 
+The main entry point is the `TurbineClient` class.
 
 Here's how to instantiate it. This example requires a private key and an RPC URL.
 
@@ -93,7 +92,7 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `startTime`: Unix timestamp when the order becomes valid
     -   Note: only immediately valid orders are supported for now.
 -   `endTime`: Unix timestamp when the order expires
--   `partialFill`: Boolean flag allowing partial fills of the order. 
+-   `partialFill`: Boolean flag allowing partial fills of the order.
     -   Note: only partially fillable orders are supported for now.
 -   `callData`: Optional call data for smart orders, allowing custom routing (see #smart-orders below)
 -   `callDataTarget`: Target address for the call data
@@ -151,7 +150,11 @@ const orderHashes = await turbineClient.addOrders([order1, order2, order3]);
 ### Checking order state
 
 ```typescript
-const orderStates = await turbineClient.getOrderStates([orderHash1, orderHash2, orderHash3]);
+const orderStates = await turbineClient.getOrderStates([
+    orderHash1,
+    orderHash2,
+    orderHash3,
+]);
 console.log(orderStates);
 ```
 
@@ -162,7 +165,6 @@ await turbineClient.cancelOrder(orderHash);
 ```
 
 Please note that order cancellation is subject to speedbump (see Turbine docs). An order will not be cancelled immediately, but after a short delay.
-
 
 ## Liquidity management
 
@@ -198,12 +200,11 @@ console.log(`Liquidity intent submitted with ID: ${intentHash}`);
 
 Expect Turbine to take your tokens, add them to the pool, and mint you LP tokens.
 
-
 ### Removing liquidity from a Turbine pool
 
 #### Creating an intent to remove liquidity
 
-You need to know the LP token address of the pool you want to remove liquidity from. You have received this token when you provided liquidity to the pool. 
+You need to know the LP token address of the pool you want to remove liquidity from. You have received this token when you provided liquidity to the pool.
 
 You can get LP token's address by calling `getPools` method and inspecting the result:
 
@@ -246,7 +247,6 @@ console.log(`Liquidity intent submitted with ID: ${intentHash}`);
 
 Expect Turbine to burn your LP tokens, and send you a share of the pool's liquidity.
 
-
 #### Submitting an intent to remove liquidity on-chain
 
 In case Turbine goes offline, you can submit an intent to remove liquidity directly on-chain.
@@ -261,16 +261,21 @@ This will submit a transaction to the `TurbineLiquidityRouter` contract. Now you
 #### Executing pending intents on-chain
 
 ```typescript
-const intentHash = await turbineClient.executePendingRemoveLiquidityIntentsOnchain([intentHash]);
+const intentHash = await turbineClient.executePendingRemoveLiquidityIntentsOnchain([
+    intentHash,
+]);
 ```
 
 This will submit a transaction to the `TurbineLiquidityRouter` contract to execute your intent. Expect your LP tokens to be burned and your share of the pool's liquidity to be sent to you.
 
-
 ### Checking liquidity intent state
 
 ```typescript
-const intentStates = await turbineClient.getLiquidityIntents([intentHash1, intentHash2, intentHash3]);
+const intentStates = await turbineClient.getLiquidityIntents([
+    intentHash1,
+    intentHash2,
+    intentHash3,
+]);
 console.log(intentStates);
 ```
 
