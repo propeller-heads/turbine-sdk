@@ -3,15 +3,19 @@
 Turbine is a protocol that lets users swap tokens without revealing their intention to do so.  
 Read the docs at https://docs.propellerheads.xyz/turbine.
 
-This SDK helps you swap on Turbine and provide liquidity to Turbine pools.
+This SDK helps you interact with Turbine.
 
 ## Table of Contents
 - [Installation](#installation)
 - [Basic setup](#basic-setup)
-    - [Available API URLs](#available-api-urls)
-- [Submitting orders](#submitting-orders)
-- [Adding liquidity to a Turbine pool](#adding-liquidity-to-a-turbine-pool)
-- [Removing liquidity from a Turbine pool](#removing-liquidity-from-a-turbine-pool)
+- [Swapping tokens](#swapping-tokens)
+    - [Submitting orders](#submitting-orders)
+    - [Checking order state](#checking-order-state)
+    - [Cancelling an Order](#cancelling-an-order)
+- [Liquidity management](#liquidity-management)
+    - [Adding liquidity to a Turbine pool](#adding-liquidity-to-a-turbine-pool)
+    - [Removing liquidity from a Turbine pool](#removing-liquidity-from-a-turbine-pool)
+    - [Checking liquidity intent state](#checking-liquidity-intent-state)
 - [Example scripts](#example-scripts)
 
 
@@ -62,8 +66,9 @@ const publicClient = createPublicClient({
 const turbineClient = await TurbineClient.create(walletClient, publicClient);
 ```
 
+## Swapping tokens
 
-## Submitting orders
+### Submitting orders
 
 > [!Important]
 > **You need to allow Permit2 contract to spend your sell token!** When placing an order, SDK will automatically add a necessary Permit2 approval. If you're using a `walletClient` with a private key, these approvals will be signed without asking for confirmation.
@@ -74,7 +79,7 @@ const turbineClient = await TurbineClient.create(walletClient, publicClient);
 > [!TIP]
 > You can also submit orders using our frontend: <https://app.turbine.exchange/>
 
-### Orders
+#### Orders
 
 Orders in Turbine are represented by the `OrderIntent` interface. They contain the following fields:
 
@@ -94,7 +99,7 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
-### Smart Orders
+#### Smart Orders
 
 Smart orders allow using a third party smart contract to route the order.
 
@@ -104,7 +109,7 @@ Smart orders were intented to be used by market makers. If you are a market make
 
 Smart orders will be deprecated soon. Market makers are encouraged to submit their quotes as regular orders.
 
-### Creating an Order
+#### Creating an Order
 
 ```typescript
 import { NULL_ADDRESS, USDC, WETH } from "turbine-sdk/constants";
@@ -128,7 +133,7 @@ const order: OrderIntent = {
 };
 ```
 
-### Submitting an Order
+#### Submitting an Order
 
 ```typescript
 const orderHash = await turbineClient.addOrder(order);
@@ -137,10 +142,17 @@ console.log(`Order submitted with ID: ${orderHash}`);
 
 Expect Turbine to execute your order after some time (if it can be executed at current market conditions).
 
-### Batch Submitting Orders
+#### Batch Submitting Orders
 
 ```typescript
 const orderHashes = await turbineClient.addOrders([order1, order2, order3]);
+```
+
+### Checking order state
+
+```typescript
+const orderStates = await turbineClient.getOrderStates([orderHash1, orderHash2, orderHash3]);
+console.log(orderStates);
 ```
 
 ### Cancelling an Order
@@ -152,9 +164,11 @@ await turbineClient.cancelOrder(orderHash);
 Please note that order cancellation is subject to speedbump (see Turbine docs). An order will not be cancelled immediately, but after a short delay.
 
 
-## Adding liquidity to a Turbine pool
+## Liquidity management
 
-### Creating an intent to add liquidity
+### Adding liquidity to a Turbine pool
+
+#### Creating an intent to add liquidity
 
 ```typescript
 import { AddLiquidityIntent } from "turbine-sdk/models";
@@ -175,7 +189,7 @@ const intent: AddLiquidityIntent = {
 };
 ```
 
-### Submitting an intent to add liquidity
+#### Submitting an intent to add liquidity
 
 ```typescript
 const intentHash = await turbineClient.addLiquidity(intent);
@@ -185,9 +199,9 @@ console.log(`Liquidity intent submitted with ID: ${intentHash}`);
 Expect Turbine to take your tokens, add them to the pool, and mint you LP tokens.
 
 
-## Removing liquidity from a Turbine pool
+### Removing liquidity from a Turbine pool
 
-### Creating an intent to remove liquidity
+#### Creating an intent to remove liquidity
 
 You need to know the LP token address of the pool you want to remove liquidity from. You have received this token when you provided liquidity to the pool. 
 
@@ -223,7 +237,7 @@ const intent: RemoveLiquidityIntent = {
 };
 ```
 
-### Submitting an intent to remove liquidity via API
+#### Submitting an intent to remove liquidity via API
 
 ```typescript
 const intentHash = await turbineClient.removeLiquidity(intent);
@@ -233,7 +247,7 @@ console.log(`Liquidity intent submitted with ID: ${intentHash}`);
 Expect Turbine to burn your LP tokens, and send you a share of the pool's liquidity.
 
 
-### Submitting an intent to remove liquidity on-chain
+#### Submitting an intent to remove liquidity on-chain
 
 In case Turbine goes offline, you can submit an intent to remove liquidity directly on-chain.
 
@@ -244,7 +258,7 @@ console.log(`Liquidity intent submitted with ID: ${intentHash}`);
 
 This will submit a transaction to the `TurbineLiquidityRouter` contract. Now your intent needs to wait a bit to pass a speedbump, and then you can execute it.
 
-### Executing pending intents on-chain
+#### Executing pending intents on-chain
 
 ```typescript
 const intentHash = await turbineClient.executePendingRemoveLiquidityIntentsOnchain([intentHash]);
@@ -252,6 +266,15 @@ const intentHash = await turbineClient.executePendingRemoveLiquidityIntentsOncha
 
 This will submit a transaction to the `TurbineLiquidityRouter` contract to execute your intent. Expect your LP tokens to be burned and your share of the pool's liquidity to be sent to you.
 
+
+### Checking liquidity intent state
+
+```typescript
+const intentStates = await turbineClient.getLiquidityIntents([intentHash1, intentHash2, intentHash3]);
+console.log(intentStates);
+```
+
+This will return the state of the liquidity intents submitted via API. It won't list the intents submitted on-chain.
 
 ## Example scripts
 
