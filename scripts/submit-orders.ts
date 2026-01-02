@@ -57,7 +57,7 @@ async function main() {
             buyToken: WETH.address,
             sellAmount: USDCAmount,
             minBuyAmount: (WETHAmount * 75n) / 100n, // 75% of WETHAmount
-            midPriceDelta: 2500, // 25%
+            midPriceDelta: 500, // 5%
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,
@@ -72,7 +72,7 @@ async function main() {
             buyToken: USDC.address,
             sellAmount: WETHAmount,
             minBuyAmount: (USDCAmount * 75n) / 100n, // 75% of USDCAmount
-            midPriceDelta: 2500, // 25%
+            midPriceDelta: 500, // 5%
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,
