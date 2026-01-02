@@ -117,8 +117,8 @@ export interface OrderIntent {
      * at a price at most 1% worse than mid-price.
      */
     midPriceDelta: number;
-    /** 
-     * Unix timestamp since when the order is valid. 
+    /**
+     * Unix timestamp since when the order is valid.
      * Note: only immediately valid orders are supported for now.
      */
     startTime: bigint;
