@@ -117,12 +117,12 @@ export interface OrderIntent {
      * at a price at most 1% worse than mid-price.
      */
     midPriceDelta: number;
-    /** Block timestamp since when the order is valid */
-    startTime: bigint;
-    /**
-     * Block timestamp until when the order is valid.
-     * This is when maxMidPriceDelta will be reached.
+    /** 
+     * Unix timestamp since when the order is valid. 
+     * Note: only immediately valid orders are supported for now.
      */
+    startTime: bigint;
+    /** Unix timestamp until when the order is valid. */
     endTime: bigint;
     /** Flag allowing partial fills */
     partialFill: boolean;
