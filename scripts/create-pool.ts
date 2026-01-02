@@ -52,7 +52,7 @@ async function main() {
     // Pool configuration
     const token0 = USDC.address as Address;
     const token1 = WETH.address as Address;
-    const fee = 3002; // 10000 = 1%
+    const fee = 3000; // 0.3%
 
     console.log("\n📊 Pool Creation Details:");
     console.log(`Token0: ${token0}`);
