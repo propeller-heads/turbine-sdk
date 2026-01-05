@@ -63,6 +63,14 @@ Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart
 
 Executes one or more pending remove-liquidity intents that were previously queued on-chain. Provide intent hashes as arguments. The script triggers intents execution and exits once the transaction is confirmed.
 
+### Approve Token
+
+**Command:** `yarn approve-token <tokenAddress> [-y]`
+
+**Interactive:** Yes (prompts for confirmation unless `-y` is passed)
+
+Grants infinite approval to the Permit2 contract to spend the specified token. Provide the token address as an argument. The script will prompt for confirmation before submitting the transaction unless the `-y` flag is passed.
+
 ### Approve LP Token
 
 **Command:** `yarn approve-lp-token`
