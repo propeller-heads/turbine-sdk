@@ -70,7 +70,10 @@ const turbineClient = await TurbineClient.create(walletClient, publicClient);
 ### Submitting orders
 
 > [!Important]
-> **You need to allow Permit2 contract to spend your sell token!** When placing an order, SDK will automatically add a necessary Permit2 approval. If you're using a `walletClient` with a private key, these approvals will be signed without asking for confirmation.
+> **You need to allow Permit2 contract to spend your sell token!** You can do this by running the `yarn approve-token <tokenAddress>` script.
+
+> [!Note]
+> When placing orders, SDK automatically adds necessary Permit2 approvals. If you're using a `walletClient` with a private key, these approvals are signed automatically without asking for confirmation.
 
 > [!Note]
 > For the alpha version Turbine has a limit of 60 active orders per `owner`.
@@ -167,6 +170,9 @@ await turbineClient.cancelOrder(orderHash);
 Please note that order cancellation is subject to speedbump (see Turbine docs). An order will not be cancelled immediately, but after a short delay.
 
 ## Liquidity management
+
+> [!TIP]
+> You can also submit liquidity intents using our frontend: <https://app.turbine.exchange/>
 
 ### Adding liquidity to a Turbine pool
 
