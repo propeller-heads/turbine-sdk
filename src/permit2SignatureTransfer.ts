@@ -60,7 +60,7 @@ async function readNonceBitmap(
 
 /**
  * Picks an unused unordered nonce from Permit2's bitmap for the given owner.
- * Generates a random nonce first, then checks if it's unused. If used, generates a new random nonce.
+ * Generates a random nonce first, then checks if it's unused. If used, generates a new random nonce and retries up to 100 times.
  *
  * Permit2 uses unordered nonces with a bitmap layout:
  * - wordPos = nonce >> 8
@@ -70,7 +70,8 @@ export async function getRandomNonce(
     publicClient: PublicClient,
     owner: Address
 ): Promise<bigint> {
-    while (true) {
+    const maxAttempts = 100;
+    for (let attempts = 0; attempts < maxAttempts; attempts++) {
         // Generate a random 256-bit nonce using crypto.randomBytes
         const bytes = randomBytes(32);
         const randomHex = "0x" + bytes.toString("hex");
@@ -84,6 +85,7 @@ export async function getRandomNonce(
             return randomNonce;
         }
     }
+    throw new Error(`Failed to find unused nonce after ${maxAttempts} attempts`);
 }
 
 export type GetSignedSignatureTransferReturnType = {
