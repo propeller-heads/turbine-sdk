@@ -1312,11 +1312,6 @@ export async function getUserPositions(
 }
 
 /**
- * Check if the Turbine service is available by querying the /status endpoint.
- * @param turbineApiUrl The base URL of the Turbine API
- * @returns A Promise that resolves to true if the service is available, or throws an error if unavailable.
- */
-/**
  * Fetch configuration from the Turbine API endpoint.
  * @param turbineApiUrl The base URL of the Turbine API
  * @returns A Promise that resolves to the TurbineConfig

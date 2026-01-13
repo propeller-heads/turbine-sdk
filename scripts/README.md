@@ -2,6 +2,12 @@
 
 This directory contains scripts for interacting with the Turbine protocol.
 
+> [!Warning]
+> Please read and understand the script before running it. Running a script may incur costs.
+
+> [!Warning]
+> These scripts are not meant to be used in production. They are for demonstration purposes only.
+
 ## Prerequisites
 
 1. **Private Key**: You need a private key for the account that will submit the orders
@@ -23,77 +29,76 @@ export TURBINE_API_URL="https://your-turbine-api.com/api"
 export RPC_URL="https://your-rpc-endpoint.com"
 ```
 
-## Usage
+## Available scripts
 
 ### Submit Orders
 
-Run the script using npm/yarn:
+**Command:** `yarn submit-orders`
 
-```bash
-# Using npm
-npm run submit-orders
-
-# Using yarn
-yarn submit-orders
-
-# Or directly with ts-node
-npx ts-node scripts/submit-orders.ts
-```
-
-#### What the Script Does
-
-The script submits two orders to Turbine:
-
-1. **Order 1**: Sell USDC for WETH
-2. **Order 2**: Sell WETH for USDC
-
-Check the code for the exact amounts.
-
-Both orders are configured as:
-
--   Market orders (no minimum buy amount)
--   25% mid-price delta
--   Valid for 5 minutes
+Submits two market orders to Turbine: sells 50 USDC for WETH and 0.02 WETH for USDC. Both orders have a 5% mid-price delta and are valid for 5 minutes.
 
 ### Add Liquidity
 
-Run the script:
+**Command:** `yarn add-liquidity`
 
-```bash
-# Using yarn
-yarn add-liquidity
-```
+**Interactive:** Yes (prompts for confirmation)
 
-#### What the Script Does
+Adds 10 USDC and 0.004 WETH (≈ $10) to the USDC/WETH pool with 0.3% fee. Prints the liquidity addition details and intent hash.
 
-The script adds liquidity to the Turbine pool.
+### Remove Liquidity
 
-1. **Adds 10 USDC and 0.004 WETH ≈ $10** to the USDC/WETH pool with 0.3% fee.
+**Command:** `yarn remove-liquidity`
 
-Check the code to update the amounts.
-
-The script will print the liquidity addition details and the intent hash.
-
-### Remove Liquidity (API)
-
-```bash
-yarn remove-liquidity
-```
-
-This script submits a remove-liquidity intent through the Turbine API. It burns 1 LP token (configurable in the script) from the same USDC/WETH 0.3% pool and prints the resulting intent hash that will later be settled by the backend.
+Submits a remove-liquidity intent through the Turbine API. Burns 20% of the account's LP token balance from the USDC/WETH 0.3% pool. Prints the intent hash that will be settled by the backend. Requires manual update of the LP token address in the script.
 
 ### Remove Liquidity On-Chain
 
-```bash
-yarn remove-liquidity-onchain
-```
+**Command:** `yarn remove-liquidity-onchain`
 
-This script signs the removal intent and immediately submits it to the `TurbineLiquidityRouter` smart contract. Update the LP token amount in the script before running it. The script prints the transaction hash once the intent is queued on-chain.
+Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain. Burns 20% of the account's LP token balance from the USDC/WETH 0.3% pool. Prints the transaction hash once the intent is queued. Requires manual update of the LP token address in the script.
 
 ### Execute Pending On-Chain Intents
 
-```bash
-yarn execute-pending-onchain-intents 0xIntentHash1 0xIntentHash2
-```
+**Command:** `yarn execute-pending-onchain-intents <intentHash1> [intentHash2] ...`
 
-Provide one or more intent hashes as arguments. The script authenticates, connects to the router, and calls `executePendingIntents` to process the queued remove-liquidity intents directly on-chain, exiting once the transaction is confirmed.
+Executes one or more pending remove-liquidity intents that were previously queued on-chain. Provide intent hashes as arguments. The script triggers intents execution and exits once the transaction is confirmed.
+
+### Approve Token
+
+**Command:** `yarn approve-token <tokenAddress> [-y]`
+
+**Interactive:** Yes (prompts for confirmation unless `-y` is passed)
+
+Grants infinite approval to the Permit2 contract to spend the specified token. Provide the token address as an argument. The script will prompt for confirmation before submitting the transaction unless the `-y` flag is passed.
+
+### Approve LP Token
+
+**Command:** `yarn approve-lp-token`
+
+**Interactive:** Yes (prompts to select a pool)
+
+Grants infinite approval to the Permit2 contract to spend LP tokens from a selected pool. Displays the first 10 registered pools and prompts you to select one interactively.
+
+### Create Pool
+
+**Command:** `yarn create-pool`
+
+Creates a new USDC/WETH pool with a 0.3% fee. Prints the transaction hash once the pool is initialized on-chain.
+
+### List Pools
+
+**Command:** `yarn list-pools`
+
+Lists all registered pools with their token pairs, fees, LP token addresses, and current reserves.
+
+### Get Order States
+
+**Command:** `yarn get-order-states <orderHash1> [orderHash2] ...`
+
+Polls and displays the current state of one or more orders. Provide order hashes as arguments. The script continuously polls every 12 seconds until all orders reach a final state (not Active or PendingCancellation).
+
+### Get Permit2 Nonce
+
+**Command:** `yarn get-permit2-nonce <owner> <token> <spender>`
+
+Retrieves the current Permit2 nonce for a given owner, token, and spender combination. Provide three addresses as arguments: owner address, token address, and spender address.
