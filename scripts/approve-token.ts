@@ -102,8 +102,12 @@ async function main() {
         console.error("  TOKEN_ADDRESS: The address of the token to approve");
         console.error("  -y: Skip interactive confirmation (auto-approve)");
         console.error("\nExample:");
-        console.error("  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48");
-        console.error("  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 -y");
+        console.error(
+            "  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        );
+        console.error(
+            "  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 -y"
+        );
         process.exit(1);
     }
 
