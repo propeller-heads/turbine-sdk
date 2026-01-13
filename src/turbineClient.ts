@@ -41,13 +41,17 @@ import {
     RemoveLiquidity,
     RemoveLiquidityIntent,
     RemoveLiquidityIntentOnchain,
-    SignedPermitOnchain,
+    SignedSignatureTransferOnchain,
     TurbineConfig,
     TurbinePool,
     UserPosition,
     OrderExecution,
 } from "./models";
 import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
+import {
+    getSignedBatchSignatureTransfer,
+    getSignedSignatureTransfer,
+} from "./permit2SignatureTransfer";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -507,7 +511,7 @@ export class TurbineClient {
      */
     async submitRemoveLiquidityTransaction(
         intent: RemoveLiquidityIntentOnchain,
-        permit: SignedPermitOnchain
+        permit: SignedSignatureTransferOnchain
     ): Promise<string> {
         const { request } = await this.publicClient.simulateContract({
             address: this.config.lpRouterAddress,
@@ -523,14 +527,12 @@ export class TurbineClient {
                 {
                     signature: permit.signature,
                     permit: {
-                        details: {
-                            token: permit.permit.details.token,
-                            amount: permit.permit.details.amount,
-                            expiration: permit.permit.details.expiration,
-                            nonce: permit.permit.details.nonce,
+                        permitted: {
+                            token: permit.permit.permitted.token,
+                            amount: permit.permit.permitted.amount,
                         },
-                        spender: permit.permit.spender,
-                        sigDeadline: permit.permit.sigDeadline,
+                        nonce: permit.permit.nonce,
+                        deadline: permit.permit.deadline,
                     },
                 },
             ],
@@ -844,16 +846,15 @@ export class TurbineClient {
      * @returns A Promise that resolves to AddLiquidity payload with signed permits
      */
     async createAddLiquidityData(intent: AddLiquidityIntent): Promise<AddLiquidity> {
-        let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
-        let { permit: permit, permitSignature: permitSignature } =
-            await getBatchSignedAllowance({
-                tokens: [intent.token0, intent.token1],
-                walletClient: this.walletClient,
-                publicClient: this.publicClient,
-                amounts: [intent.token0Amount, intent.token1Amount],
-                deadline: Number(deadline),
-                spender: this.config.lpRouterAddress,
-            });
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
+        const { permit, permitSignature } = await getSignedBatchSignatureTransfer({
+            tokens: [intent.token0, intent.token1],
+            amounts: [intent.token0Amount, intent.token1Amount],
+            walletClient: this.walletClient,
+            publicClient: this.publicClient,
+            deadline,
+            spender: this.config.lpRouterAddress,
+        });
         return {
             addLiquidity: intent,
             permitTokens: {
@@ -872,16 +873,15 @@ export class TurbineClient {
     private async createRemoveLiquidityData(
         intent: RemoveLiquidityIntent
     ): Promise<RemoveLiquidity> {
-        let deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
-        let { permit: permit, permitSignature: permitSignature } =
-            await getSignedAllowance({
-                token: intent.lpToken,
-                walletClient: this.walletClient,
-                publicClient: this.publicClient,
-                amount: intent.lpTokenAmount,
-                deadline: Number(deadline),
-                spender: this.config.lpRouterAddress,
-            });
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 minutes from now
+        const { permit, permitSignature } = await getSignedSignatureTransfer({
+            token: intent.lpToken,
+            amount: intent.lpTokenAmount,
+            walletClient: this.walletClient,
+            publicClient: this.publicClient,
+            deadline,
+            spender: this.config.lpRouterAddress,
+        });
         return {
             removeLiquidity: intent,
             permitLpToken: {
@@ -899,7 +899,10 @@ export class TurbineClient {
      */
     private async createRemoveLiquidityDataOnchain(
         intent: RemoveLiquidityIntent
-    ): Promise<{ intent: RemoveLiquidityIntentOnchain; permit: SignedPermitOnchain }> {
+    ): Promise<{
+        intent: RemoveLiquidityIntentOnchain;
+        permit: SignedSignatureTransferOnchain;
+    }> {
         const poolId = await this.getPoolId(intent.token0, intent.token1, intent.fee);
         const removeLiquidityIntentOnchain: RemoveLiquidityIntentOnchain = {
             owner: intent.owner,
@@ -907,16 +910,15 @@ export class TurbineClient {
             lpTokenAmount: intent.lpTokenAmount,
             salt: intent.salt,
         };
-        let deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 3); // 3 hours from now
-        let { permit: permit, permitSignature: permitSignature } =
-            await getSignedAllowance({
-                token: intent.lpToken,
-                walletClient: this.walletClient,
-                publicClient: this.publicClient,
-                amount: intent.lpTokenAmount,
-                deadline: Number(deadline),
-                spender: this.config.lpRouterAddress,
-            });
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 3); // 3 hours from now
+        const { permit, permitSignature } = await getSignedSignatureTransfer({
+            token: intent.lpToken,
+            amount: intent.lpTokenAmount,
+            walletClient: this.walletClient,
+            publicClient: this.publicClient,
+            deadline,
+            spender: this.config.lpRouterAddress,
+        });
         return {
             intent: removeLiquidityIntentOnchain,
             permit: {

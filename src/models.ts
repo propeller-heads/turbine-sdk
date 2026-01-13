@@ -67,6 +67,51 @@ export interface PrimitiveSignature {
     yParity: boolean;
 }
 
+// ====================
+// Permit2 SignatureTransfer
+// ====================
+
+export interface TokenPermissions {
+    token: Address;
+    amount: bigint;
+}
+
+/**
+ * Mirror of Permit2's ISignatureTransfer.PermitTransferFrom (but used for EIP-712 signing with an
+ * extra spender field in the typed data, not in this struct).
+ */
+export interface SignatureTransferPermitTransferFrom {
+    permitted: TokenPermissions;
+    nonce: bigint;
+    deadline: bigint;
+}
+
+/**
+ * Mirror of Permit2's ISignatureTransfer.PermitBatchTransferFrom (but used for EIP-712 signing with an
+ * extra spender field in the typed data, not in this struct).
+ */
+export interface SignatureTransferPermitBatchTransferFrom {
+    permitted: TokenPermissions[];
+    nonce: bigint;
+    deadline: bigint;
+}
+
+export interface SignedSignatureTransfer {
+    signature: PrimitiveSignature;
+    permit: SignatureTransferPermitTransferFrom;
+}
+
+export interface SignedBatchSignatureTransfer {
+    signature: PrimitiveSignature;
+    permit: SignatureTransferPermitBatchTransferFrom;
+}
+
+// Onchain helpers use the raw signature hex for contract calls.
+export interface SignedSignatureTransferOnchain {
+    signature: Hex;
+    permit: SignatureTransferPermitTransferFrom;
+}
+
 export interface SignedPermit {
     signature: PrimitiveSignature;
     permit: AllowanceTransferPermitSingle;
@@ -143,8 +188,8 @@ export interface OrderIntent {
 export interface AddLiquidity {
     /** The intent to add liquidity */
     addLiquidity: AddLiquidityIntent;
-    /** The permit signature and permit data for both tokens */
-    permitTokens: SignedPermitBatch;
+    /** The Permit2 SignatureTransfer batch permit and signature for token0 and token1 */
+    permitTokens: SignedBatchSignatureTransfer;
 }
 
 /**
@@ -180,8 +225,8 @@ export interface AddLiquidityIntent {
 export interface RemoveLiquidity {
     /** The intent to remove liquidity */
     removeLiquidity: RemoveLiquidityIntent;
-    /** The permit signature and permit data for the lp token */
-    permitLpToken: SignedPermit;
+    /** The Permit2 SignatureTransfer permit and signature for the LP token */
+    permitLpToken: SignedSignatureTransfer;
 }
 
 /**
