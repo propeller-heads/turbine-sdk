@@ -738,7 +738,7 @@ export class TurbineClient {
     /**
      * Get the fee for a prospective order.
      * @param intent The intent for which to get the fee
-     * @returns A Promise that resolves to a bigint containing the fee expressed in absolute amount of the sell token.
+     * @returns A Promise that resolves to a bigint containing the fee expressed in absolute amount of the buy token.
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
         try {
