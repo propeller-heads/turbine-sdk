@@ -1,28 +1,28 @@
 #!/usr/bin/env ts-node
 
 /**
- * Approve Permit2 contract to spend an arbitrary token.
+ * Approve Permit2 contract to spend one or more arbitrary tokens.
  *
  * This script:
- * 1. Takes a token address as a command line argument
- * 2. Grants infinite approval to the Permit2 contract to spend the specified token
+ * 1. Takes one or more token addresses as command line arguments
+ * 2. Grants infinite approval to the Permit2 contract to spend each specified token
  *
  * Environment Variables:
- * - PRIVATE_KEY (required): Private key of the account that will approve the token (with 0x prefix)
+ * - PRIVATE_KEY (required): Private key of the account that will approve the tokens (with 0x prefix)
  * - RPC_URL (optional): RPC endpoint URL for Ethereum mainnet (uses default if not set)
  *
  * Usage:
- *   yarn approve-token <TOKEN_ADDRESS> [-y]
+ *   yarn approve-token <TOKEN_ADDRESS> [TOKEN_ADDRESS2] ... [-y]
  *   or
- *   ts-node scripts/approve-token.ts <TOKEN_ADDRESS> [-y]
+ *   ts-node scripts/approve-token.ts <TOKEN_ADDRESS> [TOKEN_ADDRESS2] ... [-y]
  *
  * Arguments:
- *   TOKEN_ADDRESS: The address of the token to approve
+ *   TOKEN_ADDRESS: The address(es) of the token(s) to approve (one or more)
  *   -y: Skip interactive confirmation (auto-approve)
  *
  * Example:
  *   ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
- *   ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 -y
+ *   ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 -y
  */
 
 import {
@@ -51,6 +51,21 @@ const erc20ApproveABI = [
         ],
         name: "approve",
         outputs: [{ name: "", type: "bool" }],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+] as const;
+
+// Non-standard ERC20 approve ABI (for tokens like USDT that don't return a value)
+const erc20ApproveABINonStandard = [
+    {
+        constant: false,
+        inputs: [
+            { name: "spender", type: "address" },
+            { name: "amount", type: "uint256" },
+        ],
+        name: "approve",
+        outputs: [],
         stateMutability: "nonpayable",
         type: "function",
     },
@@ -90,37 +105,42 @@ function question(rl: readline.Interface, query: string): Promise<string> {
 }
 
 async function main() {
-    // Get token address from command line arguments
-    const tokenAddressArg = process.argv[2];
-    if (!tokenAddressArg) {
-        console.error("Error: Token address is required");
+    // Check for -y flag (skip confirmation)
+    const skipConfirmation = process.argv.includes("-y");
+
+    // Get token addresses from command line arguments (exclude -y flag)
+    const tokenAddressArgs = process.argv.slice(2).filter((arg) => arg !== "-y");
+
+    if (tokenAddressArgs.length === 0) {
+        console.error("Error: At least one token address is required");
         console.error("\nUsage:");
-        console.error("  yarn approve-token <TOKEN_ADDRESS> [-y]");
+        console.error("  yarn approve-token <TOKEN_ADDRESS> [TOKEN_ADDRESS2] ... [-y]");
         console.error("  or");
-        console.error("  ts-node scripts/approve-token.ts <TOKEN_ADDRESS> [-y]");
+        console.error(
+            "  ts-node scripts/approve-token.ts <TOKEN_ADDRESS> [TOKEN_ADDRESS2] ... [-y]"
+        );
         console.error("\nArguments:");
-        console.error("  TOKEN_ADDRESS: The address of the token to approve");
+        console.error("  TOKEN_ADDRESS: The address(es) of the token(s) to approve");
         console.error("  -y: Skip interactive confirmation (auto-approve)");
         console.error("\nExample:");
         console.error(
             "  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
         );
         console.error(
-            "  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 -y"
+            "  ts-node scripts/approve-token.ts 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2 -y"
         );
         process.exit(1);
     }
 
-    // Check for -y flag (skip confirmation)
-    const skipConfirmation = process.argv.includes("-y");
-
-    // Validate token address
-    if (!isAddress(tokenAddressArg)) {
-        console.error(`Error: Invalid address format: ${tokenAddressArg}`);
-        process.exit(1);
+    // Validate all token addresses
+    const tokenAddresses: Address[] = [];
+    for (const arg of tokenAddressArgs) {
+        if (!isAddress(arg)) {
+            console.error(`Error: Invalid address format: ${arg}`);
+            process.exit(1);
+        }
+        tokenAddresses.push(arg as Address);
     }
-
-    const tokenAddress = tokenAddressArg as Address;
 
     // Configuration
     const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
@@ -142,73 +162,121 @@ async function main() {
     });
 
     console.log(`👤 Account: ${account.address}`);
-    console.log(`🪙 Token: ${getTokenDisplay(tokenAddress)}`);
+    console.log(`🪙 Tokens to approve: ${tokenAddresses.length}`);
+    for (const tokenAddress of tokenAddresses) {
+        console.log(`   - ${getTokenDisplay(tokenAddress)}`);
+    }
     console.log(`📋 Permit2 Address: ${PERMIT2_ADDRESS}\n`);
 
-    try {
-        // Check current allowance
-        console.log("🔍 Checking current allowance...");
-        const currentAllowance = await publicClient.readContract({
-            address: tokenAddress,
-            abi: erc20AllowanceABI,
-            functionName: "allowance",
-            args: [account.address, PERMIT2_ADDRESS],
-        });
+    // Interactive confirmation (unless -y flag is passed)
+    if (!skipConfirmation) {
+        const rl = createReadlineInterface();
+        const answer = await question(
+            rl,
+            `⚠️  Do you want to proceed with granting infinite approval to Permit2 for ${tokenAddresses.length} token(s)? (yes/no): `
+        );
+        rl.close();
 
-        if (currentAllowance >= maxUint256) {
-            console.log("✅ Permit2 already has infinite approval for this token.");
+        const normalizedAnswer = answer.trim().toLowerCase();
+        if (normalizedAnswer !== "yes" && normalizedAnswer !== "y") {
+            console.log("❌ Approval cancelled by user.");
             return;
         }
+        console.log();
+    }
 
-        console.log(`   Current allowance: ${currentAllowance.toString()}\n`);
+    let successCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
 
-        // Interactive confirmation (unless -y flag is passed)
-        if (!skipConfirmation) {
-            const rl = createReadlineInterface();
-            const answer = await question(
-                rl,
-                "⚠️  Do you want to proceed with granting infinite approval to Permit2? (yes/no): "
-            );
-            rl.close();
+    for (let i = 0; i < tokenAddresses.length; i++) {
+        const tokenAddress = tokenAddresses[i];
+        console.log(
+            `\n━━━ [${i + 1}/${tokenAddresses.length}] ${getTokenDisplay(tokenAddress)} ━━━`
+        );
 
-            const normalizedAnswer = answer.trim().toLowerCase();
-            if (normalizedAnswer !== "yes" && normalizedAnswer !== "y") {
-                console.log("❌ Approval cancelled by user.");
-                return;
+        try {
+            // Check current allowance
+            console.log("🔍 Checking current allowance...");
+            const currentAllowance = await publicClient.readContract({
+                address: tokenAddress,
+                abi: erc20AllowanceABI,
+                functionName: "allowance",
+                args: [account.address, PERMIT2_ADDRESS],
+            });
+
+            if (currentAllowance >= maxUint256) {
+                console.log("✅ Permit2 already has infinite approval for this token.");
+                skippedCount++;
+                continue;
             }
-            console.log();
+
+            console.log(`   Current allowance: ${currentAllowance.toString()}`);
+
+            // Approve Permit2 to spend tokens
+            console.log("📝 Approving Permit2 to spend tokens (infinite approval)...");
+
+            let txHash: Hex;
+            try {
+                // Try standard ERC20 approve (with return value)
+                const { request } = await publicClient.simulateContract({
+                    address: tokenAddress,
+                    abi: erc20ApproveABI,
+                    functionName: "approve",
+                    args: [PERMIT2_ADDRESS, maxUint256],
+                    account: account,
+                    chain: mainnet,
+                });
+                txHash = await walletClient.writeContract(request);
+            } catch (simError) {
+                // Check if this is a non-standard token (like USDT) that doesn't return a value
+                const errorMessage =
+                    simError instanceof Error ? simError.message : String(simError);
+                if (errorMessage.includes('returned no data ("0x")')) {
+                    console.log(
+                        "   ⚠️  Non-standard ERC20 detected (no return value), using fallback..."
+                    );
+                    txHash = await walletClient.writeContract({
+                        address: tokenAddress,
+                        abi: erc20ApproveABINonStandard,
+                        functionName: "approve",
+                        args: [PERMIT2_ADDRESS, maxUint256],
+                        chain: mainnet,
+                    });
+                } else {
+                    throw simError;
+                }
+            }
+            console.log(`   Transaction hash: ${txHash}`);
+
+            console.log("⏳ Waiting for transaction confirmation...");
+            const receipt = await publicClient.waitForTransactionReceipt({
+                hash: txHash,
+            });
+
+            if (receipt.status === "success") {
+                console.log("✅ Successfully approved Permit2 to spend tokens!");
+                console.log(
+                    `   Transaction confirmed in block: ${receipt.blockNumber}`
+                );
+                successCount++;
+            } else {
+                console.error("❌ Transaction failed!");
+                failedCount++;
+            }
+        } catch (error) {
+            console.error("❌ Error:");
+            console.error(error);
+            failedCount++;
         }
+    }
 
-        // Approve Permit2 to spend tokens
-        console.log("📝 Approving Permit2 to spend tokens (infinite approval)...");
-
-        const { request } = await publicClient.simulateContract({
-            address: tokenAddress,
-            abi: erc20ApproveABI,
-            functionName: "approve",
-            args: [PERMIT2_ADDRESS, maxUint256],
-            account: account,
-            chain: mainnet,
-        });
-
-        const txHash = await walletClient.writeContract(request);
-        console.log(`   Transaction hash: ${txHash}`);
-
-        console.log("⏳ Waiting for transaction confirmation...");
-        const receipt = await publicClient.waitForTransactionReceipt({
-            hash: txHash,
-        });
-
-        if (receipt.status === "success") {
-            console.log("\n✅ Successfully approved Permit2 to spend tokens!");
-            console.log(`   Transaction confirmed in block: ${receipt.blockNumber}`);
-        } else {
-            console.error("\n❌ Transaction failed!");
-            process.exit(1);
-        }
-    } catch (error) {
-        console.error("\n❌ Error:");
-        console.error(error);
+    // Summary
+    console.log("\n━━━ Summary ━━━");
+    console.log(`✅ Approved: ${successCount}`);
+    console.log(`⏭️  Skipped (already approved): ${skippedCount}`);
+    if (failedCount > 0) {
+        console.log(`❌ Failed: ${failedCount}`);
         process.exit(1);
     }
 }

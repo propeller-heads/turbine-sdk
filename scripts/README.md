@@ -65,11 +65,11 @@ Executes one or more pending remove-liquidity intents that were previously queue
 
 ### Approve Token
 
-**Command:** `yarn approve-token <tokenAddress> [-y]`
+**Command:** `yarn approve-token <tokenAddress> [tokenAddress2] ... [-y]`
 
 **Interactive:** Yes (prompts for confirmation unless `-y` is passed)
 
-Grants infinite approval to the Permit2 contract to spend the specified token. Provide the token address as an argument. The script will prompt for confirmation before submitting the transaction unless the `-y` flag is passed.
+Grants infinite approval to the Permit2 contract to spend one or more tokens. Provide token addresses as arguments. The script will check the current allowance for each token and skip those that already have infinite approval. It prompts for confirmation before submitting any transactions unless the `-y` flag is passed.
 
 ### Approve LP Token
 
