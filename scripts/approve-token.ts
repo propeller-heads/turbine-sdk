@@ -56,6 +56,21 @@ const erc20ApproveABI = [
     },
 ] as const;
 
+// Non-standard ERC20 approve ABI (for tokens like USDT that don't return a value)
+const erc20ApproveABINonStandard = [
+    {
+        constant: false,
+        inputs: [
+            { name: "spender", type: "address" },
+            { name: "amount", type: "uint256" },
+        ],
+        name: "approve",
+        outputs: [],
+        stateMutability: "nonpayable",
+        type: "function",
+    },
+] as const;
+
 // Standard ERC20 allowance ABI
 const erc20AllowanceABI = [
     {
@@ -201,16 +216,37 @@ async function main() {
             // Approve Permit2 to spend tokens
             console.log("📝 Approving Permit2 to spend tokens (infinite approval)...");
 
-            const { request } = await publicClient.simulateContract({
-                address: tokenAddress,
-                abi: erc20ApproveABI,
-                functionName: "approve",
-                args: [PERMIT2_ADDRESS, maxUint256],
-                account: account,
-                chain: mainnet,
-            });
-
-            const txHash = await walletClient.writeContract(request);
+            let txHash: Hex;
+            try {
+                // Try standard ERC20 approve (with return value)
+                const { request } = await publicClient.simulateContract({
+                    address: tokenAddress,
+                    abi: erc20ApproveABI,
+                    functionName: "approve",
+                    args: [PERMIT2_ADDRESS, maxUint256],
+                    account: account,
+                    chain: mainnet,
+                });
+                txHash = await walletClient.writeContract(request);
+            } catch (simError) {
+                // Check if this is a non-standard token (like USDT) that doesn't return a value
+                const errorMessage =
+                    simError instanceof Error ? simError.message : String(simError);
+                if (errorMessage.includes('returned no data ("0x")')) {
+                    console.log(
+                        "   ⚠️  Non-standard ERC20 detected (no return value), using fallback..."
+                    );
+                    txHash = await walletClient.writeContract({
+                        address: tokenAddress,
+                        abi: erc20ApproveABINonStandard,
+                        functionName: "approve",
+                        args: [PERMIT2_ADDRESS, maxUint256],
+                        chain: mainnet,
+                    });
+                } else {
+                    throw simError;
+                }
+            }
             console.log(`   Transaction hash: ${txHash}`);
 
             console.log("⏳ Waiting for transaction confirmation...");
