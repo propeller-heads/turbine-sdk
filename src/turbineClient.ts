@@ -45,9 +45,8 @@ import {
     TurbineConfig,
     TurbinePool,
     UserPosition,
-    OrderExecution,
 } from "./models";
-import { getBatchSignedAllowance, getSignedAllowance } from "./permit2";
+import { getSignedAllowance } from "./permit2";
 import {
     getSignedBatchSignatureTransfer,
     getSignedSignatureTransfer,
@@ -1356,10 +1355,11 @@ export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
 
 // Returns random bytes32 as a hex string
 export function getRandomSalt(): Hex {
-    const randomBytes = new Array(32)
-        .fill(0)
-        .map(() => Math.floor(Math.random() * 256));
-    return `0x${randomBytes.map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+    const randomBytes = new Uint8Array(32);
+    crypto.getRandomValues(randomBytes);
+    return `0x${Array.from(randomBytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("")}`;
 }
 
 export function convertSignature(sig: Hex): PrimitiveSignature {
