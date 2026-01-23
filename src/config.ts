@@ -1,4 +1,4 @@
-import { Address, getAddress, Hex } from "viem";
+import { getAddress } from "viem";
 
 export const CHAIN_ID = 1;
 
