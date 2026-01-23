@@ -1,0 +1,1478 @@
+import { describe, expect, it } from "@jest/globals";
+import { Address, Hex } from "viem";
+import { TurbineError } from "../src/errorHandling";
+import { NULL_ADDRESS, USDC, WETH } from "../src/constants";
+import {
+    validateNumber,
+    validatePositiveBigInt,
+    validateAddress,
+    validateHash,
+    validateSignatureHex,
+    validateFee,
+    validateMidPriceDelta,
+    validateTimeRange,
+    validateTokenPair,
+    validateOrderIntent,
+    validateAddLiquidityIntent,
+    validateRemoveLiquidityIntent,
+    validateSignedBatchSignatureTransfer,
+    validateString,
+    validateBoolean,
+    validatePositiveNumber,
+    validateBlockNumber,
+    validateBigIntConvertible,
+    validateBigInt,
+    validateObject,
+    validateHex,
+    validateTimestamp,
+    validatePrimitiveSignature,
+    validateArray,
+    validateNonEmptyArray,
+    validateTokenPermissions,
+    validateTokenPermissionsArray,
+    validateSignedSignatureTransferOnchain,
+    validateRemoveLiquidityIntentOnchain,
+    validateAddLiquidityPayload,
+    validatePoolData,
+    validateBalanceResult,
+    validateTurbineConfig,
+    validateOrderExecutionResponse,
+    validateOrderStateResponse,
+    validateLiquidityIntentStateResponse,
+} from "../src/validation";
+import {
+    ACCOUNT,
+    VALID_HASH,
+    INVALID_ADDRESS_TOO_SHORT,
+    INVALID_HASH_TOO_SHORT,
+    INVALID_HASH_TOO_LONG,
+    INVALID_SIGNATURE_WRONG_V,
+    VALID_PRIMITIVE_SIGNATURE,
+    VALID_SIGNED_BATCH_SIGNATURE_TRANSFER,
+    VALID_ADDRESS,
+    VALID_SIGNATURE_HEX,
+    VALID_TOKEN_PERMISSIONS,
+    MOCK_TURBINE_CONFIG,
+} from "./constants";
+import { OrderIntent, AddLiquidityIntent, RemoveLiquidityIntent } from "../src/models";
+
+describe("Validation Functions", () => {
+    describe("Primitive Type Validators", () => {
+        describe("validateString", () => {
+            it("should validate strings correctly", () => {
+                // Valid cases
+                expect(validateString("hello", "testString")).toBe("hello");
+                expect(validateString("", "testString")).toBe("");
+                expect(validateString("123", "testString")).toBe("123");
+
+                // Invalid: wrong type (number)
+                expect(() => validateString(123 as any, "testString")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateString(123 as any, "testString")).toThrow(
+                    /must be a string/
+                );
+
+                // Invalid: wrong type (object)
+                expect(() => validateString({} as any, "testString")).toThrow(
+                    TurbineError
+                );
+
+                // Check error details
+                try {
+                    validateString(null as any, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                }
+            });
+        });
+
+        describe("validateBoolean", () => {
+            it("should validate booleans correctly", () => {
+                // Valid cases
+                expect(validateBoolean(true, "testBool")).toBe(true);
+                expect(validateBoolean(false, "testBool")).toBe(false);
+
+                // Invalid: wrong type (number)
+                expect(() => validateBoolean(1 as any, "testBool")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBoolean(1 as any, "testBool")).toThrow(
+                    /must be a boolean/
+                );
+
+                // Invalid: wrong type (string)
+                expect(() => validateBoolean("true" as any, "testBool")).toThrow(
+                    TurbineError
+                );
+
+                // Check error details
+                try {
+                    validateBoolean(0 as any, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+
+        describe("validateNumber", () => {
+            it("should validate numbers correctly", () => {
+                // Valid cases
+                expect(validateNumber(42, "testNumber")).toBe(42);
+                expect(validateNumber(3.14159, "testNumber")).toBe(3.14159);
+                expect(validateNumber(0, "testNumber")).toBe(0);
+                expect(validateNumber(-5, "testNumber")).toBe(-5);
+
+                // Invalid: NaN
+                expect(() => validateNumber(NaN, "testNumber")).toThrow(TurbineError);
+                expect(() => validateNumber(NaN, "testNumber")).toThrow(
+                    /must be a valid number/
+                );
+
+                // Invalid: Infinity
+                expect(() => validateNumber(Infinity, "testNumber")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateNumber(Infinity, "testNumber")).toThrow(
+                    /must be a finite number/
+                );
+
+                // Invalid: wrong type
+                expect(() => validateNumber("123" as any, "testNumber")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateNumber("123" as any, "testNumber")).toThrow(
+                    /must be a number/
+                );
+
+                // Check error details
+                try {
+                    validateNumber(NaN, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                }
+            });
+        });
+
+        describe("validatePositiveBigInt", () => {
+            it("should validate positive bigints correctly", () => {
+                // Valid: positive bigints
+                expect(validatePositiveBigInt(1n, "testBigInt")).toBe(1n);
+                expect(validatePositiveBigInt(1000000n, "testBigInt")).toBe(1000000n);
+                expect(
+                    validatePositiveBigInt(
+                        BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+                        "testBigInt"
+                    )
+                ).toBe(BigInt(Number.MAX_SAFE_INTEGER) + 1n);
+
+                // Invalid: zero
+                expect(() => validatePositiveBigInt(0n, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validatePositiveBigInt(0n, "testBigInt")).toThrow(
+                    /must be positive/
+                );
+
+                // Invalid: negative
+                expect(() => validatePositiveBigInt(-5n, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validatePositiveBigInt(-5n, "testBigInt")).toThrow(
+                    /must be positive/
+                );
+
+                // Invalid: wrong type
+                expect(() => validatePositiveBigInt(123 as any, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validatePositiveBigInt(123 as any, "testBigInt")).toThrow(
+                    /must be a bigint/
+                );
+
+                // Check error details
+                try {
+                    validatePositiveBigInt(0n, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                }
+            });
+        });
+
+        describe("validatePositiveNumber", () => {
+            it("should validate positive numbers correctly", () => {
+                // Valid cases
+                expect(validatePositiveNumber(1, "testNum")).toBe(1);
+                expect(validatePositiveNumber(3.14, "testNum")).toBe(3.14);
+                expect(validatePositiveNumber(0.001, "testNum")).toBe(0.001);
+
+                // Invalid: zero
+                expect(() => validatePositiveNumber(0, "testNum")).toThrow(
+                    TurbineError
+                );
+                expect(() => validatePositiveNumber(0, "testNum")).toThrow(
+                    /must be positive/
+                );
+
+                // Invalid: negative
+                expect(() => validatePositiveNumber(-5, "testNum")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: NaN
+                expect(() => validatePositiveNumber(NaN, "testNum")).toThrow(
+                    TurbineError
+                );
+            });
+        });
+
+        describe("validateBlockNumber", () => {
+            it("should validate block numbers correctly", () => {
+                // Valid: number
+                expect(validateBlockNumber(12345, "blockNum")).toBe(12345);
+
+                // Valid: string that can be converted
+                expect(validateBlockNumber("12345", "blockNum")).toBe(12345);
+
+                // Invalid: zero
+                expect(() => validateBlockNumber(0, "blockNum")).toThrow(TurbineError);
+                expect(() => validateBlockNumber(0, "blockNum")).toThrow(
+                    /must be positive/
+                );
+
+                // Invalid: negative
+                expect(() => validateBlockNumber(-100, "blockNum")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: wrong type (object)
+                expect(() => validateBlockNumber({} as any, "blockNum")).toThrow(
+                    TurbineError
+                );
+            });
+        });
+
+        describe("validateBigIntConvertible", () => {
+            it("should validate bigint convertible values correctly", () => {
+                // Valid: string
+                expect(validateBigIntConvertible("12345", "testBigInt")).toBe(12345n);
+
+                // Valid: number
+                expect(validateBigIntConvertible(12345, "testBigInt")).toBe(12345n);
+
+                // Valid: bigint
+                expect(validateBigIntConvertible(12345n, "testBigInt")).toBe(12345n);
+
+                // Invalid: non-convertible string
+                expect(() => validateBigIntConvertible("abc", "testBigInt")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: object
+                expect(() => validateBigIntConvertible({}, "testBigInt")).toThrow(
+                    TurbineError
+                );
+
+                // Check error details
+                try {
+                    validateBigIntConvertible("invalid", "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+
+        describe("validateBigInt", () => {
+            it("should validate bigint values correctly", () => {
+                // Valid cases
+                expect(validateBigInt(0n, "testBigInt")).toBe(0n);
+                expect(validateBigInt(12345n, "testBigInt")).toBe(12345n);
+                expect(validateBigInt(-5n, "testBigInt")).toBe(-5n);
+
+                // Invalid: number
+                expect(() => validateBigInt(123 as any, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigInt(123 as any, "testBigInt")).toThrow(
+                    /must be a bigint/
+                );
+
+                // Invalid: string
+                expect(() => validateBigInt("123" as any, "testBigInt")).toThrow(
+                    TurbineError
+                );
+
+                // Check error details
+                try {
+                    validateBigInt(123 as any, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+
+        describe("validateObject", () => {
+            it("should validate objects correctly", () => {
+                // Valid cases
+                expect(validateObject({}, "testObj")).toEqual({});
+                expect(validateObject({ key: "value" }, "testObj")).toEqual({
+                    key: "value",
+                });
+                expect(validateObject([], "testObj")).toEqual([]);
+
+                // Invalid: null
+                expect(() => validateObject(null, "testObj")).toThrow(TurbineError);
+                expect(() => validateObject(null, "testObj")).toThrow(
+                    /must be a non-null object/
+                );
+
+                // Invalid: primitive types
+                expect(() => validateObject(123 as any, "testObj")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateObject("string" as any, "testObj")).toThrow(
+                    TurbineError
+                );
+
+                // Check error details
+                try {
+                    validateObject(null, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+
+        describe("validateHex", () => {
+            it("should validate hex strings correctly", () => {
+                // Valid cases
+                expect(validateHex("0x", "testHex")).toBe("0x");
+                expect(validateHex("0x123abc", "testHex")).toBe("0x123abc");
+                expect(validateHex("0xABCDEF", "testHex")).toBe("0xABCDEF");
+
+                // Invalid: no 0x prefix
+                expect(() => validateHex("123abc", "testHex")).toThrow(TurbineError);
+                expect(() => validateHex("123abc", "testHex")).toThrow(
+                    /not a valid hex string/
+                );
+
+                // Invalid: invalid characters
+                expect(() => validateHex("0xGGG", "testHex")).toThrow(TurbineError);
+
+                // Invalid: wrong type
+                expect(() => validateHex(123 as any, "testHex")).toThrow(TurbineError);
+
+                // Check error details
+                try {
+                    validateHex("invalid", "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+    });
+
+    describe("Ethereum-Specific Validators", () => {
+        describe("validateAddress", () => {
+            it("should validate addresses correctly", () => {
+                // Valid: checksummed address
+                expect(validateAddress(USDC.address, "testAddress")).toBe(USDC.address);
+
+                // Valid: lowercase address
+                expect(validateAddress(USDC.address.toLowerCase(), "testAddress")).toBe(
+                    USDC.address.toLowerCase()
+                );
+
+                // Invalid: wrong type
+                expect(() => validateAddress(123 as any, "testAddress")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateAddress(123 as any, "testAddress")).toThrow(
+                    /must be a string/
+                );
+
+                // Invalid: not hex
+                expect(() => validateAddress("not-an-address", "testAddress")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateAddress("not-an-address", "testAddress")).toThrow(
+                    /not a valid Ethereum address/
+                );
+
+                // Invalid: too short
+                expect(() =>
+                    validateAddress(INVALID_ADDRESS_TOO_SHORT, "testAddress")
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateAddress(INVALID_ADDRESS_TOO_SHORT, "testAddress")
+                ).toThrow(/not a valid Ethereum address/);
+
+                // Check error details
+                try {
+                    validateAddress("invalid", "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                }
+            });
+        });
+
+        describe("validateHash", () => {
+            it("should validate hashes correctly", () => {
+                // Valid: 32-byte hash (66 characters)
+                expect(validateHash(VALID_HASH, "testHash")).toBe(VALID_HASH);
+
+                // Invalid: wrong type
+                expect(() => validateHash(123 as any, "testHash")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateHash(123 as any, "testHash")).toThrow(
+                    /must be a string/
+                );
+
+                // Invalid: too short
+                expect(() => validateHash(INVALID_HASH_TOO_SHORT, "testHash")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateHash(INVALID_HASH_TOO_SHORT, "testHash")).toThrow(
+                    /must be a 32-byte hash/
+                );
+
+                // Invalid: too long
+                expect(() => validateHash(INVALID_HASH_TOO_LONG, "testHash")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateHash(INVALID_HASH_TOO_LONG, "testHash")).toThrow(
+                    /must be a 32-byte hash/
+                );
+
+                // Check error details include expectedLength
+                try {
+                    validateHash(INVALID_HASH_TOO_SHORT, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                    expect((error as TurbineError).details.expectedLength).toBe(66);
+                }
+            });
+        });
+
+        describe("validateSignatureHex", () => {
+            it("should validate signature hex correctly", () => {
+                // Valid: v=27 (0x1b)
+                const sig27 = "0x" + "1".repeat(128) + "1b";
+                expect(validateSignatureHex(sig27, "testSig")).toBe(sig27);
+
+                // Valid: v=28 (0x1c)
+                const sig28 = "0x" + "1".repeat(128) + "1c";
+                expect(validateSignatureHex(sig28, "testSig")).toBe(sig28);
+
+                // Valid: v=0 (EIP-2098)
+                const sig0 = "0x" + "1".repeat(128) + "00";
+                expect(validateSignatureHex(sig0, "testSig")).toBe(sig0);
+
+                // Valid: v=1 (EIP-2098)
+                const sig1 = "0x" + "1".repeat(128) + "01";
+                expect(validateSignatureHex(sig1, "testSig")).toBe(sig1);
+
+                // Invalid: v=26 (0x1a)
+                expect(() =>
+                    validateSignatureHex(INVALID_SIGNATURE_WRONG_V, "testSig")
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateSignatureHex(INVALID_SIGNATURE_WRONG_V, "testSig")
+                ).toThrow(/invalid v value/);
+
+                // Invalid: too short
+                const tooShort = "0x" + "1".repeat(129);
+                expect(() => validateSignatureHex(tooShort, "testSig")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateSignatureHex(tooShort, "testSig")).toThrow(
+                    /must be a 65-byte signature/
+                );
+
+                // Check error details include vValue
+                try {
+                    validateSignatureHex(INVALID_SIGNATURE_WRONG_V, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.vValue).toBe(26);
+                }
+            });
+        });
+    });
+
+    describe("Domain-Specific Validators", () => {
+        describe("validateFee", () => {
+            it("should validate fee values correctly", () => {
+                // Valid
+                expect(validateFee(0, "fee")).toBe(0);
+                expect(validateFee(3000, "fee")).toBe(3000);
+                expect(validateFee(1000000, "fee")).toBe(1000000);
+
+                // Invalid: non-integer
+                expect(() => validateFee(3000.5, "fee")).toThrow(TurbineError);
+                expect(() => validateFee(3000.5, "fee")).toThrow(/must be an integer/);
+
+                // Invalid: negative
+                expect(() => validateFee(-100, "fee")).toThrow(TurbineError);
+                expect(() => validateFee(-100, "fee")).toThrow(
+                    /must be between 0 and 1000000/
+                );
+
+                // Invalid: exceeds max
+                expect(() => validateFee(1000001, "fee")).toThrow(TurbineError);
+                expect(() => validateFee(1000001, "fee")).toThrow(
+                    /must be between 0 and 1000000/
+                );
+
+                // Check error details
+                try {
+                    validateFee(-1, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                }
+            });
+        });
+
+        describe("validateMidPriceDelta", () => {
+            it("should validate mid-price delta correctly", () => {
+                // Valid
+                expect(validateMidPriceDelta(0, "midPriceDelta")).toBe(0);
+                expect(validateMidPriceDelta(500, "midPriceDelta")).toBe(500);
+                expect(validateMidPriceDelta(10000, "midPriceDelta")).toBe(10000);
+
+                // Invalid: non-integer
+                expect(() => validateMidPriceDelta(500.5, "midPriceDelta")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateMidPriceDelta(500.5, "midPriceDelta")).toThrow(
+                    /must be an integer/
+                );
+
+                // Invalid: negative
+                expect(() => validateMidPriceDelta(-100, "midPriceDelta")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateMidPriceDelta(-100, "midPriceDelta")).toThrow(
+                    /must be between 0 and 10000/
+                );
+
+                // Invalid: exceeds max
+                expect(() => validateMidPriceDelta(10001, "midPriceDelta")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateMidPriceDelta(10001, "midPriceDelta")).toThrow(
+                    /must be between 0 and 10000/
+                );
+
+                // Check error details
+                try {
+                    validateMidPriceDelta(-1, "testField");
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.fieldName).toBe("testField");
+                }
+            });
+        });
+
+        describe("validateTimeRange", () => {
+            it("should validate time ranges correctly", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const later = now + 3600n;
+
+                // Valid: start < end
+                expect(() => validateTimeRange(now, later)).not.toThrow();
+
+                // Invalid: equal times (start == end)
+                expect(() => validateTimeRange(now, now)).toThrow(TurbineError);
+                expect(() => validateTimeRange(now, now)).toThrow(
+                    /endTime must be greater than startTime/
+                );
+
+                // Invalid: start > end
+                expect(() => validateTimeRange(later, now)).toThrow(TurbineError);
+                expect(() => validateTimeRange(later, now)).toThrow(
+                    /endTime must be greater than startTime/
+                );
+
+                // Check error details
+                try {
+                    validateTimeRange(later, now);
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                    expect((error as TurbineError).details.startTime).toBeDefined();
+                    expect((error as TurbineError).details.endTime).toBeDefined();
+                }
+            });
+        });
+
+        describe("validateTokenPair", () => {
+            it("should validate token pairs correctly", () => {
+                // Valid: distinct tokens
+                expect(() =>
+                    validateTokenPair(USDC.address, WETH.address)
+                ).not.toThrow();
+
+                // Invalid: same token (exact match)
+                expect(() => validateTokenPair(USDC.address, USDC.address)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateTokenPair(USDC.address, USDC.address)).toThrow(
+                    /must be different addresses/
+                );
+
+                // Invalid: same token (case insensitive)
+                expect(() =>
+                    validateTokenPair(
+                        USDC.address,
+                        USDC.address.toLowerCase() as Address
+                    )
+                ).toThrow(TurbineError);
+
+                // Invalid: token0 is NULL_ADDRESS
+                expect(() => validateTokenPair(NULL_ADDRESS, WETH.address)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateTokenPair(NULL_ADDRESS, WETH.address)).toThrow(
+                    /token0 cannot be the NULL_ADDRESS/
+                );
+
+                // Invalid: token1 is NULL_ADDRESS
+                expect(() => validateTokenPair(USDC.address, NULL_ADDRESS)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateTokenPair(USDC.address, NULL_ADDRESS)).toThrow(
+                    /token1 cannot be the NULL_ADDRESS/
+                );
+
+                // Check error details
+                try {
+                    validateTokenPair(USDC.address, USDC.address);
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+
+        describe("validateTimestamp", () => {
+            it("should validate timestamps correctly", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const future = now + 3600n;
+                const past = now - 3600n;
+
+                // Valid: any timestamp with defaults
+                expect(validateTimestamp(now, "timestamp")).toBe(now);
+                expect(validateTimestamp(future, "timestamp")).toBe(future);
+                expect(validateTimestamp(past, "timestamp")).toBe(past);
+
+                // Valid: future with allowFuture=true
+                expect(
+                    validateTimestamp(future, "timestamp", { allowFuture: true })
+                ).toBe(future);
+
+                // Valid: past with allowPast=true
+                expect(validateTimestamp(past, "timestamp", { allowPast: true })).toBe(
+                    past
+                );
+
+                // Invalid: negative timestamp
+                expect(() => validateTimestamp(-1n, "timestamp")).toThrow(TurbineError);
+                expect(() => validateTimestamp(-1n, "timestamp")).toThrow(
+                    /must be non-negative/
+                );
+
+                // Invalid: future with allowFuture=false
+                expect(() =>
+                    validateTimestamp(future, "timestamp", { allowFuture: false })
+                ).toThrow(TurbineError);
+
+                // Invalid: past with allowPast=false
+                expect(() =>
+                    validateTimestamp(past, "timestamp", { allowPast: false })
+                ).toThrow(TurbineError);
+            });
+        });
+
+        describe("validatePrimitiveSignature", () => {
+            it("should validate primitive signatures correctly", () => {
+                // Valid signature
+                expect(() =>
+                    validatePrimitiveSignature(VALID_PRIMITIVE_SIGNATURE, "signature")
+                ).not.toThrow();
+
+                // Missing field: r
+                const missingR = { s: VALID_PRIMITIVE_SIGNATURE.s, yParity: false };
+                expect(() => validatePrimitiveSignature(missingR, "signature")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid r type (string)
+                const invalidR = {
+                    r: "0x123" as any,
+                    s: VALID_PRIMITIVE_SIGNATURE.s,
+                    yParity: false,
+                };
+                expect(() => validatePrimitiveSignature(invalidR, "signature")).toThrow(
+                    TurbineError
+                );
+                expect(() => validatePrimitiveSignature(invalidR, "signature")).toThrow(
+                    /must be a bigint/
+                );
+
+                // Invalid s type (number)
+                const invalidS = {
+                    r: VALID_PRIMITIVE_SIGNATURE.r,
+                    s: 123 as any,
+                    yParity: false,
+                };
+                expect(() => validatePrimitiveSignature(invalidS, "signature")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid yParity type (number)
+                const invalidYParity = {
+                    r: VALID_PRIMITIVE_SIGNATURE.r,
+                    s: VALID_PRIMITIVE_SIGNATURE.s,
+                    yParity: 0 as any,
+                };
+                expect(() =>
+                    validatePrimitiveSignature(invalidYParity, "signature")
+                ).toThrow(TurbineError);
+            });
+        });
+    });
+
+    describe("Array Validators", () => {
+        describe("validateArray", () => {
+            it("should validate arrays correctly", () => {
+                // Valid: empty array
+                const result1 = validateArray(
+                    [],
+                    "testArray",
+                    (item) => item as number
+                );
+                expect(result1).toEqual([]);
+
+                // Valid: array with validator
+                const result2 = validateArray(
+                    [1, 2, 3],
+                    "testArray",
+                    (item) => item as number
+                );
+                expect(result2).toEqual([1, 2, 3]);
+
+                // Invalid: not an array
+                expect(() =>
+                    validateArray({} as any, "testArray", (item) => item)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateArray({} as any, "testArray", (item) => item)
+                ).toThrow(/must be an array/);
+
+                // Invalid: validator throws for an element
+                expect(() =>
+                    validateArray([1, "invalid", 3], "testArray", (item) => {
+                        if (typeof item !== "number") {
+                            throw new TurbineError(
+                                "INPUT_VALIDATION_ERROR",
+                                "Must be number"
+                            );
+                        }
+                        return item;
+                    })
+                ).toThrow(TurbineError);
+            });
+        });
+
+        describe("validateNonEmptyArray", () => {
+            it("should validate non-empty arrays correctly", () => {
+                // Valid: non-empty array
+                const result = validateNonEmptyArray(
+                    [1, 2, 3],
+                    "testArray",
+                    (item) => item as number
+                );
+                expect(result).toEqual([1, 2, 3]);
+
+                // Invalid: empty array
+                expect(() =>
+                    validateNonEmptyArray([], "testArray", (item) => item)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateNonEmptyArray([], "testArray", (item) => item)
+                ).toThrow(/must be a non-empty array/);
+
+                // Invalid: not an array
+                expect(() =>
+                    validateNonEmptyArray({} as any, "testArray", (item) => item)
+                ).toThrow(TurbineError);
+            });
+        });
+    });
+
+    describe("Complex Object Validators", () => {
+        describe("validateOrderIntent", () => {
+            it("should validate order intent correctly", () => {
+                // Helper to create valid intent
+                const createValid = (): OrderIntent => ({
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    midPriceDelta: 500,
+                    startTime: BigInt(Math.floor(Date.now() / 1000)),
+                    endTime: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                });
+
+                // Valid intent
+                expect(() => validateOrderIntent(createValid())).not.toThrow();
+
+                // Missing field: owner
+                const missingOwner = createValid();
+                delete (missingOwner as any).owner;
+                expect(() => validateOrderIntent(missingOwner)).toThrow(TurbineError);
+                expect(() => validateOrderIntent(missingOwner)).toThrow(
+                    /missing required field: owner/
+                );
+
+                // Invalid owner (not an address)
+                const invalidOwner = {
+                    ...createValid(),
+                    owner: "not-an-address" as Address,
+                };
+                expect(() => validateOrderIntent(invalidOwner)).toThrow(TurbineError);
+
+                // Same sell and buy token
+                const sameTokens = { ...createValid(), buyToken: USDC.address };
+                expect(() => validateOrderIntent(sameTokens)).toThrow(TurbineError);
+                expect(() => validateOrderIntent(sameTokens)).toThrow(
+                    /must be different addresses/
+                );
+
+                // Zero sellAmount
+                const zeroAmount = { ...createValid(), sellAmount: 0n };
+                expect(() => validateOrderIntent(zeroAmount)).toThrow(TurbineError);
+                expect(() => validateOrderIntent(zeroAmount)).toThrow(
+                    /must be positive/
+                );
+
+                // Invalid time range (start >= end)
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const invalidTimeRange = {
+                    ...createValid(),
+                    startTime: now,
+                    endTime: now,
+                };
+                expect(() => validateOrderIntent(invalidTimeRange)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateOrderIntent(invalidTimeRange)).toThrow(
+                    /endTime must be greater than startTime/
+                );
+            });
+        });
+
+        describe("validateAddLiquidityIntent", () => {
+            it("should validate add liquidity intent correctly", () => {
+                // Helper to create valid intent
+                const createValid = (): AddLiquidityIntent => ({
+                    owner: ACCOUNT.address,
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 3000,
+                    token0Amount: 1000000n,
+                    token1Amount: 1000000000000000000n,
+                    exact: true,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                });
+
+                // Valid intent
+                expect(() => validateAddLiquidityIntent(createValid())).not.toThrow();
+
+                // Missing field: owner
+                const missingOwner = createValid();
+                delete (missingOwner as any).owner;
+                expect(() => validateAddLiquidityIntent(missingOwner)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateAddLiquidityIntent(missingOwner)).toThrow(
+                    /missing required field: owner/
+                );
+
+                // Same token0 and token1
+                const sameTokens = { ...createValid(), token1: USDC.address };
+                expect(() => validateAddLiquidityIntent(sameTokens)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateAddLiquidityIntent(sameTokens)).toThrow(
+                    /must be different addresses/
+                );
+
+                // Invalid fee (negative)
+                const negativeFee = { ...createValid(), fee: -100 };
+                expect(() => validateAddLiquidityIntent(negativeFee)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateAddLiquidityIntent(negativeFee)).toThrow(
+                    /must be between 0 and 1000000/
+                );
+
+                // Zero token0Amount
+                const zeroAmount = { ...createValid(), token0Amount: 0n };
+                expect(() => validateAddLiquidityIntent(zeroAmount)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateAddLiquidityIntent(zeroAmount)).toThrow(
+                    /must be positive/
+                );
+            });
+        });
+
+        describe("validateRemoveLiquidityIntent", () => {
+            it("should validate remove liquidity intent correctly", () => {
+                // Helper to create valid intent
+                const createValid = (): RemoveLiquidityIntent => ({
+                    owner: ACCOUNT.address,
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 3000,
+                    lpToken: NULL_ADDRESS,
+                    lpTokenAmount: 1000000n,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                });
+
+                // Valid intent
+                expect(() =>
+                    validateRemoveLiquidityIntent(createValid())
+                ).not.toThrow();
+
+                // Missing field: lpToken
+                const missingLpToken = createValid();
+                delete (missingLpToken as any).lpToken;
+                expect(() => validateRemoveLiquidityIntent(missingLpToken)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateRemoveLiquidityIntent(missingLpToken)).toThrow(
+                    /missing required field: lpToken/
+                );
+
+                // NULL_ADDRESS as token0
+                const nullToken0 = { ...createValid(), token0: NULL_ADDRESS };
+                expect(() => validateRemoveLiquidityIntent(nullToken0)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateRemoveLiquidityIntent(nullToken0)).toThrow(
+                    /token0 cannot be the NULL_ADDRESS/
+                );
+
+                // Zero lpTokenAmount
+                const zeroAmount = { ...createValid(), lpTokenAmount: 0n };
+                expect(() => validateRemoveLiquidityIntent(zeroAmount)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateRemoveLiquidityIntent(zeroAmount)).toThrow(
+                    /must be positive/
+                );
+            });
+        });
+
+        describe("validateSignedBatchSignatureTransfer", () => {
+            it("should validate signed batch signature transfer correctly", () => {
+                // Valid complete signature transfer
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(
+                        VALID_SIGNED_BATCH_SIGNATURE_TRANSFER
+                    )
+                ).not.toThrow();
+
+                // Missing signature field
+                const missingSignature = {
+                    permit: VALID_SIGNED_BATCH_SIGNATURE_TRANSFER.permit,
+                };
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(missingSignature)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(missingSignature)
+                ).toThrow(/must have signature and permit properties/);
+
+                // Invalid signature.r type (string instead of bigint)
+                const invalidSignature = {
+                    signature: {
+                        r: "0x123" as any,
+                        s: VALID_PRIMITIVE_SIGNATURE.s,
+                        yParity: false,
+                    },
+                    permit: VALID_SIGNED_BATCH_SIGNATURE_TRANSFER.permit,
+                };
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(invalidSignature)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(invalidSignature)
+                ).toThrow(/must be a bigint/);
+
+                // permit.permitted not array
+                const notArray = {
+                    signature: VALID_PRIMITIVE_SIGNATURE,
+                    permit: {
+                        permitted: "not-an-array" as any,
+                        nonce: 0n,
+                        deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                    },
+                };
+                expect(() => validateSignedBatchSignatureTransfer(notArray)).toThrow(
+                    TurbineError
+                );
+                expect(() => validateSignedBatchSignatureTransfer(notArray)).toThrow(
+                    /must be an array/
+                );
+
+                // Invalid deadline (zero: 0n - should be positive)
+                const zeroDeadline = {
+                    signature: VALID_PRIMITIVE_SIGNATURE,
+                    permit: {
+                        permitted:
+                            VALID_SIGNED_BATCH_SIGNATURE_TRANSFER.permit.permitted,
+                        nonce: 0n,
+                        deadline: 0n,
+                    },
+                };
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(zeroDeadline)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(zeroDeadline)
+                ).toThrow(/must be positive/);
+            });
+        });
+    });
+
+    describe("Permit2 and Liquidity Validators", () => {
+        describe("validateTokenPermissions", () => {
+            it("should validate token permissions correctly", () => {
+                // Valid token permissions
+                expect(() =>
+                    validateTokenPermissions(VALID_TOKEN_PERMISSIONS)
+                ).not.toThrow();
+
+                // Missing token field
+                const missingToken = { amount: 1000n };
+                expect(() => validateTokenPermissions(missingToken)).toThrow(
+                    TurbineError
+                );
+
+                // Missing amount field
+                const missingAmount = { token: USDC.address };
+                expect(() => validateTokenPermissions(missingAmount)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid token (not address)
+                const invalidToken = { token: "invalid", amount: 1000n };
+                expect(() => validateTokenPermissions(invalidToken)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid amount (not positive bigint)
+                const invalidAmount = { token: USDC.address, amount: 0n };
+                expect(() => validateTokenPermissions(invalidAmount)).toThrow(
+                    TurbineError
+                );
+            });
+        });
+
+        describe("validateTokenPermissionsArray", () => {
+            it("should validate token permissions arrays correctly", () => {
+                // Valid array
+                expect(() =>
+                    validateTokenPermissionsArray([VALID_TOKEN_PERMISSIONS])
+                ).not.toThrow();
+
+                // Invalid: not an array
+                expect(() => validateTokenPermissionsArray("not-array" as any)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: wrong length
+                expect(() =>
+                    validateTokenPermissionsArray([VALID_TOKEN_PERMISSIONS], 2)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateTokenPermissionsArray([VALID_TOKEN_PERMISSIONS], 2)
+                ).toThrow(/must have exactly 2 elements/);
+
+                // Invalid element in array
+                expect(() =>
+                    validateTokenPermissionsArray([{ invalid: "data" }])
+                ).toThrow(TurbineError);
+            });
+        });
+
+        describe("validateSignedSignatureTransferOnchain", () => {
+            it("should validate signed signature transfer onchain correctly", () => {
+                const validTransfer = {
+                    signature: VALID_SIGNATURE_HEX,
+                    permit: {
+                        permitted: VALID_TOKEN_PERMISSIONS,
+                        nonce: 0n,
+                        deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                    },
+                };
+
+                // Valid transfer
+                expect(() =>
+                    validateSignedSignatureTransferOnchain(validTransfer)
+                ).not.toThrow();
+
+                // Missing signature
+                const missingSignature = { permit: validTransfer.permit };
+                expect(() =>
+                    validateSignedSignatureTransferOnchain(missingSignature)
+                ).toThrow(TurbineError);
+
+                // Invalid signature (not valid hex)
+                const invalidSig = {
+                    ...validTransfer,
+                    signature: "invalid" as Hex,
+                };
+                expect(() =>
+                    validateSignedSignatureTransferOnchain(invalidSig)
+                ).toThrow(TurbineError);
+
+                // Invalid deadline (zero)
+                const zeroDeadline = {
+                    ...validTransfer,
+                    permit: { ...validTransfer.permit, deadline: 0n },
+                };
+                expect(() =>
+                    validateSignedSignatureTransferOnchain(zeroDeadline)
+                ).toThrow(TurbineError);
+            });
+        });
+
+        describe("validateRemoveLiquidityIntentOnchain", () => {
+            it("should validate remove liquidity intent onchain correctly", () => {
+                const validIntent = {
+                    owner: ACCOUNT.address,
+                    poolId: VALID_HASH,
+                    lpTokenAmount: 1000000n,
+                    salt: "0x" + "1".repeat(64),
+                };
+
+                // Valid intent
+                expect(() =>
+                    validateRemoveLiquidityIntentOnchain(validIntent)
+                ).not.toThrow();
+
+                // Missing field
+                const missingOwner = { ...validIntent };
+                delete (missingOwner as any).owner;
+                expect(() =>
+                    validateRemoveLiquidityIntentOnchain(missingOwner)
+                ).toThrow(TurbineError);
+
+                // Invalid poolId (too short)
+                const invalidPoolId = {
+                    ...validIntent,
+                    poolId: "0x123",
+                };
+                expect(() =>
+                    validateRemoveLiquidityIntentOnchain(invalidPoolId)
+                ).toThrow(TurbineError);
+
+                // Zero lpTokenAmount
+                const zeroAmount = { ...validIntent, lpTokenAmount: 0n };
+                expect(() => validateRemoveLiquidityIntentOnchain(zeroAmount)).toThrow(
+                    TurbineError
+                );
+            });
+        });
+
+        describe("validateAddLiquidityPayload", () => {
+            it("should validate add liquidity payload correctly", () => {
+                const validPayload = {
+                    addLiquidity: {
+                        owner: ACCOUNT.address,
+                        token0: USDC.address,
+                        token1: WETH.address,
+                        fee: 3000,
+                        token0Amount: 1000000n,
+                        token1Amount: 1000000000000000000n,
+                        exact: true,
+                        salt: ("0x" + "1".repeat(64)) as Hex,
+                    },
+                    permitTokens: VALID_SIGNED_BATCH_SIGNATURE_TRANSFER,
+                };
+
+                // Valid payload
+                expect(() => validateAddLiquidityPayload(validPayload)).not.toThrow();
+
+                // Missing addLiquidity
+                const missingAddLiquidity = { permitTokens: validPayload.permitTokens };
+                expect(() => validateAddLiquidityPayload(missingAddLiquidity)).toThrow(
+                    TurbineError
+                );
+
+                // Missing permitTokens
+                const missingPermit = { addLiquidity: validPayload.addLiquidity };
+                expect(() => validateAddLiquidityPayload(missingPermit)).toThrow(
+                    TurbineError
+                );
+            });
+        });
+    });
+
+    describe("Contract Response Validators", () => {
+        describe("validatePoolData", () => {
+            it("should validate pool data correctly", () => {
+                const validPoolData = {
+                    token0: USDC.address,
+                    token1: WETH.address,
+                    fee: 3000,
+                    lpToken: VALID_ADDRESS,
+                    reserve0: 1000000n,
+                    reserve1: 1000000000000000000n,
+                    liquidity: 100000000n,
+                };
+
+                // Valid pool data
+                expect(() => validatePoolData(validPoolData, 0)).not.toThrow();
+
+                // Missing field
+                const missingToken0 = { ...validPoolData };
+                delete (missingToken0 as any).token0;
+                expect(() => validatePoolData(missingToken0, 0)).toThrow(TurbineError);
+
+                // Invalid token pair (same tokens)
+                const sameTokens = { ...validPoolData, token1: USDC.address };
+                expect(() => validatePoolData(sameTokens, 0)).toThrow(TurbineError);
+
+                // Invalid fee
+                const invalidFee = { ...validPoolData, fee: -100 };
+                expect(() => validatePoolData(invalidFee, 0)).toThrow(TurbineError);
+            });
+        });
+
+        describe("validateBalanceResult", () => {
+            it("should validate balance result correctly", () => {
+                // Valid: success status with result
+                const validSuccess = {
+                    status: "success",
+                    result: 1000000n,
+                };
+                expect(() =>
+                    validateBalanceResult(validSuccess, "balance")
+                ).not.toThrow();
+
+                // Valid: failure status
+                const validFailure = { status: "failure" };
+                expect(() =>
+                    validateBalanceResult(validFailure, "balance")
+                ).not.toThrow();
+
+                // Missing status
+                const missingStatus = { result: 1000n };
+                expect(() => validateBalanceResult(missingStatus, "balance")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid status value
+                const invalidStatus = { status: "invalid" };
+                expect(() => validateBalanceResult(invalidStatus, "balance")).toThrow(
+                    TurbineError
+                );
+
+                // Success without result
+                const successNoResult = { status: "success" };
+                expect(() => validateBalanceResult(successNoResult, "balance")).toThrow(
+                    TurbineError
+                );
+            });
+        });
+
+        describe("validateTurbineConfig", () => {
+            it("should validate turbine config correctly", () => {
+                // Valid config
+                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG)).not.toThrow();
+
+                // Missing field
+                const missingField = { ...MOCK_TURBINE_CONFIG };
+                delete (missingField as any).turbineSettlerAddress;
+                expect(() => validateTurbineConfig(missingField)).toThrow(TurbineError);
+
+                // Invalid address
+                const invalidAddress = {
+                    ...MOCK_TURBINE_CONFIG,
+                    turbineSettlerAddress: "invalid",
+                };
+                expect(() => validateTurbineConfig(invalidAddress)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid boolean
+                const invalidBoolean = {
+                    ...MOCK_TURBINE_CONFIG,
+                    submitSettlements: "true",
+                };
+                expect(() => validateTurbineConfig(invalidBoolean)).toThrow(
+                    TurbineError
+                );
+            });
+        });
+    });
+
+    describe("API Response Validators", () => {
+        describe("validateOrderExecutionResponse", () => {
+            it("should validate order execution response correctly", () => {
+                const validExecution = {
+                    tx_hash: VALID_HASH,
+                    block_number: 12345,
+                    sold_amount: "1000000",
+                    bought_amount: "950000",
+                    surplus_buy_amount: "50000",
+                };
+
+                // Valid execution
+                expect(() =>
+                    validateOrderExecutionResponse(validExecution)
+                ).not.toThrow();
+
+                // Missing field
+                const missingTxHash = { ...validExecution };
+                delete (missingTxHash as any).tx_hash;
+                expect(() => validateOrderExecutionResponse(missingTxHash)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid tx_hash (too short)
+                const invalidTxHash = { ...validExecution, tx_hash: "0x123" };
+                expect(() => validateOrderExecutionResponse(invalidTxHash)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid block_number (zero)
+                const invalidBlockNumber = { ...validExecution, block_number: 0 };
+                expect(() =>
+                    validateOrderExecutionResponse(invalidBlockNumber)
+                ).toThrow(TurbineError);
+            });
+        });
+
+        describe("validateOrderStateResponse", () => {
+            it("should validate order state response correctly", () => {
+                const validExecution = {
+                    tx_hash: VALID_HASH,
+                    block_number: 12345,
+                    sold_amount: "1000000",
+                    bought_amount: "950000",
+                    surplus_buy_amount: "50000",
+                };
+
+                const validState = {
+                    hash: VALID_HASH,
+                    status: "Active",
+                    execution: [validExecution],
+                };
+
+                // Valid state
+                expect(() => validateOrderStateResponse(validState)).not.toThrow();
+
+                // Missing field
+                const missingHash = { ...validState };
+                delete (missingHash as any).hash;
+                expect(() => validateOrderStateResponse(missingHash)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid hash
+                const invalidHash = { ...validState, hash: "0x123" };
+                expect(() => validateOrderStateResponse(invalidHash)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid execution (not array)
+                const invalidExecution = { ...validState, execution: "not-array" };
+                expect(() => validateOrderStateResponse(invalidExecution)).toThrow(
+                    TurbineError
+                );
+            });
+        });
+
+        describe("validateLiquidityIntentStateResponse", () => {
+            it("should validate liquidity intent state response correctly", () => {
+                const validState = {
+                    hash: VALID_HASH,
+                    status: "Pending",
+                };
+
+                // Valid state
+                expect(() =>
+                    validateLiquidityIntentStateResponse(validState)
+                ).not.toThrow();
+
+                // Missing field
+                const missingHash = { status: "Pending" };
+                expect(() => validateLiquidityIntentStateResponse(missingHash)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid hash
+                const invalidHash = { hash: "0x123", status: "Pending" };
+                expect(() => validateLiquidityIntentStateResponse(invalidHash)).toThrow(
+                    TurbineError
+                );
+
+                // Invalid status (not in enum)
+                const invalidStatus = { hash: VALID_HASH, status: "InvalidStatus" };
+                expect(() =>
+                    validateLiquidityIntentStateResponse(invalidStatus)
+                ).toThrow(TurbineError);
+                expect(() =>
+                    validateLiquidityIntentStateResponse(invalidStatus)
+                ).toThrow(/invalid value/);
+            });
+        });
+    });
+});

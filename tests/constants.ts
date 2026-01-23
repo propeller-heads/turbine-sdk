@@ -221,3 +221,45 @@ export async function createMockTurbineClient(
 
     return client;
 }
+
+// ============================================================================
+// VALIDATION TEST CONSTANTS
+// ============================================================================
+
+// Valid test data
+export const VALID_ADDRESS = USDC.address;
+export const VALID_HASH =
+    "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+export const VALID_SIGNATURE_HEX = "0x" + "1".repeat(128) + "1b"; // v=27
+
+// Invalid test data
+export const INVALID_ADDRESS_TOO_SHORT = "0x1234";
+export const INVALID_HASH_TOO_SHORT = "0x" + "1".repeat(63);
+export const INVALID_HASH_TOO_LONG = "0x" + "1".repeat(65);
+export const INVALID_SIGNATURE_WRONG_V = "0x" + "1".repeat(128) + "1a"; // v=26
+
+// PrimitiveSignature
+export const VALID_PRIMITIVE_SIGNATURE = {
+    r: BigInt("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"),
+    s: BigInt("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"),
+    yParity: false,
+};
+
+// TokenPermissions
+export const VALID_TOKEN_PERMISSIONS = {
+    token: USDC.address as Address,
+    amount: BigInt("1000000000000000000"),
+};
+
+// SignedBatchSignatureTransfer
+export const VALID_SIGNED_BATCH_SIGNATURE_TRANSFER = {
+    signature: VALID_PRIMITIVE_SIGNATURE,
+    permit: {
+        permitted: [
+            VALID_TOKEN_PERMISSIONS,
+            { token: WETH.address as Address, amount: 1000n },
+        ],
+        nonce: 0n,
+        deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+    },
+};
