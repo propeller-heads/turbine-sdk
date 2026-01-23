@@ -33,7 +33,8 @@ describe("TurbineClient", () => {
 
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
-            const mockOrderId = "test-order-id-123";
+            const mockOrderId =
+                "0x1111111111111111111111111111111111111111111111111111111111111111";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -59,7 +60,10 @@ describe("TurbineClient", () => {
 
     describe("addOrders", () => {
         it("should call Turbine API and return array of order IDs", async () => {
-            const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
+            const mockOrderIds = [
+                "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "0x2222222222222222222222222222222222222222222222222222222222222222",
+            ];
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -91,7 +95,8 @@ describe("TurbineClient", () => {
 
     describe("addLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
-            const mockIntentId = "test-intent-id-123";
+            const mockIntentId =
+                "0x3333333333333333333333333333333333333333333333333333333333333333";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -154,10 +159,16 @@ describe("TurbineClient", () => {
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(
-                    new Response(JSON.stringify({ orderHash: mockOrderHash }), {
-                        status: 200,
-                        statusText: "OK",
-                    })
+                    new Response(
+                        JSON.stringify({
+                            orderHash: mockOrderHash,
+                            message: "Order cancelled successfully",
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
                 );
 
             const result = await withTurbineErrorHandling(() =>
@@ -166,6 +177,7 @@ describe("TurbineClient", () => {
 
             expect(result).toEqual({
                 orderHash: mockOrderHash,
+                message: "Order cancelled successfully",
             });
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
@@ -878,6 +890,180 @@ describe("TurbineClient", () => {
                 "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
             );
             expect(result[0].status).toBe(LiquidityIntentStatus.Pending);
+        });
+    });
+
+    describe("getConfig", () => {
+        it("should return the TurbineConfig", async () => {
+            const client = await createMockTurbineClient();
+            const config = client.getConfig();
+
+            expect(config).toEqual(MOCK_TURBINE_CONFIG);
+            expect(config.turbineSettlerAddress).toBeDefined();
+            expect(config.lpHookAddress).toBeDefined();
+            expect(config.lpRouterAddress).toBeDefined();
+            expect(config.poolManagerAddress).toBeDefined();
+        });
+    });
+
+    describe("computeRemoveLiquidityIntentHash", () => {
+        it("should compute the correct hash for a remove liquidity intent", async () => {
+            const client = await createMockTurbineClient();
+            const intent = {
+                owner: ACCOUNT.address,
+                poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" as Hex,
+                lpTokenAmount: BigInt("1000000000000000000"),
+                salt: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex,
+            };
+
+            const hash = client.computeRemoveLiquidityIntentHash(intent);
+
+            // Hash should be a valid 32-byte hex string
+            expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+        });
+    });
+
+    describe("getAuthStatus", () => {
+        it("should return authenticated status when user is authenticated", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies to return authenticated response
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: true,
+                            address: ACCOUNT.address,
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
+                );
+
+            const result = await withTurbineErrorHandling(() => client.getAuthStatus());
+
+            expect(result.authenticated).toBe(true);
+            expect(result.address).toBe(ACCOUNT.address);
+
+            mockFetchWithCookies.mockRestore();
+        });
+
+        it("should return unauthenticated status when user is not authenticated", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies to return unauthenticated response
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: false,
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
+                );
+
+            const result = await withTurbineErrorHandling(() => client.getAuthStatus());
+
+            expect(result.authenticated).toBe(false);
+            expect(result.address).toBeUndefined();
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
+    describe("logout", () => {
+        it("should call logout endpoint", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response("", {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            await withTurbineErrorHandling(() => client.logout());
+
+            expect(mockFetchWithCookies).toHaveBeenCalledWith("/logout", {
+                method: "POST",
+            });
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
+    describe("getPoolId", () => {
+        it("should compute pool ID from contract", async () => {
+            const client = await createMockTurbineClient();
+            const mockPoolId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" as Hex;
+
+            // Mock simulateContract and readContract
+            const mockSimulateContract = jest
+                .spyOn(client.publicClient, "simulateContract")
+                .mockResolvedValue({
+                    request: {} as any,
+                    result: mockPoolId,
+                } as any);
+
+            const mockReadContract = jest
+                .spyOn(client.publicClient, "readContract")
+                .mockResolvedValue(mockPoolId);
+
+            const poolId = await withTurbineErrorHandling(() =>
+                client.getPoolId(USDC.address, WETH.address, 3000)
+            );
+
+            expect(poolId).toBe(mockPoolId);
+
+            mockSimulateContract.mockRestore();
+            mockReadContract.mockRestore();
+        });
+    });
+
+    describe("createPool", () => {
+        it("should create a pool and return transaction hash", async () => {
+            const client = await createMockTurbineClient();
+            const mockTxHash =
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex;
+
+            // Mock simulateContract, writeContract, and waitForTransactionReceipt
+            const mockSimulateContract = jest
+                .spyOn(client.publicClient, "simulateContract")
+                .mockResolvedValue({
+                    request: {} as any,
+                    result: undefined,
+                } as any);
+
+            const mockWriteContract = jest
+                .spyOn(client.walletClient, "writeContract")
+                .mockResolvedValue(mockTxHash);
+
+            const mockWaitForTransactionReceipt = jest
+                .spyOn(client.publicClient, "waitForTransactionReceipt")
+                .mockResolvedValue({
+                    status: "success",
+                } as any);
+
+            const txHash = await withTurbineErrorHandling(() =>
+                client.createPool(USDC.address, WETH.address, 3000)
+            );
+
+            expect(txHash).toBe(mockTxHash);
+
+            mockSimulateContract.mockRestore();
+            mockWriteContract.mockRestore();
+            mockWaitForTransactionReceipt.mockRestore();
         });
     });
 });

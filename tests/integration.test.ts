@@ -311,4 +311,32 @@ describe("Integration test", () => {
 
         expect(result).toBe(true);
     });
+
+    it("should add liquidity with pre-signed permit", async () => {
+        const client = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
+
+        const pools = await client.getPools();
+        const pool = pools[0];
+
+        const intent: AddLiquidityIntent = {
+            owner: ACCOUNT.address,
+            token0: pool.metadata.token0,
+            token1: pool.metadata.token1,
+            fee: pool.metadata.fee,
+            token0Amount: 10000000n, // 10 USDC
+            token1Amount: 4000000000000000n, // 0.004 WETH
+            exact: true,
+            salt: getRandomSalt(),
+        };
+
+        // Create payload with signed permits
+        const payload = await client.createAddLiquidityData(intent);
+
+        const result = await withTurbineErrorHandling(() =>
+            client.addLiquidityWithSignedPermit(payload)
+        );
+
+        expect(result).toBeDefined();
+        expect(result).toMatch(/^0x[0-9a-f]{64}$/);
+    });
 });
