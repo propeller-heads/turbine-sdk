@@ -27,7 +27,6 @@ if (hashArgs.length === 0) {
 }
 
 const orderHashes = hashArgs.map((hash) => {
-    // Validate hash format using viem's isHash
     if (!isHash(hash)) {
         console.error(`Invalid hash provided: ${hash}`);
         console.error(

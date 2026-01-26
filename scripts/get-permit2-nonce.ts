@@ -28,7 +28,6 @@ if (args.length !== 3) {
 
 const [ownerArg, tokenArg, spenderArg] = args;
 
-// Validate addresses using viem's isAddress function
 function validateAddress(address: string, name: string): Address {
     if (!isAddress(address)) {
         console.error(`Invalid ${name} address: ${address}`);
