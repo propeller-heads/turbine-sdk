@@ -1066,4 +1066,89 @@ describe("TurbineClient", () => {
             mockWaitForTransactionReceipt.mockRestore();
         });
     });
+
+    describe("parseSignature", () => {
+        it("should parse a valid signature with v=27", async () => {
+            const client = await createMockTurbineClient();
+            const validSignature =
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "1b"; // v=27
+
+            const result = (client as any).parseSignature(validSignature);
+
+            expect(result.r).toBe(
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            expect(result.s).toBe(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            expect(result.yParity).toBe("0x0"); // v=27 -> yParity=0
+            expect(result.v).toBe("0x1b");
+        });
+
+        it("should parse a valid signature with v=28", async () => {
+            const client = await createMockTurbineClient();
+            const validSignature =
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "1c"; // v=28
+
+            const result = (client as any).parseSignature(validSignature);
+
+            expect(result.r).toBe(
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            expect(result.s).toBe(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            expect(result.yParity).toBe("0x1"); // v=28 -> yParity=1
+            expect(result.v).toBe("0x1c");
+        });
+
+        it("should throw TurbineError for signature that is too short", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(100); // Too short
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature must be a 65-byte signature");
+        });
+
+        it("should throw TurbineError for signature that is too long", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(150); // Too long
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature must be a 65-byte signature");
+        });
+
+        it("should throw TurbineError for signature with invalid v value", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(128) + "1a"; // v=26 (invalid)
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature has invalid v value");
+        });
+
+        it("should throw TurbineError for signature with invalid hex characters", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "z".repeat(130); // Invalid hex
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature is not a valid hex string");
+        });
+
+        it("should throw TurbineError for signature without 0x prefix", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "a".repeat(130); // Missing 0x prefix
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature is not a valid hex string");
+        });
+    });
 });

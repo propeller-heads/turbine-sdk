@@ -1298,6 +1298,9 @@ export class TurbineClient {
      * Convert viem signature hex string to structured format expected by Turbine API
      */
     private parseSignature(signature: Hex): any {
+        // Validate signature format (0x + 130 hex chars = 65 bytes)
+        validateSignatureHex(signature, "signature");
+
         // Parse the 65-byte signature: 32 bytes r + 32 bytes s + 1 byte v
         const r = signature.slice(0, 66); // 0x + 32 bytes
         const s = `0x${signature.slice(66, 130)}`; // 32 bytes
