@@ -607,7 +607,7 @@ describe("TurbineClient", () => {
 
             expect(fee).toBe(BigInt("0x38d7ea4c68000"));
             expect(mockFetchWithCookies).toHaveBeenCalledWith(
-                "/order_fees",
+                "order_fees",
                 expect.objectContaining({ method: "POST" })
             );
 
