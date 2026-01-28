@@ -33,7 +33,8 @@ describe("TurbineClient", () => {
 
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
-            const mockOrderId = "test-order-id-123";
+            const mockOrderId =
+                "0x1111111111111111111111111111111111111111111111111111111111111111";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -59,7 +60,10 @@ describe("TurbineClient", () => {
 
     describe("addOrders", () => {
         it("should call Turbine API and return array of order IDs", async () => {
-            const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
+            const mockOrderIds = [
+                "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "0x2222222222222222222222222222222222222222222222222222222222222222",
+            ];
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -91,7 +95,8 @@ describe("TurbineClient", () => {
 
     describe("addLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
-            const mockIntentId = "test-intent-id-123";
+            const mockIntentId =
+                "0x3333333333333333333333333333333333333333333333333333333333333333";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -154,10 +159,16 @@ describe("TurbineClient", () => {
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(
-                    new Response(JSON.stringify({ orderHash: mockOrderHash }), {
-                        status: 200,
-                        statusText: "OK",
-                    })
+                    new Response(
+                        JSON.stringify({
+                            orderHash: mockOrderHash,
+                            message: "Order cancelled successfully",
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
                 );
 
             const result = await withTurbineErrorHandling(() =>
@@ -166,6 +177,7 @@ describe("TurbineClient", () => {
 
             expect(result).toEqual({
                 orderHash: mockOrderHash,
+                message: "Order cancelled successfully",
             });
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
@@ -878,6 +890,534 @@ describe("TurbineClient", () => {
                 "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
             );
             expect(result[0].status).toBe(LiquidityIntentStatus.Pending);
+        });
+    });
+
+    describe("liquidity validation", () => {
+        it("should reject addLiquidity with both amounts zero", async () => {
+            const client = await createMockTurbineClient();
+
+            const intent = {
+                ...ADD_LIQUIDITY_INTENT,
+                token0Amount: 0n,
+                token1Amount: 0n,
+            };
+
+            await expect(client.addLiquidity(intent)).rejects.toMatchObject({
+                code: "ZERO_LIQUIDITY",
+            });
+        });
+
+        it("should accept single-sided liquidity (token0 only)", async () => {
+            const mockIntentId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde0";
+            const client = await createMockTurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client, ACCOUNT.address);
+
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(
+                    new Response(JSON.stringify({ intentHash: mockIntentId }), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const intent = {
+                ...ADD_LIQUIDITY_INTENT,
+                token0Amount: 1000000n,
+                token1Amount: 0n,
+            };
+
+            const liquidityId = await withTurbineErrorHandling(() =>
+                client.addLiquidity(intent)
+            );
+
+            expect(liquidityId).toBe(mockIntentId);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
+        });
+
+        it("should accept single-sided liquidity (token1 only)", async () => {
+            const mockIntentId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde1";
+            const client = await createMockTurbineClient();
+
+            // Mock authentication
+            mockAuthentication(client, ACCOUNT.address);
+
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(
+                    new Response(JSON.stringify({ intentHash: mockIntentId }), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const intent = {
+                ...ADD_LIQUIDITY_INTENT,
+                token0Amount: 0n,
+                token1Amount: 1000000n,
+            };
+
+            const liquidityId = await withTurbineErrorHandling(() =>
+                client.addLiquidity(intent)
+            );
+
+            expect(liquidityId).toBe(mockIntentId);
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
+        });
+
+        it("should reject removeLiquidity with zero LP amount", async () => {
+            const client = await createMockTurbineClient();
+
+            const intent = {
+                ...REMOVE_LIQUIDITY_INTENT,
+                lpTokenAmount: 0n,
+            };
+
+            await expect(client.removeLiquidity(intent)).rejects.toMatchObject({
+                code: "INPUT_VALIDATION_ERROR",
+            });
+        });
+    });
+
+    describe("LP estimation", () => {
+        // Test constants matching typical contract values
+        const INITIAL_LP_SCALE = 1_000_000_000_000n; // 10^12
+        const MINIMUM_LIQUIDITY = 100_000n; // 10^5
+        const POOL_FEE = 3000; // 0.3% fee in hundredths of basis points
+
+        it("should estimate initial LP tokens correctly", () => {
+            // (1e18 + 1e18) * 1e12 - 1e5 = 2e30 - 1e5
+            const lp = TurbineClient.estimateInitialLpTokens(
+                1000000000000000000n,
+                1000000000000000000n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY
+            );
+            expect(lp).toBe(2000000000000000000000000000000n - 100000n);
+        });
+
+        it("should return 0 if initial mint results in zero total liquidity", () => {
+            const lp = TurbineClient.estimateInitialLpTokens(
+                0n,
+                0n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY
+            );
+            expect(lp).toBe(0n);
+        });
+
+        it("should handle single-sided initial mint", () => {
+            // 1e18 * 1e12 - 1e5 = 1e30 - 1e5
+            const lp = TurbineClient.estimateInitialLpTokens(
+                1000000000000000000n,
+                0n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY
+            );
+            expect(lp).toBe(1000000000000000000000000000000n - 100000n);
+        });
+
+        it("should estimate LP tokens for subsequent mints with equal ratios", () => {
+            // Adding 100 token0 and 200 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
+            // Ratios are equal (100/200 = 1000/2000), so direct calculation: 500 * 200 / 2000 = 50
+            const result = TurbineClient.estimateLpTokens(
+                100n,
+                200n,
+                1000n,
+                2000n,
+                500n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY
+            );
+            expect(result.lpTokens).toBe(50n);
+            expect(result.actualToken0).toBe(100n);
+            expect(result.actualToken1).toBe(200n);
+        });
+
+        it("should use initial formula when lpSupply is 0", () => {
+            const result = TurbineClient.estimateLpTokens(
+                1000000000000000000n,
+                1000000000000000000n,
+                0n,
+                0n,
+                0n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY
+            );
+            expect(result.lpTokens).toBe(2000000000000000000000000000000n - 100000n);
+        });
+
+        it("should handle proportional mode with mismatched ratios", () => {
+            // Adding 100 token0 and 100 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
+            // User has relatively more token0 (100/100=1 vs 1000/2000=0.5)
+            // Proportional mode: use all of token1, adjust token0
+            // actualToken0 = 100 * 1000 / 2000 = 50
+            // lpTokens = 500 * 100 / 2000 = 25
+            const result = TurbineClient.estimateLpTokens(
+                100n,
+                100n,
+                1000n,
+                2000n,
+                500n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY,
+                false // proportional mode
+            );
+            expect(result.lpTokens).toBe(25n);
+            expect(result.actualToken0).toBe(50n);
+            expect(result.actualToken1).toBe(100n);
+        });
+
+        it("should handle exact mode with fee calculation", () => {
+            // Adding 100 token0 and 100 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
+            // User has relatively more token0 (providedRatioLess = false)
+            // Fee complement = 1_000_000 - 3000 = 997_000
+            // effectivePriceNum = reserve1 * POOL_FEE_PRECISION = 2000 * 1_000_000 = 2_000_000_000
+            // effectivePriceDen = reserve0 * feeComplement = 1000 * 997_000 = 997_000_000
+            // addedValue = 2_000_000_000 * 100 + 100 * 997_000_000 = 200_000_000_000 + 99_700_000_000 = 299_700_000_000
+            // poolValue = 2_000_000_000 * 2000 + 1000 * 997_000_000 = 4_000_000_000_000 + 997_000_000_000 = 4_997_000_000_000
+            // lpTokens = 500 * 299_700_000_000 / 4_997_000_000_000 = 29 (integer division)
+            const result = TurbineClient.estimateLpTokens(
+                100n,
+                100n,
+                1000n,
+                2000n,
+                500n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY,
+                true, // exact mode
+                POOL_FEE
+            );
+            expect(result.lpTokens).toBe(29n);
+            expect(result.actualToken0).toBe(100n);
+            expect(result.actualToken1).toBe(100n);
+        });
+
+        it("should return zero LP for single-sided in proportional mode", () => {
+            // Adding 100 token0 and 0 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
+            // In proportional mode, single-sided additions cannot be made to a balanced pool
+            // because you must provide both tokens in the pool's ratio.
+            // providedRatioLess = 100 * 2000 < 1000 * 0 = false (user has more token0)
+            // actualToken1 = 0, actualToken0 = 0 * 1000 / 2000 = 0
+            // lpTokens = 0
+            const result = TurbineClient.estimateLpTokens(
+                100n,
+                0n,
+                1000n,
+                2000n,
+                500n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY,
+                false // proportional mode
+            );
+            expect(result.lpTokens).toBe(0n);
+            expect(result.actualToken0).toBe(0n);
+            expect(result.actualToken1).toBe(0n);
+        });
+
+        it("should handle single-sided subsequent mint in exact mode", () => {
+            // Adding 100 token0 and 0 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
+            // providedRatioLess = 100 * 2000 < 1000 * 0 = false (user has more token0)
+            // effectivePriceNum = reserve1 * POOL_FEE_PRECISION = 2000 * 1_000_000 = 2_000_000_000
+            // effectivePriceDen = reserve0 * feeComplement = 1000 * 997_000 = 997_000_000
+            // addedValue = 2_000_000_000 * 0 + 100 * 997_000_000 = 99_700_000_000
+            // poolValue = 2_000_000_000 * 2000 + 1000 * 997_000_000 = 4_997_000_000_000
+            // lpTokens = 500 * 99_700_000_000 / 4_997_000_000_000 = 9 (integer division)
+            const result = TurbineClient.estimateLpTokens(
+                100n,
+                0n,
+                1000n,
+                2000n,
+                500n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY,
+                true, // exact mode
+                POOL_FEE
+            );
+            expect(result.lpTokens).toBe(9n);
+            expect(result.actualToken0).toBe(100n);
+            expect(result.actualToken1).toBe(0n);
+        });
+
+        it("should fetch liquidity constants from contract", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock the readContract method for liquidity constants
+            const mockReadContract = jest
+                .spyOn(client.publicClient, "readContract")
+                .mockResolvedValueOnce(MINIMUM_LIQUIDITY)
+                .mockResolvedValueOnce(INITIAL_LP_SCALE);
+
+            const constants = await client.getLiquidityConstants();
+
+            expect(constants.minimumLiquidity).toBe(MINIMUM_LIQUIDITY);
+            expect(constants.initialLpScale).toBe(INITIAL_LP_SCALE);
+
+            mockReadContract.mockRestore();
+        });
+    });
+
+    describe("getConfig", () => {
+        it("should return the TurbineConfig", async () => {
+            const client = await createMockTurbineClient();
+            const config = client.getConfig();
+
+            expect(config).toEqual(MOCK_TURBINE_CONFIG);
+            expect(config.turbineSettlerAddress).toBeDefined();
+            expect(config.lpHookAddress).toBeDefined();
+            expect(config.lpRouterAddress).toBeDefined();
+            expect(config.poolManagerAddress).toBeDefined();
+        });
+    });
+
+    describe("computeRemoveLiquidityIntentHash", () => {
+        it("should compute the correct hash for a remove liquidity intent", async () => {
+            const client = await createMockTurbineClient();
+            const intent = {
+                owner: ACCOUNT.address,
+                poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" as Hex,
+                lpTokenAmount: BigInt("1000000000000000000"),
+                salt: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex,
+            };
+
+            const hash = client.computeRemoveLiquidityIntentHash(intent);
+
+            // Hash should be a valid 32-byte hex string
+            expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+        });
+    });
+
+    describe("getAuthStatus", () => {
+        it("should return authenticated status when user is authenticated", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies to return authenticated response
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: true,
+                            address: ACCOUNT.address,
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
+                );
+
+            const result = await withTurbineErrorHandling(() => client.getAuthStatus());
+
+            expect(result.authenticated).toBe(true);
+            expect(result.address).toBe(ACCOUNT.address);
+
+            mockFetchWithCookies.mockRestore();
+        });
+
+        it("should return unauthenticated status when user is not authenticated", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies to return unauthenticated response
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: false,
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
+                );
+
+            const result = await withTurbineErrorHandling(() => client.getAuthStatus());
+
+            expect(result.authenticated).toBe(false);
+            expect(result.address).toBeUndefined();
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
+    describe("logout", () => {
+        it("should call logout endpoint", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response("", {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            await withTurbineErrorHandling(() => client.logout());
+
+            expect(mockFetchWithCookies).toHaveBeenCalledWith("logout", {
+                method: "POST",
+            });
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
+    describe("getPoolId", () => {
+        it("should compute pool ID from contract", async () => {
+            const client = await createMockTurbineClient();
+            const mockPoolId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" as Hex;
+
+            // Mock simulateContract and readContract
+            const mockSimulateContract = jest
+                .spyOn(client.publicClient, "simulateContract")
+                .mockResolvedValue({
+                    request: {} as any,
+                    result: mockPoolId,
+                } as any);
+
+            const mockReadContract = jest
+                .spyOn(client.publicClient, "readContract")
+                .mockResolvedValue(mockPoolId);
+
+            const poolId = await withTurbineErrorHandling(() =>
+                client.getPoolId(USDC.address, WETH.address, 3000)
+            );
+
+            expect(poolId).toBe(mockPoolId);
+
+            mockSimulateContract.mockRestore();
+            mockReadContract.mockRestore();
+        });
+    });
+
+    describe("createPool", () => {
+        it("should create a pool and return transaction hash", async () => {
+            const client = await createMockTurbineClient();
+            const mockTxHash =
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex;
+
+            // Mock simulateContract, writeContract, and waitForTransactionReceipt
+            const mockSimulateContract = jest
+                .spyOn(client.publicClient, "simulateContract")
+                .mockResolvedValue({
+                    request: {} as any,
+                    result: undefined,
+                } as any);
+
+            const mockWriteContract = jest
+                .spyOn(client.walletClient, "writeContract")
+                .mockResolvedValue(mockTxHash);
+
+            const mockWaitForTransactionReceipt = jest
+                .spyOn(client.publicClient, "waitForTransactionReceipt")
+                .mockResolvedValue({
+                    status: "success",
+                } as any);
+
+            const txHash = await withTurbineErrorHandling(() =>
+                client.createPool(USDC.address, WETH.address, 3000)
+            );
+
+            expect(txHash).toBe(mockTxHash);
+
+            mockSimulateContract.mockRestore();
+            mockWriteContract.mockRestore();
+            mockWaitForTransactionReceipt.mockRestore();
+        });
+    });
+
+    describe("parseSignature", () => {
+        it("should parse a valid signature with v=27", async () => {
+            const client = await createMockTurbineClient();
+            const validSignature =
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "1b"; // v=27
+
+            const result = (client as any).parseSignature(validSignature);
+
+            expect(result.r).toBe(
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            expect(result.s).toBe(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            expect(result.yParity).toBe("0x0"); // v=27 -> yParity=0
+            expect(result.v).toBe("0x1b");
+        });
+
+        it("should parse a valid signature with v=28", async () => {
+            const client = await createMockTurbineClient();
+            const validSignature =
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "1c"; // v=28
+
+            const result = (client as any).parseSignature(validSignature);
+
+            expect(result.r).toBe(
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            expect(result.s).toBe(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            expect(result.yParity).toBe("0x1"); // v=28 -> yParity=1
+            expect(result.v).toBe("0x1c");
+        });
+
+        it("should throw TurbineError for signature that is too short", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(100); // Too short
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature must be a 65-byte signature");
+        });
+
+        it("should throw TurbineError for signature that is too long", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(150); // Too long
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature must be a 65-byte signature");
+        });
+
+        it("should throw TurbineError for signature with invalid v value", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(128) + "1a"; // v=26 (invalid)
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature has invalid v value");
+        });
+
+        it("should throw TurbineError for signature with invalid hex characters", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "z".repeat(130); // Invalid hex
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature is not a valid hex string");
+        });
+
+        it("should throw TurbineError for signature without 0x prefix", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "a".repeat(130); // Missing 0x prefix
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature is not a valid hex string");
         });
     });
 });

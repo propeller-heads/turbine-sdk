@@ -1,6 +1,6 @@
 #!/usr/bin/env ts-node
 
-import { createPublicClient, createWalletClient, Hex, http } from "viem";
+import { createPublicClient, createWalletClient, Hex, http, isHash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { TurbineClient } from "../src/turbineClient";
@@ -25,8 +25,11 @@ if (hashArgs.length === 0) {
 }
 
 const intentHashes = hashArgs.map((hash) => {
-    if (!hash.startsWith("0x")) {
+    if (!isHash(hash)) {
         console.error(`Invalid hash provided: ${hash}`);
+        console.error(
+            "Expected format: 0x followed by 64 hexadecimal characters (32 bytes)"
+        );
         process.exit(1);
     }
     return hash as Hex;
