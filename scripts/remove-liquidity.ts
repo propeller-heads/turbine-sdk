@@ -44,8 +44,8 @@ async function main() {
 
     // Pool configuration
     const pool = {
-        token0: USDC.address,
-        token1: WETH.address,
+        token0: USDC,
+        token1: WETH,
         fee: 3000, // 0.3%
         lpToken: "0x24746c26c7b83ddabbaf384e02c3eb0e7b8cd307",
     };
@@ -63,8 +63,8 @@ async function main() {
     // Create liquidity removal intent
     const removeIntent: RemoveLiquidityIntent = {
         owner: account.address,
-        token0: pool.token0 as Hex,
-        token1: pool.token1 as Hex,
+        token0: pool.token0.address as Hex,
+        token1: pool.token1.address as Hex,
         fee: pool.fee,
         lpToken: pool.lpToken as Hex,
         lpTokenAmount: lpTokenToBurn,
@@ -72,7 +72,9 @@ async function main() {
     };
 
     console.log("\n📊 Liquidity Removal Details:");
-    console.log(`Pool: ${USDC.symbol}/${WETH.symbol} (${pool.fee / 10000}% fee)`);
+    console.log(
+        `Pool: ${pool.token0.symbol}/${pool.token1.symbol} (${pool.fee / 10000}% fee)`
+    );
     console.log(`LP Token: ${pool.lpToken}`);
     console.log(
         `LP Token to burn: ${lpTokenToBurn.toString()} (wei units) (~${(lpTokenToBurn * 100n) / lpTokenBalance}% of balance)`

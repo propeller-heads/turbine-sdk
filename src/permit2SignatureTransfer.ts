@@ -1,6 +1,5 @@
 import { PERMIT2_ADDRESS } from "@uniswap/permit2-sdk";
 import { Address, Hex, PublicClient, WalletClient } from "viem";
-import { CHAIN_ID } from "./config";
 import { toTurbineError } from "./errorHandling";
 import {
     SignatureTransferPermitBatchTransferFrom,
@@ -114,6 +113,8 @@ export async function getSignedSignatureTransfer({
         const owner = (await walletClient.getAddresses())[0];
         const nonce = providedNonce ?? (await getRandomNonce(publicClient, owner));
 
+        const chainId = walletClient.chain?.id ?? (await walletClient.getChainId());
+
         const permitted: TokenPermissions = { token, amount };
         const permit: SignatureTransferPermitTransferFrom = {
             permitted,
@@ -125,7 +126,7 @@ export async function getSignedSignatureTransfer({
             account: walletClient.account!,
             domain: {
                 name: "Permit2",
-                chainId: CHAIN_ID,
+                chainId,
                 verifyingContract: PERMIT2_ADDRESS as Address,
             },
             types: signatureTransferTypes,
@@ -176,6 +177,8 @@ export async function getSignedBatchSignatureTransfer({
         const owner = (await walletClient.getAddresses())[0];
         const nonce = providedNonce ?? (await getRandomNonce(publicClient, owner));
 
+        const chainId = walletClient.chain?.id ?? (await walletClient.getChainId());
+
         const permitted: TokenPermissions[] = tokens.map((token, i) => ({
             token,
             amount: amounts[i],
@@ -191,7 +194,7 @@ export async function getSignedBatchSignatureTransfer({
             account: walletClient.account!,
             domain: {
                 name: "Permit2",
-                chainId: CHAIN_ID,
+                chainId,
                 verifyingContract: PERMIT2_ADDRESS as Address,
             },
             types: signatureTransferTypes,
