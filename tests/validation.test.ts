@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { Address, Hex } from "viem";
+import { Address, Hex, hexToBytes, bytesToHex } from "viem";
 import { TurbineError } from "../src/errorHandling";
 import { NULL_ADDRESS, USDC, WETH } from "../src/constants";
 import {
@@ -39,6 +39,10 @@ import {
     validateOrderExecutionResponse,
     validateOrderStateResponse,
     validateLiquidityIntentStateResponse,
+    hexToSignature,
+    parseSignatureBytes,
+    signatureToComponents,
+    bytesToBigInt,
 } from "../src/validation";
 import {
     ACCOUNT,
@@ -1472,6 +1476,140 @@ describe("Validation Functions", () => {
                 expect(() =>
                     validateLiquidityIntentStateResponse(invalidStatus)
                 ).toThrow(/invalid value/);
+            });
+        });
+    });
+
+    describe("Signature Utilities", () => {
+        const VALID_SIGNATURE_HEX = ("0x" + "1".repeat(128) + "1b") as Hex; // v=27
+        const VALID_SIGNATURE_V1 = ("0x" + "2".repeat(128) + "01") as Hex; // v=1
+
+        describe("hexToSignature", () => {
+            it("should convert valid 65-byte hex to Uint8Array (v=27)", () => {
+                const signature = hexToSignature(VALID_SIGNATURE_HEX);
+                expect(signature).toBeInstanceOf(Uint8Array);
+                expect(signature.length).toBe(65);
+                expect(signature[64]).toBe(27); // v value
+            });
+
+            it("should accept v=28", () => {
+                const sigV28 = ("0x" + "1".repeat(128) + "1c") as Hex; // v=28
+                const signature = hexToSignature(sigV28);
+                expect(signature[64]).toBe(28);
+            });
+
+            it("should accept v=0 (EIP-2098)", () => {
+                const sigV0 = ("0x" + "1".repeat(128) + "00") as Hex; // v=0
+                const signature = hexToSignature(sigV0);
+                expect(signature[64]).toBe(0);
+            });
+
+            it("should accept v=1 (EIP-2098)", () => {
+                const signature = hexToSignature(VALID_SIGNATURE_V1);
+                expect(signature[64]).toBe(1);
+            });
+        });
+
+        describe("parseSignatureBytes", () => {
+            it("should parse signature into r, s, v components", () => {
+                const signature = hexToSignature(VALID_SIGNATURE_HEX);
+                const { r, s, v } = parseSignatureBytes(signature);
+
+                expect(r).toBeInstanceOf(Uint8Array);
+                expect(r.length).toBe(32);
+                expect(s).toBeInstanceOf(Uint8Array);
+                expect(s.length).toBe(32);
+                expect(v).toBe(27);
+            });
+
+            it("should correctly extract v=1", () => {
+                const signature = hexToSignature(VALID_SIGNATURE_V1);
+                const { v } = parseSignatureBytes(signature);
+                expect(v).toBe(1);
+            });
+
+            it("should correctly extract components for v=28", () => {
+                const sigV28 = ("0x" + "a".repeat(64) + "b".repeat(64) + "1c") as Hex;
+                const signature = hexToSignature(sigV28);
+                const { r, s, v } = parseSignatureBytes(signature);
+
+                expect(r[0]).toBe(0xaa);
+                expect(r[31]).toBe(0xaa);
+                expect(s[0]).toBe(0xbb);
+                expect(s[31]).toBe(0xbb);
+                expect(v).toBe(28);
+            });
+        });
+
+        describe("signatureToComponents", () => {
+            it("should convert signature to bigint components (v=27)", () => {
+                const signature = hexToSignature(VALID_SIGNATURE_HEX);
+                const { r, s, yParity } = signatureToComponents(signature);
+
+                expect(typeof r).toBe("bigint");
+                expect(typeof s).toBe("bigint");
+                expect(typeof yParity).toBe("boolean");
+                expect(yParity).toBe(false); // v=27 → yParity=false
+            });
+
+            it("should convert v=28 to yParity=true", () => {
+                const sigV28 = ("0x" + "1".repeat(128) + "1c") as Hex; // v=28
+                const signature = hexToSignature(sigV28);
+                const { yParity } = signatureToComponents(signature);
+                expect(yParity).toBe(true);
+            });
+
+            it("should convert v=0 to yParity=false", () => {
+                const sigV0 = ("0x" + "1".repeat(128) + "00") as Hex; // v=0
+                const signature = hexToSignature(sigV0);
+                const { yParity } = signatureToComponents(signature);
+                expect(yParity).toBe(false);
+            });
+
+            it("should convert v=1 to yParity=true", () => {
+                const signature = hexToSignature(VALID_SIGNATURE_V1);
+                const { yParity } = signatureToComponents(signature);
+                expect(yParity).toBe(true);
+            });
+
+            it("should correctly convert specific r, s values", () => {
+                const rHex = "0x" + "1".repeat(64);
+                const sHex = "0x" + "f".repeat(64);
+                const sigHex = (rHex + sHex.slice(2) + "1b") as Hex;
+
+                const signature = hexToSignature(sigHex);
+                const { r, s } = signatureToComponents(signature);
+
+                expect(r).toBe(BigInt(rHex));
+                expect(s).toBe(BigInt("0x" + "f".repeat(64)));
+            });
+        });
+
+        describe("bytesToBigInt", () => {
+            it("should convert bytes to bigint", () => {
+                const bytes = new Uint8Array([0x01, 0x02, 0x03]);
+                const value = bytesToBigInt(bytes);
+                expect(value).toBe(0x010203n);
+            });
+
+            it("should handle zero", () => {
+                const bytes = new Uint8Array([0x00]);
+                const value = bytesToBigInt(bytes);
+                expect(value).toBe(0n);
+            });
+
+            it("should handle large values", () => {
+                const bytes = new Uint8Array(32).fill(0xff);
+                const value = bytesToBigInt(bytes);
+                const expected =
+                    0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffn;
+                expect(value).toBe(expected);
+            });
+
+            it("should handle empty bytes", () => {
+                const bytes = new Uint8Array([]);
+                const value = bytesToBigInt(bytes);
+                expect(value).toBe(0n);
             });
         });
     });

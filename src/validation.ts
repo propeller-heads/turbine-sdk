@@ -11,7 +11,7 @@
  * - Response layer: Validate API responses
  */
 
-import { Address, Hex, isAddress, isHex } from "viem";
+import { Address, Hex, isAddress, isHex, hexToBytes, bytesToHex } from "viem";
 import { TurbineError } from "./errorHandling";
 import { NULL_ADDRESS } from "./constants";
 import {
@@ -303,6 +303,7 @@ export function validateHash(value: unknown, fieldName: string): Hex {
 /**
  * Validates that a value is a valid signature (0x + 130 hex characters = 65 bytes)
  * Used for validating raw signature format before conversion
+ * Validates via Uint8Array for v value checking (simpler than string manipulation).
  *
  * @param value - The value to validate
  * @param fieldName - Name of the field being validated (for error messages)
@@ -312,6 +313,7 @@ export function validateHash(value: unknown, fieldName: string): Hex {
 export function validateSignatureHex(value: unknown, fieldName: string): Hex {
     const hexValue = validateHex(value, fieldName);
 
+    // Validate length (must check string length since viem pads odd-length hex)
     if (hexValue.length !== 132) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
@@ -325,8 +327,11 @@ export function validateSignatureHex(value: unknown, fieldName: string): Hex {
         );
     }
 
-    // Validate v value (last byte should be 27 or 28, or 0 or 1 for EIP-2098)
-    const v = parseInt(hexValue.slice(130, 132), 16);
+    // Convert to Uint8Array for v value validation
+    const bytes = hexToBytes(hexValue);
+
+    // Validate v value using array access
+    const v = bytes[64];
     if (v !== 27 && v !== 28 && v !== 0 && v !== 1) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
@@ -1329,4 +1334,72 @@ export function validateLiquidityIntentStateResponse(value: unknown): void {
             }
         );
     }
+}
+
+// ============================================================================
+// SIGNATURE UTILITIES
+// ============================================================================
+
+/**
+ * Convert hex string to 65-byte signature.
+ * Does not validate - caller should validate using validateSignatureHex if needed.
+ *
+ * @param hex - 132-character hex string (0x + 130 hex chars)
+ * @returns 65-byte signature
+ */
+export function hexToSignature(hex: Hex): Uint8Array {
+    return hexToBytes(hex);
+}
+
+/**
+ * Parse a 65-byte signature into its components.
+ *
+ * @param signature - 65-byte signature (r: 32, s: 32, v: 1)
+ * @returns Object with r, s, and v components
+ */
+export function parseSignatureBytes(signature: Uint8Array): {
+    r: Uint8Array; // 32 bytes
+    s: Uint8Array; // 32 bytes
+    v: number; // 1 byte (27/28 or 0/1)
+} {
+    return {
+        r: signature.slice(0, 32),
+        s: signature.slice(32, 64),
+        v: signature[64],
+    };
+}
+
+/**
+ * Convert a 65-byte signature to bigint components.
+ * This format is used in the PrimitiveSignature interface.
+ *
+ * @param signature - 65-byte signature
+ * @returns Object with bigint r, s and boolean yParity
+ */
+export function signatureToComponents(signature: Uint8Array): {
+    r: bigint;
+    s: bigint;
+    yParity: boolean;
+} {
+    const { r, s, v } = parseSignatureBytes(signature);
+
+    return {
+        r: bytesToBigInt(r),
+        s: bytesToBigInt(s),
+        yParity: v === 28 || v === 1, // Convert v (27/28 or 0/1) to yParity (false/true)
+    };
+}
+
+/**
+ * Convert Uint8Array to BigInt.
+ * Interprets bytes as big-endian unsigned integer.
+ *
+ * @param bytes - Byte array to convert
+ * @returns BigInt representation
+ */
+export function bytesToBigInt(bytes: Uint8Array): bigint {
+    if (bytes.length === 0) {
+        return 0n;
+    }
+    return BigInt(bytesToHex(bytes));
 }

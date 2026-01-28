@@ -1,6 +1,7 @@
 import {
     Address,
     BaseError,
+    bytesToHex,
     ContractFunctionRevertedError,
     encodeAbiParameters,
     getAddress,
@@ -65,7 +66,6 @@ import {
     validateString,
     validateObject,
     validateBoolean,
-    validatePrimitiveSignature,
     validateOrderStateResponse,
     validateLiquidityIntentStateResponse,
     validateAddLiquidityPayload,
@@ -76,6 +76,9 @@ import {
     validatePoolData,
     validateBalanceResult,
     validateTurbineConfig,
+    hexToSignature,
+    signatureToComponents,
+    parseSignatureBytes,
 } from "./validation";
 
 export class TurbineClient {
@@ -1301,17 +1304,20 @@ export class TurbineClient {
         // Validate signature format (0x + 130 hex chars = 65 bytes)
         validateSignatureHex(signature, "signature");
 
-        // Parse the 65-byte signature: 32 bytes r + 32 bytes s + 1 byte v
-        const r = signature.slice(0, 66); // 0x + 32 bytes
-        const s = `0x${signature.slice(66, 130)}`; // 32 bytes
-        const v = parseInt(signature.slice(130, 132), 16); // 1 byte
+        // Convert to bytes and parse components
+        const sigBytes = hexToSignature(signature);
+        const { r, s, v } = parseSignatureBytes(sigBytes);
+
+        // Convert components to hex format expected by API
+        const rHex = bytesToHex(r);
+        const sHex = bytesToHex(s);
 
         // Convert v (27/28) to yParity (0/1)
         const yParity = v === 28 ? "0x1" : "0x0";
 
         return {
-            r: r,
-            s: s,
+            r: rHex,
+            s: sHex,
             yParity: yParity,
             v: `0x${v.toString(16)}`,
         };
@@ -1514,22 +1520,15 @@ export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
 export function getRandomSalt(): Hex {
     const randomBytes = new Uint8Array(32);
     crypto.getRandomValues(randomBytes);
-    return `0x${Array.from(randomBytes)
-        .map((byte) => byte.toString(16).padStart(2, "0"))
-        .join("")}`;
+    return bytesToHex(randomBytes);
 }
 
 export function convertSignature(sig: Hex): PrimitiveSignature {
     const validatedSig = validateSignatureHex(sig, "signature");
 
-    const v = parseInt(validatedSig.slice(130, 132), 16);
-
-    const primitiveSignature = {
-        r: BigInt(`0x${validatedSig.slice(2, 66)}`),
-        s: BigInt(`0x${validatedSig.slice(66, 130)}`),
-        yParity: v === 28 || v === 1, // Convert v (27/28 or 0/1) to y_parity (false/true)
-    };
-    return validatePrimitiveSignature(primitiveSignature, "convertedSignature");
+    // Convert hex signature to bytes and extract components
+    const sigBytes = hexToSignature(validatedSig);
+    return signatureToComponents(sigBytes);
 }
 
 /** Helps serializing BigInts into JSON */
