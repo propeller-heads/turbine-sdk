@@ -414,10 +414,10 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted order hash.
      */
     async addOrder(intent: OrderIntent): Promise<string> {
-        const validatedIntent = validate.validateOrderIntent(intent);
+        intent = validate.validateOrderIntent(intent);
 
         const address = await this.ensureAuthenticated();
-        if (getAddress(address) !== getAddress(validatedIntent.owner)) {
+        if (getAddress(address) !== getAddress(intent.owner)) {
             throw new TurbineError(
                 "UNAUTHORIZED",
                 "Authenticated user does not match order owner."
@@ -425,7 +425,7 @@ export class TurbineClient {
         }
 
         try {
-            const payload = await this.createAddOrderData(validatedIntent);
+            const payload = await this.createAddOrderData(intent);
             const response = await this.callApiEndpoint(payload, "add_order");
 
             if (!response.ok) {
@@ -461,7 +461,7 @@ export class TurbineClient {
      */
     async addOrders(intents: OrderIntent[]): Promise<string[]> {
         // Validate array is non-empty and validate each intent
-        const validatedIntents = validate.validateNonEmptyArray(
+        intents = validate.validateNonEmptyArray(
             intents,
             "addOrders intents",
             (intent, _) => validate.validateOrderIntent(intent)
@@ -469,9 +469,7 @@ export class TurbineClient {
 
         const address = await this.ensureAuthenticated();
         if (
-            validatedIntents.some(
-                (intent) => getAddress(intent.owner) !== getAddress(address)
-            )
+            intents.some((intent) => getAddress(intent.owner) !== getAddress(address))
         ) {
             throw new TurbineError(
                 "UNAUTHORIZED",
@@ -481,7 +479,7 @@ export class TurbineClient {
 
         try {
             const payloads = await Promise.all(
-                validatedIntents.map((intent) => this.createAddOrderData(intent))
+                intents.map((intent) => this.createAddOrderData(intent))
             );
             const response = await this.callApiEndpoint(payloads, "add_orders");
 
@@ -519,10 +517,10 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidity(intent: AddLiquidityIntent): Promise<string> {
-        const validatedIntent = validate.validateAddLiquidityIntent(intent);
+        intent = validate.validateAddLiquidityIntent(intent);
 
         try {
-            const payload = await this.createAddLiquidityData(validatedIntent);
+            const payload = await this.createAddLiquidityData(intent);
             return await this.addLiquidityWithSignedPermit(payload);
         } catch (error) {
             throw toTurbineError(error);
@@ -535,10 +533,10 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async removeLiquidity(intent: RemoveLiquidityIntent): Promise<string> {
-        const validatedIntent = validate.validateRemoveLiquidityIntent(intent);
+        intent = validate.validateRemoveLiquidityIntent(intent);
 
         const address = await this.ensureAuthenticated();
-        if (getAddress(validatedIntent.owner) !== getAddress(address)) {
+        if (getAddress(intent.owner) !== getAddress(address)) {
             throw new TurbineError(
                 "UNAUTHORIZED",
                 "Authenticated user does not match the intent owner."
@@ -575,13 +573,13 @@ export class TurbineClient {
      * @returns A Promise that resolves to the response message from the API.
      */
     async cancelOrder(orderHash: Hex): Promise<{ orderHash: string; message: string }> {
-        const validatedHash = validate.validateHash(orderHash, "orderHash");
+        orderHash = validate.validateHash(orderHash, "orderHash");
 
         await this.ensureAuthenticated();
 
         try {
             const payload: CancelOrderPayload = {
-                orderHash: validatedHash,
+                orderHash: orderHash,
             };
 
             const response = await this.callApiEndpoint(payload, "cancel_order");
@@ -622,7 +620,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of `OrderState` objects.
      */
     async getOrderStates(orderHashes: Hex[]): Promise<OrderState[]> {
-        const validatedHashes = validate.validateNonEmptyArray(
+        orderHashes = validate.validateNonEmptyArray(
             orderHashes,
             "getOrderStates orderHashes",
             (hash, index) =>
@@ -633,7 +631,7 @@ export class TurbineClient {
 
         try {
             const payload: GetOrderStatesPayload = {
-                orderHashes: validatedHashes,
+                orderHashes: orderHashes,
             };
 
             const response = await this.callApiEndpoint(payload, "order_states");
@@ -673,7 +671,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of liquidity intent state objects.
      */
     async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentState[]> {
-        const validatedHashes = validate.validateNonEmptyArray(
+        const orderHashes = validate.validateNonEmptyArray(
             intentHashes,
             "getLiquidityIntents intentHashes",
             (hash, index) => validate.validateHash(hash, `intentHashes[${index}]`)
@@ -683,7 +681,7 @@ export class TurbineClient {
         try {
             const response = await this.fetchWithCookies("liquidity_intent_states", {
                 method: "POST",
-                body: JSON.stringify({ intentHashes: validatedHashes }),
+                body: JSON.stringify({ intentHashes: orderHashes }),
             });
 
             if (!response.ok) {
@@ -858,7 +856,7 @@ export class TurbineClient {
      * @throws {TurbineError} If the transaction fails or is reverted
      */
     async executePendingRemoveLiquidityIntentsOnchain(hashes: Hex[]): Promise<void> {
-        const validatedHashes = validate.validateNonEmptyArray(
+        const orderHashes = validate.validateNonEmptyArray(
             hashes,
             "executePendingRemoveLiquidityIntentsOnchain hashes",
             (hash, index) => validate.validateHash(hash, `hashes[${index}]`)
@@ -868,7 +866,7 @@ export class TurbineClient {
             address: this.config.lpRouterAddress,
             abi: turbineLiquidityRouterABI,
             functionName: "executePendingIntents",
-            args: [validatedHashes],
+            args: [orderHashes],
             account: this.walletClient.account!,
             chain: this.publicClient.chain!,
         });
@@ -1044,13 +1042,13 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of OrderSettledAmount objects containing order hash and executed sell amount
      */
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
-        const validatedHashes = validate.validateNonEmptyArray(
+        orderHashes = validate.validateNonEmptyArray(
             orderHashes,
             "getSettledAmounts orderHashes",
             (hash, index) => validate.validateHash(hash, `orderHashes[${index}]`)
         );
 
-        let states = await this.getOrderStates(validatedHashes);
+        let states = await this.getOrderStates(orderHashes);
         return states.map((state) => ({
             hash: validate.validateHash(state.hash, "state.hash"),
             executedSellAmount: validate.validateBigInt(
@@ -1066,12 +1064,12 @@ export class TurbineClient {
      * @returns A Promise that resolves to a bigint containing the fee expressed in absolute amount of the buy token.
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
-        const validatedIntent = validate.validateOrderIntent(intent);
+        intent = validate.validateOrderIntent(intent);
 
         try {
             const response = await this.fetchWithCookies("order_fees", {
                 method: "POST",
-                body: JSON.stringify(validatedIntent, bigIntReplacer),
+                body: JSON.stringify(intent, bigIntReplacer),
             });
 
             if (!response.ok) {
