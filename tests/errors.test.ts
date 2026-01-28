@@ -344,8 +344,9 @@ describe("TurbineClient Error Handling", () => {
 
             await client.addOrders([]).catch((error) => {
                 expect(error).toBeInstanceOf(TurbineError);
-                expect(error.code).toBe("UNEXPECTED_ADD_ORDER_RESPONSE");
+                expect(error.code).toBe("INPUT_VALIDATION_ERROR");
                 expect(error.message).toBeTruthy();
+                expect(error.message).toContain("non-empty array");
             });
         });
     });

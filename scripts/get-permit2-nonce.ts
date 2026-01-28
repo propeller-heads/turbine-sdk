@@ -11,7 +11,7 @@
 // Set following environment variables before running the script:
 //   RPC_URL: URL of the RPC endpoint
 
-import { createPublicClient, http, Address } from "viem";
+import { createPublicClient, http, Address, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { getNonce } from "../src/permit2";
 import { RPC_URL } from "../src/config";
@@ -28,12 +28,11 @@ if (args.length !== 3) {
 
 const [ownerArg, tokenArg, spenderArg] = args;
 
-// Validate addresses
 function validateAddress(address: string, name: string): Address {
-    if (!address.startsWith("0x") || address.length !== 42) {
+    if (!isAddress(address)) {
         console.error(`Invalid ${name} address: ${address}`);
         console.error(
-            "Address must be a valid Ethereum address (0x followed by 40 hex characters)"
+            "Address must be a valid Ethereum address (0x followed by 40 hexadecimal characters)"
         );
         process.exit(1);
     }

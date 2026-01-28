@@ -33,7 +33,8 @@ describe("TurbineClient", () => {
 
     describe("addOrder", () => {
         it("should call Turbine API and return order ID", async () => {
-            const mockOrderId = "test-order-id-123";
+            const mockOrderId =
+                "0x1111111111111111111111111111111111111111111111111111111111111111";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -59,7 +60,10 @@ describe("TurbineClient", () => {
 
     describe("addOrders", () => {
         it("should call Turbine API and return array of order IDs", async () => {
-            const mockOrderIds = ["test-order-id-123", "test-order-id-456"];
+            const mockOrderIds = [
+                "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "0x2222222222222222222222222222222222222222222222222222222222222222",
+            ];
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -91,7 +95,8 @@ describe("TurbineClient", () => {
 
     describe("addLiquidity", () => {
         it("should call Turbine API and return intent ID", async () => {
-            const mockIntentId = "test-intent-id-123";
+            const mockIntentId =
+                "0x3333333333333333333333333333333333333333333333333333333333333333";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -154,10 +159,16 @@ describe("TurbineClient", () => {
             const mockCallAPI = jest
                 .spyOn(client as any, "callApiEndpoint")
                 .mockResolvedValue(
-                    new Response(JSON.stringify({ orderHash: mockOrderHash }), {
-                        status: 200,
-                        statusText: "OK",
-                    })
+                    new Response(
+                        JSON.stringify({
+                            orderHash: mockOrderHash,
+                            message: "Order cancelled successfully",
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
                 );
 
             const result = await withTurbineErrorHandling(() =>
@@ -166,6 +177,7 @@ describe("TurbineClient", () => {
 
             expect(result).toEqual({
                 orderHash: mockOrderHash,
+                message: "Order cancelled successfully",
             });
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
@@ -897,7 +909,8 @@ describe("TurbineClient", () => {
         });
 
         it("should accept single-sided liquidity (token0 only)", async () => {
-            const mockIntentId = "test-intent-id-single-sided-0";
+            const mockIntentId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde0";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -927,7 +940,8 @@ describe("TurbineClient", () => {
         });
 
         it("should accept single-sided liquidity (token1 only)", async () => {
-            const mockIntentId = "test-intent-id-single-sided-1";
+            const mockIntentId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde1";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -965,7 +979,7 @@ describe("TurbineClient", () => {
             };
 
             await expect(client.removeLiquidity(intent)).rejects.toMatchObject({
-                code: "ZERO_LIQUIDITY",
+                code: "INPUT_VALIDATION_ERROR",
             });
         });
     });
@@ -1145,6 +1159,265 @@ describe("TurbineClient", () => {
             expect(constants.initialLpScale).toBe(INITIAL_LP_SCALE);
 
             mockReadContract.mockRestore();
+        });
+    });
+
+    describe("getConfig", () => {
+        it("should return the TurbineConfig", async () => {
+            const client = await createMockTurbineClient();
+            const config = client.getConfig();
+
+            expect(config).toEqual(MOCK_TURBINE_CONFIG);
+            expect(config.turbineSettlerAddress).toBeDefined();
+            expect(config.lpHookAddress).toBeDefined();
+            expect(config.lpRouterAddress).toBeDefined();
+            expect(config.poolManagerAddress).toBeDefined();
+        });
+    });
+
+    describe("computeRemoveLiquidityIntentHash", () => {
+        it("should compute the correct hash for a remove liquidity intent", async () => {
+            const client = await createMockTurbineClient();
+            const intent = {
+                owner: ACCOUNT.address,
+                poolId: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" as Hex,
+                lpTokenAmount: BigInt("1000000000000000000"),
+                salt: "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex,
+            };
+
+            const hash = client.computeRemoveLiquidityIntentHash(intent);
+
+            // Hash should be a valid 32-byte hex string
+            expect(hash).toMatch(/^0x[0-9a-f]{64}$/);
+        });
+    });
+
+    describe("getAuthStatus", () => {
+        it("should return authenticated status when user is authenticated", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies to return authenticated response
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: true,
+                            address: ACCOUNT.address,
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
+                );
+
+            const result = await withTurbineErrorHandling(() => client.getAuthStatus());
+
+            expect(result.authenticated).toBe(true);
+            expect(result.address).toBe(ACCOUNT.address);
+
+            mockFetchWithCookies.mockRestore();
+        });
+
+        it("should return unauthenticated status when user is not authenticated", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies to return unauthenticated response
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: false,
+                        }),
+                        {
+                            status: 200,
+                            statusText: "OK",
+                        }
+                    )
+                );
+
+            const result = await withTurbineErrorHandling(() => client.getAuthStatus());
+
+            expect(result.authenticated).toBe(false);
+            expect(result.address).toBeUndefined();
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
+    describe("logout", () => {
+        it("should call logout endpoint", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock fetchWithCookies
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    new Response("", {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            await withTurbineErrorHandling(() => client.logout());
+
+            expect(mockFetchWithCookies).toHaveBeenCalledWith("logout", {
+                method: "POST",
+            });
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
+
+    describe("getPoolId", () => {
+        it("should compute pool ID from contract", async () => {
+            const client = await createMockTurbineClient();
+            const mockPoolId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" as Hex;
+
+            // Mock simulateContract and readContract
+            const mockSimulateContract = jest
+                .spyOn(client.publicClient, "simulateContract")
+                .mockResolvedValue({
+                    request: {} as any,
+                    result: mockPoolId,
+                } as any);
+
+            const mockReadContract = jest
+                .spyOn(client.publicClient, "readContract")
+                .mockResolvedValue(mockPoolId);
+
+            const poolId = await withTurbineErrorHandling(() =>
+                client.getPoolId(USDC.address, WETH.address, 3000)
+            );
+
+            expect(poolId).toBe(mockPoolId);
+
+            mockSimulateContract.mockRestore();
+            mockReadContract.mockRestore();
+        });
+    });
+
+    describe("createPool", () => {
+        it("should create a pool and return transaction hash", async () => {
+            const client = await createMockTurbineClient();
+            const mockTxHash =
+                "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" as Hex;
+
+            // Mock simulateContract, writeContract, and waitForTransactionReceipt
+            const mockSimulateContract = jest
+                .spyOn(client.publicClient, "simulateContract")
+                .mockResolvedValue({
+                    request: {} as any,
+                    result: undefined,
+                } as any);
+
+            const mockWriteContract = jest
+                .spyOn(client.walletClient, "writeContract")
+                .mockResolvedValue(mockTxHash);
+
+            const mockWaitForTransactionReceipt = jest
+                .spyOn(client.publicClient, "waitForTransactionReceipt")
+                .mockResolvedValue({
+                    status: "success",
+                } as any);
+
+            const txHash = await withTurbineErrorHandling(() =>
+                client.createPool(USDC.address, WETH.address, 3000)
+            );
+
+            expect(txHash).toBe(mockTxHash);
+
+            mockSimulateContract.mockRestore();
+            mockWriteContract.mockRestore();
+            mockWaitForTransactionReceipt.mockRestore();
+        });
+    });
+
+    describe("parseSignature", () => {
+        it("should parse a valid signature with v=27", async () => {
+            const client = await createMockTurbineClient();
+            const validSignature =
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "1b"; // v=27
+
+            const result = (client as any).parseSignature(validSignature);
+
+            expect(result.r).toBe(
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            expect(result.s).toBe(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            expect(result.yParity).toBe("0x0"); // v=27 -> yParity=0
+            expect(result.v).toBe("0x1b");
+        });
+
+        it("should parse a valid signature with v=28", async () => {
+            const client = await createMockTurbineClient();
+            const validSignature =
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" +
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" +
+                "1c"; // v=28
+
+            const result = (client as any).parseSignature(validSignature);
+
+            expect(result.r).toBe(
+                "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            );
+            expect(result.s).toBe(
+                "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            );
+            expect(result.yParity).toBe("0x1"); // v=28 -> yParity=1
+            expect(result.v).toBe("0x1c");
+        });
+
+        it("should throw TurbineError for signature that is too short", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(100); // Too short
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature must be a 65-byte signature");
+        });
+
+        it("should throw TurbineError for signature that is too long", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(150); // Too long
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature must be a 65-byte signature");
+        });
+
+        it("should throw TurbineError for signature with invalid v value", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "a".repeat(128) + "1a"; // v=26 (invalid)
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature has invalid v value");
+        });
+
+        it("should throw TurbineError for signature with invalid hex characters", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "0x" + "z".repeat(130); // Invalid hex
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature is not a valid hex string");
+        });
+
+        it("should throw TurbineError for signature without 0x prefix", async () => {
+            const client = await createMockTurbineClient();
+            const invalidSignature = "a".repeat(130); // Missing 0x prefix
+
+            expect(() => {
+                (client as any).parseSignature(invalidSignature);
+            }).toThrow("signature is not a valid hex string");
         });
     });
 });
