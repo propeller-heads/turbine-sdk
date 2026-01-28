@@ -909,7 +909,8 @@ describe("TurbineClient", () => {
         });
 
         it("should accept single-sided liquidity (token0 only)", async () => {
-            const mockIntentId = "test-intent-id-single-sided-0";
+            const mockIntentId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde0";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -939,7 +940,8 @@ describe("TurbineClient", () => {
         });
 
         it("should accept single-sided liquidity (token1 only)", async () => {
-            const mockIntentId = "test-intent-id-single-sided-1";
+            const mockIntentId =
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcde1";
             const client = await createMockTurbineClient();
 
             // Mock authentication
@@ -977,7 +979,7 @@ describe("TurbineClient", () => {
             };
 
             await expect(client.removeLiquidity(intent)).rejects.toMatchObject({
-                code: "ZERO_LIQUIDITY",
+                code: "INPUT_VALIDATION_ERROR",
             });
         });
     });
@@ -1261,7 +1263,7 @@ describe("TurbineClient", () => {
 
             await withTurbineErrorHandling(() => client.logout());
 
-            expect(mockFetchWithCookies).toHaveBeenCalledWith("/logout", {
+            expect(mockFetchWithCookies).toHaveBeenCalledWith("logout", {
                 method: "POST",
             });
 

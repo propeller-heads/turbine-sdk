@@ -1201,13 +1201,24 @@ describe("Validation Functions", () => {
                     /must be between 0 and 1000000/
                 );
 
-                // Zero token0Amount
-                const zeroAmount = { ...createValid(), token0Amount: 0n };
-                expect(() => validateAddLiquidityIntent(zeroAmount)).toThrow(
+                // Single zero amount is allowed (single-sided liquidity)
+                const zeroToken0 = { ...createValid(), token0Amount: 0n };
+                expect(() => validateAddLiquidityIntent(zeroToken0)).not.toThrow();
+
+                const zeroToken1 = { ...createValid(), token1Amount: 0n };
+                expect(() => validateAddLiquidityIntent(zeroToken1)).not.toThrow();
+
+                // Both zero amounts should throw
+                const bothZero = {
+                    ...createValid(),
+                    token0Amount: 0n,
+                    token1Amount: 0n,
+                };
+                expect(() => validateAddLiquidityIntent(bothZero)).toThrow(
                     TurbineError
                 );
-                expect(() => validateAddLiquidityIntent(zeroAmount)).toThrow(
-                    /must be positive/
+                expect(() => validateAddLiquidityIntent(bothZero)).toThrow(
+                    /At least one token amount must be greater than zero/
                 );
             });
         });
@@ -1255,7 +1266,7 @@ describe("Validation Functions", () => {
                     TurbineError
                 );
                 expect(() => validateRemoveLiquidityIntent(zeroAmount)).toThrow(
-                    /must be positive/
+                    /removeLiquidityIntent.lpTokenAmount must be positive/
                 );
             });
         });

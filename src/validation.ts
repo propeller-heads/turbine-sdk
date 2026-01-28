@@ -210,6 +210,27 @@ export function validatePositiveBigInt(value: unknown, fieldName: string): bigin
 }
 
 /**
+ * Validates that a value is a non-negative bigint (>= 0)
+ * @param value - The value to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @returns The validated non-negative bigint
+ * @throws TurbineError if validation fails
+ */
+export function validateNonNegativeBigInt(value: unknown, fieldName: string): bigint {
+    const bigIntValue = validateBigInt(value, fieldName);
+
+    if (bigIntValue < 0n) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be non-negative (>= 0), got ${bigIntValue}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+
+    return bigIntValue;
+}
+
+/**
  * Validates that a value is an object (non-null)
  * @param value - The value to validate
  * @param fieldName - Name of the field being validated (for error messages)
@@ -763,13 +784,21 @@ export function validateAddLiquidityIntent(intent: unknown): AddLiquidityIntent 
             token0: validateAddress,
             token1: validateAddress,
             fee: validateFee,
-            token0Amount: validatePositiveBigInt,
-            token1Amount: validatePositiveBigInt,
+            token0Amount: validateNonNegativeBigInt,
+            token1Amount: validateNonNegativeBigInt,
             exact: validateBoolean,
             salt: validateHex,
         },
         "addLiquidityIntent"
     );
+
+    // Check that at least one amount is positive (allow single-sided liquidity)
+    if (validated.token0Amount === 0n && validated.token1Amount === 0n) {
+        throw new TurbineError(
+            "ZERO_LIQUIDITY",
+            "At least one token amount must be greater than zero for liquidity addition."
+        );
+    }
 
     // Relationship validation
     validateTokenPair(validated.token0, validated.token1);
@@ -798,6 +827,14 @@ export function validateRemoveLiquidityIntent(intent: unknown): RemoveLiquidityI
         },
         "removeLiquidityIntent"
     );
+
+    // Check that LP token amount is positive
+    if (validated.lpTokenAmount === 0n) {
+        throw new TurbineError(
+            "ZERO_LIQUIDITY",
+            "LP token amount must be greater than zero for liquidity removal."
+        );
+    }
 
     // Relationship validation
     validateTokenPair(validated.token0, validated.token1);
