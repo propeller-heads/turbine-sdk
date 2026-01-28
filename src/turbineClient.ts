@@ -250,17 +250,17 @@ export class TurbineClient {
         const feeBigInt = BigInt(fee);
         const feeComplement = TurbineClient.POOL_FEE_PRECISION - feeBigInt;
 
-        // Mid price is reserve1/reserve0 (token1 per token0)
+        // Reserve ratio is reserve1/reserve0 (token1 per token0)
         // We represent it as numerator=reserve1, denominator=reserve0
         let effectivePriceNum: bigint;
         let effectivePriceDen: bigint;
 
         if (providedRatioLess) {
-            // effective_mid_price = mid_price * fee_factor
+            // effective_price = reserve_ratio * fee_factor
             effectivePriceNum = reserve1 * feeComplement;
             effectivePriceDen = reserve0 * TurbineClient.POOL_FEE_PRECISION;
         } else {
-            // effective_mid_price = mid_price / fee_factor
+            // effective_price = reserve_ratio / fee_factor
             effectivePriceNum = reserve1 * TurbineClient.POOL_FEE_PRECISION;
             effectivePriceDen = reserve0 * feeComplement;
         }
