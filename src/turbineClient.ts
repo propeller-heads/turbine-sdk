@@ -51,6 +51,7 @@ import {
     getSignedBatchSignatureTransfer,
     getSignedSignatureTransfer,
 } from "./permit2SignatureTransfer";
+import { buildApiUrl } from "./utils";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -372,7 +373,7 @@ export class TurbineClient {
         endpoint: string,
         options: RequestInit = {}
     ): Promise<Response> {
-        const url = `${this.turbineApiUrl}${endpoint}`;
+        const url = buildApiUrl(this.turbineApiUrl, endpoint);
         const headers = this.createHeaders(options.headers as Record<string, string>);
 
         const response = await fetch(url, {
@@ -634,7 +635,7 @@ export class TurbineClient {
         await this.ensureAuthenticated();
 
         try {
-            const response = await this.fetchWithCookies("/liquidity_intent_states", {
+            const response = await this.fetchWithCookies("liquidity_intent_states", {
                 method: "POST",
                 body: JSON.stringify({ intentHashes }),
             });
@@ -980,7 +981,7 @@ export class TurbineClient {
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
         try {
-            const response = await this.fetchWithCookies("/order_fees", {
+            const response = await this.fetchWithCookies("order_fees", {
                 method: "POST",
                 body: JSON.stringify(intent, bigIntReplacer),
             });
@@ -1188,7 +1189,7 @@ export class TurbineClient {
 
         try {
             // Get nonce - session cookies handled automatically
-            const nonceResponse = await this.fetchWithCookies("/nonce", {
+            const nonceResponse = await this.fetchWithCookies("nonce", {
                 method: "POST",
             });
             const nonce: string = await nonceResponse.json();
@@ -1213,7 +1214,7 @@ export class TurbineClient {
             const structuredSignature = this.parseSignature(signature);
 
             // Verify with signed message - session cookies handled automatically
-            const verifyResponse = await this.fetchWithCookies("/verify", {
+            const verifyResponse = await this.fetchWithCookies("verify", {
                 method: "POST",
                 body: JSON.stringify({
                     message,
@@ -1235,7 +1236,7 @@ export class TurbineClient {
      */
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
         try {
-            const response = await this.fetchWithCookies("/me");
+            const response = await this.fetchWithCookies("me");
             if (!response.ok) {
                 return { authenticated: false };
             }
@@ -1255,7 +1256,7 @@ export class TurbineClient {
      */
     async logout(): Promise<void> {
         try {
-            await this.fetchWithCookies("/logout", { method: "POST" });
+            await this.fetchWithCookies("logout", { method: "POST" });
         } catch (error) {
             // Server handles session cleanup, so we don't need to do anything locally
             throw toTurbineError(error);
@@ -1289,7 +1290,7 @@ export class TurbineClient {
             }
 
             // Re-check auth status after waiting
-            const response = await this.fetchWithCookies("/me");
+            const response = await this.fetchWithCookies("me");
             if (response.ok) {
                 const authStatus = await response.json();
                 if (authStatus.authenticated && authStatus.address) {
@@ -1301,7 +1302,7 @@ export class TurbineClient {
         this.authenticationInProgress = true;
 
         try {
-            const response = await this.fetchWithCookies("/me");
+            const response = await this.fetchWithCookies("me");
 
             if (response.ok) {
                 const authStatus = await response.json();
@@ -1363,7 +1364,7 @@ export class TurbineClient {
             | GetOrderStatesPayload,
         endpoint: string
     ) {
-        return await this.fetchWithCookies(`/${endpoint}`, {
+        return await this.fetchWithCookies(endpoint, {
             method: "POST",
             body: JSON.stringify(payload, bigIntReplacer),
         });
@@ -1556,7 +1557,7 @@ export async function getUserPositions(
  */
 export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig> {
     try {
-        const response = await fetch(`${turbineApiUrl}/config`);
+        const response = await fetch(buildApiUrl(turbineApiUrl, "config"));
         if (!response.ok) {
             throw await unsuccessfulResponseToTurbineError(response);
         }
@@ -1578,7 +1579,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
  */
 export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
     try {
-        const response = await fetch(`${turbineApiUrl}/status`);
+        const response = await fetch(buildApiUrl(turbineApiUrl, "status"));
         if (!response.ok) {
             throw await unsuccessfulResponseToTurbineError(response);
         }

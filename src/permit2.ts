@@ -7,7 +7,6 @@ import {
     PermitSingleData,
 } from "@uniswap/permit2-sdk";
 import { Address, Hex, maxUint160, PublicClient, WalletClient } from "viem";
-import { CHAIN_ID } from "./config";
 import {
     AllowanceTransferPermitBatch,
     AllowanceTransferPermitSingle,
@@ -172,18 +171,20 @@ export async function getSignature(
     wallet: WalletClient,
     permitType: "PermitSingle" | "PermitBatch" = "PermitSingle"
 ): Promise<Hex> {
+    const chainId = wallet.chain?.id ?? (await wallet.getChainId());
+
     let permitData: PermitSingleData | PermitBatchData;
     if (permitType === "PermitSingle") {
         permitData = AllowanceTransfer.getPermitData(
             permit as PermitSingle,
             PERMIT2_ADDRESS,
-            CHAIN_ID // TODO use chainId from wallet?
+            chainId
         ) as PermitSingleData;
     } else if (permitType === "PermitBatch") {
         permitData = AllowanceTransfer.getPermitData(
             permit as PermitBatch,
             PERMIT2_ADDRESS,
-            CHAIN_ID // TODO use chainId from wallet?
+            chainId
         ) as PermitBatchData;
     } else {
         throw new TurbineError("SDK_ERROR", "Invalid permit type");
