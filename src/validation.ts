@@ -18,8 +18,15 @@ import {
     OrderIntent,
     AddLiquidityIntent,
     RemoveLiquidityIntent,
+    RemoveLiquidityIntentOnchain,
     LiquidityIntentStatus,
     PrimitiveSignature,
+    TokenPermissions,
+    SignedBatchSignatureTransfer,
+    SignatureTransferPermitBatchTransferFrom,
+    SignedSignatureTransferOnchain,
+    SignatureTransferPermitTransferFrom,
+    TurbineConfig,
 } from "./models";
 
 // ============================================================================
@@ -642,6 +649,67 @@ export function validateNonEmptyArray<T>(
 }
 
 // ============================================================================
+// OBJECT FIELD VALIDATORS
+// ============================================================================
+
+/**
+ * Validates multiple fields of an object using provided validators.
+ * This helper reduces boilerplate in complex object validators by:
+ * - Checking all required fields exist
+ * - Applying validators to each field
+ * - Automatically constructing field paths (e.g., "orderIntent.owner")
+ *
+ * @param obj - The object to validate (already validated as an object)
+ * @param fieldValidators - Map of field names to validator functions
+ * @param contextName - Context name for error messages (e.g., "orderIntent")
+ * @returns Validated object with all fields typed correctly
+ * @throws TurbineError if any field is missing or invalid
+ *
+ * @example
+ * const validated = validateFields<OrderIntent>(intent, {
+ *     owner: validateAddress,
+ *     sellAmount: validatePositiveBigInt,
+ *     partialFill: validateBoolean,
+ *     endTime: (v, n) => validateTimestamp(v, n, { allowPast: false })
+ * }, "orderIntent");
+ */
+export function validateFields<T>(
+    obj: unknown,
+    fieldValidators: Record<string, (val: unknown, name: string) => any>,
+    contextName: string
+): T {
+    // First, validate it's an object
+    const validObj = validateObject(obj, contextName);
+
+    // Check all required fields exist
+    const missingFields: string[] = [];
+    for (const field of Object.keys(fieldValidators)) {
+        if (!(field in validObj)) {
+            missingFields.push(field);
+        }
+    }
+
+    if (missingFields.length > 0) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${contextName} is missing required field${missingFields.length > 1 ? "s" : ""}: ${missingFields.join(", ")}`,
+            { contextName, missingFields, receivedValue: obj }
+        );
+    }
+
+    // Validate each field
+    const validated: any = {};
+    const objAny = validObj as any;
+
+    for (const [field, validator] of Object.entries(fieldValidators)) {
+        const fieldPath = `${contextName}.${field}`;
+        validated[field] = validator(objAny[field], fieldPath);
+    }
+
+    return validated as T;
+}
+
+// ============================================================================
 // COMPLEX OBJECT VALIDATORS
 // ============================================================================
 
@@ -654,84 +722,30 @@ export function validateNonEmptyArray<T>(
  * @throws TurbineError if validation fails
  */
 export function validateOrderIntent(intent: unknown): OrderIntent {
-    const obj = validateObject(intent, "orderIntent");
-
-    // Validate all fields exist
-    const requiredFields = [
-        "owner",
-        "sellToken",
-        "buyToken",
-        "sellAmount",
-        "minBuyAmount",
-        "midPriceDelta",
-        "startTime",
-        "endTime",
-        "partialFill",
-        "callData",
-        "callDataTarget",
-        "salt",
-    ];
-
-    for (const field of requiredFields) {
-        if (!(field in obj)) {
-            throw new TurbineError(
-                "INPUT_VALIDATION_ERROR",
-                `orderIntent is missing required field: ${field}`,
-                { field, receivedValue: intent }
-            );
-        }
-    }
-
-    const intentAny = obj as any;
-
-    // Validate each field
-    const owner = validateAddress(intentAny.owner, "orderIntent.owner");
-    const sellToken = validateAddress(intentAny.sellToken, "orderIntent.sellToken");
-    const buyToken = validateAddress(intentAny.buyToken, "orderIntent.buyToken");
-    const sellAmount = validatePositiveBigInt(
-        intentAny.sellAmount,
-        "orderIntent.sellAmount"
+    const validated = validateFields<OrderIntent>(
+        intent,
+        {
+            owner: validateAddress,
+            sellToken: validateAddress,
+            buyToken: validateAddress,
+            sellAmount: validatePositiveBigInt,
+            minBuyAmount: validatePositiveBigInt,
+            midPriceDelta: validateMidPriceDelta,
+            startTime: validateTimestamp,
+            endTime: (v, n) => validateTimestamp(v, n, { allowPast: false }),
+            partialFill: validateBoolean,
+            callData: validateHex,
+            callDataTarget: validateAddress,
+            salt: validateHex,
+        },
+        "orderIntent"
     );
-    const minBuyAmount = validatePositiveBigInt(
-        intentAny.minBuyAmount,
-        "orderIntent.minBuyAmount"
-    );
-    const midPriceDelta = validateMidPriceDelta(
-        intentAny.midPriceDelta,
-        "orderIntent.midPriceDelta"
-    );
-    const startTime = validateTimestamp(intentAny.startTime, "orderIntent.startTime");
-    const endTime = validateTimestamp(intentAny.endTime, "orderIntent.endTime", {
-        allowPast: false,
-    });
-    const partialFill = validateBoolean(
-        intentAny.partialFill,
-        "orderIntent.partialFill"
-    );
-    const callData = validateHex(intentAny.callData, "orderIntent.callData");
-    const callDataTarget = validateAddress(
-        intentAny.callDataTarget,
-        "orderIntent.callDataTarget"
-    );
-    const salt = validateHex(intentAny.salt, "orderIntent.salt");
 
-    validateTimeRange(startTime, endTime);
-    validateTokenPair(sellToken, buyToken);
+    // Relationship validation
+    validateTimeRange(validated.startTime, validated.endTime);
+    validateTokenPair(validated.sellToken, validated.buyToken);
 
-    return {
-        owner,
-        sellToken,
-        buyToken,
-        sellAmount,
-        minBuyAmount,
-        midPriceDelta,
-        startTime,
-        endTime,
-        partialFill,
-        callData,
-        callDataTarget,
-        salt,
-    };
+    return validated;
 }
 
 /**
@@ -742,58 +756,25 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
  * @throws TurbineError if validation fails
  */
 export function validateAddLiquidityIntent(intent: unknown): AddLiquidityIntent {
-    const obj = validateObject(intent, "addLiquidityIntent");
-
-    const requiredFields = [
-        "owner",
-        "token0",
-        "token1",
-        "fee",
-        "token0Amount",
-        "token1Amount",
-        "exact",
-        "salt",
-    ];
-
-    for (const field of requiredFields) {
-        if (!(field in obj)) {
-            throw new TurbineError(
-                "INPUT_VALIDATION_ERROR",
-                `addLiquidityIntent is missing required field: ${field}`,
-                { field, receivedValue: intent }
-            );
-        }
-    }
-
-    const intentAny = obj as any;
-
-    const owner = validateAddress(intentAny.owner, "addLiquidityIntent.owner");
-    const token0 = validateAddress(intentAny.token0, "addLiquidityIntent.token0");
-    const token1 = validateAddress(intentAny.token1, "addLiquidityIntent.token1");
-    const fee = validateFee(intentAny.fee, "addLiquidityIntent.fee");
-    const token0Amount = validatePositiveBigInt(
-        intentAny.token0Amount,
-        "addLiquidityIntent.token0Amount"
+    const validated = validateFields<AddLiquidityIntent>(
+        intent,
+        {
+            owner: validateAddress,
+            token0: validateAddress,
+            token1: validateAddress,
+            fee: validateFee,
+            token0Amount: validatePositiveBigInt,
+            token1Amount: validatePositiveBigInt,
+            exact: validateBoolean,
+            salt: validateHex,
+        },
+        "addLiquidityIntent"
     );
-    const token1Amount = validatePositiveBigInt(
-        intentAny.token1Amount,
-        "addLiquidityIntent.token1Amount"
-    );
-    const exact = validateBoolean(intentAny.exact, "addLiquidityIntent.exact");
-    const salt = validateHex(intentAny.salt, "addLiquidityIntent.salt");
 
-    validateTokenPair(token0, token1);
+    // Relationship validation
+    validateTokenPair(validated.token0, validated.token1);
 
-    return {
-        owner,
-        token0,
-        token1,
-        fee,
-        token0Amount,
-        token1Amount,
-        exact,
-        salt,
-    };
+    return validated;
 }
 
 /**
@@ -804,52 +785,24 @@ export function validateAddLiquidityIntent(intent: unknown): AddLiquidityIntent 
  * @throws TurbineError if validation fails
  */
 export function validateRemoveLiquidityIntent(intent: unknown): RemoveLiquidityIntent {
-    const obj = validateObject(intent, "removeLiquidityIntent");
-
-    const requiredFields = [
-        "owner",
-        "token0",
-        "token1",
-        "fee",
-        "lpToken",
-        "lpTokenAmount",
-        "salt",
-    ];
-
-    for (const field of requiredFields) {
-        if (!(field in obj)) {
-            throw new TurbineError(
-                "INPUT_VALIDATION_ERROR",
-                `removeLiquidityIntent is missing required field: ${field}`,
-                { field, receivedValue: intent }
-            );
-        }
-    }
-
-    const intentAny = obj as any;
-
-    const owner = validateAddress(intentAny.owner, "removeLiquidityIntent.owner");
-    const token0 = validateAddress(intentAny.token0, "removeLiquidityIntent.token0");
-    const token1 = validateAddress(intentAny.token1, "removeLiquidityIntent.token1");
-    const fee = validateFee(intentAny.fee, "removeLiquidityIntent.fee");
-    const lpToken = validateAddress(intentAny.lpToken, "removeLiquidityIntent.lpToken");
-    const lpTokenAmount = validatePositiveBigInt(
-        intentAny.lpTokenAmount,
-        "removeLiquidityIntent.lpTokenAmount"
+    const validated = validateFields<RemoveLiquidityIntent>(
+        intent,
+        {
+            owner: validateAddress,
+            token0: validateAddress,
+            token1: validateAddress,
+            fee: validateFee,
+            lpToken: validateAddress,
+            lpTokenAmount: validatePositiveBigInt,
+            salt: validateHex,
+        },
+        "removeLiquidityIntent"
     );
-    const salt = validateHex(intentAny.salt, "removeLiquidityIntent.salt");
 
-    validateTokenPair(token0, token1);
+    // Relationship validation
+    validateTokenPair(validated.token0, validated.token1);
 
-    return {
-        owner,
-        token0,
-        token1,
-        fee,
-        lpToken,
-        lpTokenAmount,
-        salt,
-    };
+    return validated;
 }
 
 // ============================================================================
@@ -860,22 +813,18 @@ export function validateRemoveLiquidityIntent(intent: unknown): RemoveLiquidityI
  * Validates a TokenPermissions object
  *
  * @param value - The value to validate
+ * @returns The validated token permissions
  * @throws TurbineError if validation fails
  */
-export function validateTokenPermissions(value: unknown): void {
-    const obj = validateObject(value, "tokenPermissions");
-
-    if (!("token" in obj) || !("amount" in obj)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "tokenPermissions must have token and amount properties",
-            { receivedValue: value }
-        );
-    }
-
-    const tp = obj as any;
-    validateAddress(tp.token, "tokenPermissions.token");
-    validatePositiveBigInt(tp.amount, "tokenPermissions.amount");
+export function validateTokenPermissions(value: unknown): TokenPermissions {
+    return validateFields<TokenPermissions>(
+        value,
+        {
+            token: validateAddress,
+            amount: validatePositiveBigInt,
+        },
+        "tokenPermissions"
+    );
 }
 
 /**
@@ -929,55 +878,51 @@ export function validateTokenPermissionsArray(
  * @throws TurbineError if validation fails
  */
 export function validateSignedBatchSignatureTransfer(value: unknown): void {
-    const obj = validateObject(value, "signedBatchSignatureTransfer");
+    // Helper validator for permitted array
+    const validatePermittedArray = (
+        v: unknown,
+        fieldName: string
+    ): TokenPermissions[] => {
+        if (!Array.isArray(v)) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName} must be an array for batch signature transfer`,
+                { fieldName, receivedValue: v }
+            );
+        }
+        return v.map((item, index) => {
+            try {
+                return validateTokenPermissions(item);
+            } catch (error) {
+                if (error instanceof TurbineError) {
+                    throw new TurbineError(
+                        error.code,
+                        `${fieldName}[${index}]: ${error.message}`,
+                        error.details
+                    );
+                }
+                throw error;
+            }
+        });
+    };
 
-    // Validate signature and permit fields exist
-    if (!("signature" in obj) || !("permit" in obj)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "signedBatchSignatureTransfer must have signature and permit properties",
-            { receivedValue: value }
-        );
-    }
-
-    // Validate signature is a PrimitiveSignature
-    validatePrimitiveSignature((obj as any).signature, "signature");
-
-    // Validate permit structure
-    const permit = (obj as any).permit;
-    const permitObj = validateObject(permit, "permit");
-
-    if (
-        !("permitted" in permitObj) ||
-        !("nonce" in permitObj) ||
-        !("deadline" in permitObj)
-    ) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "permit must have permitted, nonce, and deadline properties",
-            { receivedValue: permit }
-        );
-    }
-
-    const permitAny = permitObj as any;
-
-    // Validate permitted is an array (for batch transfers)
-    if (!Array.isArray(permitAny.permitted)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "permit.permitted must be an array for batch signature transfer",
-            { receivedValue: permitAny.permitted }
-        );
-    }
-
-    // Validate each TokenPermissions in the array
-    validateTokenPermissionsArray(permitAny.permitted);
-
-    // Validate nonce (can be 0 or positive)
-    validateBigInt(permitAny.nonce, "permit.nonce");
-
-    // Validate deadline is positive
-    validatePositiveBigInt(permitAny.deadline, "permit.deadline");
+    validateFields<SignedBatchSignatureTransfer>(
+        value,
+        {
+            signature: validatePrimitiveSignature,
+            permit: (v, n) =>
+                validateFields<SignatureTransferPermitBatchTransferFrom>(
+                    v,
+                    {
+                        permitted: validatePermittedArray,
+                        nonce: validateBigInt,
+                        deadline: validatePositiveBigInt,
+                    },
+                    n
+                ),
+        },
+        "signedBatchSignatureTransfer"
+    );
 }
 
 /**
@@ -985,41 +930,29 @@ export function validateSignedBatchSignatureTransfer(value: unknown): void {
  * Used for onchain permit transfers with raw signature hex
  *
  * @param value - The value to validate
+ * @returns The validated signed signature transfer
  * @throws TurbineError if validation fails
  */
-export function validateSignedSignatureTransferOnchain(value: unknown): void {
-    const obj = validateObject(value, "signedSignatureTransferOnchain");
-
-    if (!("signature" in obj) || !("permit" in obj)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "signedSignatureTransferOnchain must have signature and permit properties",
-            { receivedValue: value }
-        );
-    }
-
-    validateSignatureHex((obj as any).signature, "signature");
-
-    const permit = (obj as any).permit;
-    const permitObj = validateObject(permit, "permit");
-
-    if (
-        !("permitted" in permitObj) ||
-        !("nonce" in permitObj) ||
-        !("deadline" in permitObj)
-    ) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "permit must have permitted, nonce, and deadline properties",
-            { receivedValue: permit }
-        );
-    }
-
-    const permitAny = permitObj as any;
-
-    validateTokenPermissions(permitAny.permitted);
-    validateBigInt(permitAny.nonce, "permit.nonce");
-    validatePositiveBigInt(permitAny.deadline, "permit.deadline");
+export function validateSignedSignatureTransferOnchain(
+    value: unknown
+): SignedSignatureTransferOnchain {
+    return validateFields<SignedSignatureTransferOnchain>(
+        value,
+        {
+            signature: validateSignatureHex,
+            permit: (v, n) =>
+                validateFields<SignatureTransferPermitTransferFrom>(
+                    v,
+                    {
+                        permitted: validateTokenPermissions,
+                        nonce: validateBigInt,
+                        deadline: validatePositiveBigInt,
+                    },
+                    n
+                ),
+        },
+        "signedSignatureTransferOnchain"
+    );
 }
 
 /**
@@ -1029,28 +962,16 @@ export function validateSignedSignatureTransferOnchain(value: unknown): void {
  * @throws TurbineError if validation fails
  */
 export function validateRemoveLiquidityIntentOnchain(intent: unknown): void {
-    const obj = validateObject(intent, "removeLiquidityIntentOnchain");
-
-    const requiredFields = ["owner", "poolId", "lpTokenAmount", "salt"];
-    for (const field of requiredFields) {
-        if (!(field in obj)) {
-            throw new TurbineError(
-                "INPUT_VALIDATION_ERROR",
-                `removeLiquidityIntentOnchain is missing required field: ${field}`,
-                { field, receivedValue: intent }
-            );
-        }
-    }
-
-    const intentAny = obj as any;
-
-    validateAddress(intentAny.owner, "removeLiquidityIntentOnchain.owner");
-    validateHash(intentAny.poolId, "removeLiquidityIntentOnchain.poolId");
-    validatePositiveBigInt(
-        intentAny.lpTokenAmount,
-        "removeLiquidityIntentOnchain.lpTokenAmount"
+    validateFields<RemoveLiquidityIntentOnchain>(
+        intent,
+        {
+            owner: validateAddress,
+            poolId: validateHash,
+            lpTokenAmount: validatePositiveBigInt,
+            salt: validateHex,
+        },
+        "removeLiquidityIntentOnchain"
     );
-    validateHex(intentAny.salt, "removeLiquidityIntentOnchain.salt");
 }
 
 /**
@@ -1090,40 +1011,22 @@ export function validateAddLiquidityPayload(payload: unknown): void {
  * @throws TurbineError if validation fails
  */
 export function validatePoolData(poolData: unknown, index: number): void {
-    const obj = validateObject(poolData, `poolData[${index}]`);
+    const validated = validateFields<any>(
+        poolData,
+        {
+            token0: validateAddress,
+            token1: validateAddress,
+            fee: validateFee,
+            lpToken: validateAddress,
+            reserve0: validateBigIntConvertible,
+            reserve1: validateBigIntConvertible,
+            liquidity: validateBigIntConvertible,
+        },
+        `poolData[${index}]`
+    );
 
-    const requiredFields = [
-        "token0",
-        "token1",
-        "fee",
-        "lpToken",
-        "reserve0",
-        "reserve1",
-        "liquidity",
-    ];
-    for (const field of requiredFields) {
-        if (!(field in obj)) {
-            throw new TurbineError(
-                "INPUT_VALIDATION_ERROR",
-                `poolData[${index}] is missing required field: ${field}`,
-                { field, receivedValue: poolData }
-            );
-        }
-    }
-
-    const poolAny = obj as any;
-
-    validateAddress(poolAny.token0, `poolData[${index}].token0`);
-    validateAddress(poolAny.token1, `poolData[${index}].token1`);
-    validateAddress(poolAny.lpToken, `poolData[${index}].lpToken`);
-
-    validateFee(poolAny.fee, `poolData[${index}].fee`);
-
-    validateBigIntConvertible(poolAny.reserve0, `poolData[${index}].reserve0`);
-    validateBigIntConvertible(poolAny.reserve1, `poolData[${index}].reserve1`);
-    validateBigIntConvertible(poolAny.liquidity, `poolData[${index}].liquidity`);
-
-    validateTokenPair(poolAny.token0, poolAny.token1);
+    // Relationship validation
+    validateTokenPair(validated.token0, validated.token1);
 }
 
 /**
@@ -1172,48 +1075,23 @@ export function validateBalanceResult(result: unknown, fieldName: string): void 
  * Validates a TurbineConfig object
  *
  * @param config - The config object to validate
+ * @returns The validated config
  * @throws TurbineError if validation fails
  */
-export function validateTurbineConfig(config: unknown): void {
-    const obj = validateObject(config, "TurbineConfig");
-
-    const requiredFields = [
-        "turbineSettlerAddress",
-        "lpHookAddress",
-        "lpRouterAddress",
-        "poolManagerAddress",
-        "submitSettlements",
-        "siweDomain",
-        "siweUri",
-    ];
-
-    for (const field of requiredFields) {
-        if (!(field in obj)) {
-            throw new TurbineError(
-                "INPUT_VALIDATION_ERROR",
-                `TurbineConfig is missing required field: ${field}`,
-                { field, receivedValue: config }
-            );
-        }
-    }
-
-    const configAny = obj as any;
-
-    // Validate addresses
-    validateAddress(
-        configAny.turbineSettlerAddress,
-        "TurbineConfig.turbineSettlerAddress"
+export function validateTurbineConfig(config: unknown): TurbineConfig {
+    return validateFields<TurbineConfig>(
+        config,
+        {
+            turbineSettlerAddress: validateAddress,
+            lpHookAddress: validateAddress,
+            lpRouterAddress: validateAddress,
+            poolManagerAddress: validateAddress,
+            submitSettlements: validateBoolean,
+            siweDomain: validateString,
+            siweUri: validateString,
+        },
+        "TurbineConfig"
     );
-    validateAddress(configAny.lpHookAddress, "TurbineConfig.lpHookAddress");
-    validateAddress(configAny.lpRouterAddress, "TurbineConfig.lpRouterAddress");
-    validateAddress(configAny.poolManagerAddress, "TurbineConfig.poolManagerAddress");
-
-    // Validate boolean
-    validateBoolean(configAny.submitSettlements, "TurbineConfig.submitSettlements");
-
-    // Validate strings
-    validateString(configAny.siweDomain, "TurbineConfig.siweDomain");
-    validateString(configAny.siweUri, "TurbineConfig.siweUri");
 }
 
 // ============================================================================

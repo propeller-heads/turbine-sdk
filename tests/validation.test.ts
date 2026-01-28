@@ -28,6 +28,7 @@ import {
     validatePrimitiveSignature,
     validateArray,
     validateNonEmptyArray,
+    validateFields,
     validateTokenPermissions,
     validateTokenPermissionsArray,
     validateSignedSignatureTransferOnchain,
@@ -850,6 +851,244 @@ describe("Validation Functions", () => {
         });
     });
 
+    describe("Object Field Validators", () => {
+        describe("validateFields", () => {
+            it("should validate all fields successfully", () => {
+                const obj = {
+                    name: "Alice",
+                    age: 25,
+                    active: true,
+                };
+
+                const validated = validateFields<any>(
+                    obj,
+                    {
+                        name: validateString,
+                        age: validatePositiveNumber,
+                        active: validateBoolean,
+                    },
+                    "testObject"
+                );
+
+                expect(validated.name).toBe("Alice");
+                expect(validated.age).toBe(25);
+                expect(validated.active).toBe(true);
+            });
+
+            it("should validate address fields correctly", () => {
+                const obj = {
+                    owner: VALID_ADDRESS,
+                    token: USDC.address,
+                };
+
+                const validated = validateFields<any>(
+                    obj,
+                    {
+                        owner: validateAddress,
+                        token: validateAddress,
+                    },
+                    "addressTest"
+                );
+
+                expect(validated.owner).toBe(VALID_ADDRESS);
+                expect(validated.token).toBe(USDC.address);
+            });
+
+            it("should throw for missing single field", () => {
+                const obj = { name: "Alice" };
+
+                expect(() =>
+                    validateFields<any>(
+                        obj,
+                        {
+                            name: validateString,
+                            age: validatePositiveNumber,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(TurbineError);
+
+                expect(() =>
+                    validateFields<any>(
+                        obj,
+                        {
+                            name: validateString,
+                            age: validatePositiveNumber,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(/missing required field: age/);
+            });
+
+            it("should throw for multiple missing fields", () => {
+                const obj = { name: "Alice" };
+
+                expect(() =>
+                    validateFields<any>(
+                        obj,
+                        {
+                            name: validateString,
+                            age: validatePositiveNumber,
+                            active: validateBoolean,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(TurbineError);
+
+                expect(() =>
+                    validateFields<any>(
+                        obj,
+                        {
+                            name: validateString,
+                            age: validatePositiveNumber,
+                            active: validateBoolean,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(/missing required fields: age, active/);
+            });
+
+            it("should throw for invalid field value", () => {
+                const obj = { name: "Alice", age: "not-a-number" };
+
+                expect(() =>
+                    validateFields<any>(
+                        obj,
+                        {
+                            name: validateString,
+                            age: validatePositiveNumber,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(TurbineError);
+
+                expect(() =>
+                    validateFields<any>(
+                        obj,
+                        {
+                            name: validateString,
+                            age: validatePositiveNumber,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(/testObject.age/);
+            });
+
+            it("should construct correct field paths in errors", () => {
+                const obj = { address: "not-an-address" };
+
+                try {
+                    validateFields<any>(
+                        obj,
+                        {
+                            address: validateAddress,
+                        },
+                        "orderIntent"
+                    );
+                    fail("Should have thrown");
+                } catch (error) {
+                    expect(error).toBeInstanceOf(TurbineError);
+                    expect((error as TurbineError).message).toContain(
+                        "orderIntent.address"
+                    );
+                }
+            });
+
+            it("should support custom validator options", () => {
+                const futureTime = BigInt(Math.floor(Date.now() / 1000) + 3600);
+                const obj = {
+                    startTime: BigInt(Math.floor(Date.now() / 1000)),
+                    endTime: futureTime,
+                };
+
+                const validated = validateFields<any>(
+                    obj,
+                    {
+                        startTime: validateTimestamp,
+                        endTime: (v, n) =>
+                            validateTimestamp(v, n, { allowPast: false }),
+                    },
+                    "intent"
+                );
+
+                expect(validated.startTime).toBeDefined();
+                expect(validated.endTime).toBe(futureTime);
+            });
+
+            it("should throw if not an object", () => {
+                expect(() =>
+                    validateFields<any>(
+                        "not-an-object",
+                        {
+                            name: validateString,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(TurbineError);
+
+                expect(() =>
+                    validateFields<any>(
+                        null,
+                        {
+                            name: validateString,
+                        },
+                        "testObject"
+                    )
+                ).toThrow(/must be a non-null object/);
+            });
+
+            it("should handle bigint fields correctly", () => {
+                const obj = {
+                    amount: 1000000n,
+                    nonce: 0n,
+                };
+
+                const validated = validateFields<any>(
+                    obj,
+                    {
+                        amount: validatePositiveBigInt,
+                        nonce: validateBigInt,
+                    },
+                    "tokenData"
+                );
+
+                expect(validated.amount).toBe(1000000n);
+                expect(validated.nonce).toBe(0n);
+            });
+
+            it("should handle nested validation via lambda", () => {
+                const obj = {
+                    signature: VALID_PRIMITIVE_SIGNATURE,
+                    permit: {
+                        nonce: 123n,
+                        deadline: 456n,
+                    },
+                };
+
+                const validated = validateFields<any>(
+                    obj,
+                    {
+                        signature: validatePrimitiveSignature,
+                        permit: (v, n) =>
+                            validateFields<any>(
+                                v,
+                                {
+                                    nonce: validateBigInt,
+                                    deadline: validatePositiveBigInt,
+                                },
+                                n
+                            ),
+                    },
+                    "signedTransfer"
+                );
+
+                expect(validated.signature).toEqual(VALID_PRIMITIVE_SIGNATURE);
+                expect(validated.permit.nonce).toBe(123n);
+                expect(validated.permit.deadline).toBe(456n);
+            });
+        });
+    });
+
     describe("Complex Object Validators", () => {
         describe("validateOrderIntent", () => {
             it("should validate order intent correctly", () => {
@@ -1039,7 +1278,7 @@ describe("Validation Functions", () => {
                 ).toThrow(TurbineError);
                 expect(() =>
                     validateSignedBatchSignatureTransfer(missingSignature)
-                ).toThrow(/must have signature and permit properties/);
+                ).toThrow(/missing required field/);
 
                 // Invalid signature.r type (string instead of bigint)
                 const invalidSignature = {
