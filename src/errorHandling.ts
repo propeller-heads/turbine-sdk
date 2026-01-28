@@ -39,6 +39,7 @@ const TURBINE_ERROR_CODES = [
     "POOL_CREATION_FAILED", // pool creation transaction was reverted for some other reason
     "CONFIG_FETCH_FAILED", // unable to fetch configuration
     "SERVICE_UNAVAILABLE", // Turbine is currently unavailable
+    "ZERO_LIQUIDITY", // liquidity amount is zero
     "UNKNOWN_ERROR", // unknown error occurred
 ] as const;
 
