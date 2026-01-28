@@ -47,42 +47,49 @@ async function main() {
         console.error("No pools found. Please create a pool first.");
         process.exit(1);
     }
-    // Find the first pool with USDC as token0 and WETH as token1
+
+    // ⚠️  IMPORTANT: Update these amounts and pool tokens before running this script!
+    const token0 = USDC;
+    const token1 = WETH;
+    // Set realistic amounts based on your needs and current market conditions
+    const token0Amount = 0; // UPDATE THIS - e.g., 10 for 10 USDC
+    const token1Amount = 0; // UPDATE THIS - e.g., 0.004 for 0.004 WETH
+
+    // Find the first pool with token0 and token1 tokens
     const pool = pools.find(
         (p) =>
-            p.metadata.token0.toLowerCase() === USDC.address.toLowerCase() &&
-            p.metadata.token1.toLowerCase() === WETH.address.toLowerCase()
+            p.metadata.token0.toLowerCase() === token0.address.toLowerCase() &&
+            p.metadata.token1.toLowerCase() === token1.address.toLowerCase()
     )?.metadata;
     if (!pool) {
         console.error(
-            "No USDC/WETH pool found. Please create one or adjust the script."
+            `No ${token0.symbol}/${token1.symbol} pool found. Please create one or adjust the script.`
         );
         process.exit(1);
     }
 
-    // Liquidity amounts
-    const maxUSDCAmount = USDC.toOnchainAmount(10); // 10 USDC
-    const maxWETHAmount = WETH.toOnchainAmount(0.004); // 0.004 WETH ~ $10
+    const maxToken0Amount = token0.toOnchainAmount(token0Amount);
+    const maxToken1Amount = token1.toOnchainAmount(token1Amount);
 
     // Create liquidity addition intent
     const liquidityIntent: AddLiquidityIntent = {
         owner: account.address,
-        token0: pool.token0 as Hex,
-        token1: pool.token1 as Hex,
+        token0: token0.address as Hex,
+        token1: token1.address as Hex,
         fee: pool.fee,
-        token0Amount: maxUSDCAmount,
-        token1Amount: maxWETHAmount,
+        token0Amount: maxToken0Amount,
+        token1Amount: maxToken1Amount,
         exact: true,
         salt: getRandomSalt(),
     };
 
     console.log("\n📊 Liquidity Addition Details:");
-    console.log(`Pool: ${USDC.symbol}/${WETH.symbol} (${pool.fee / 10000}% fee)`);
+    console.log(`Pool: ${token0.symbol}/${token1.symbol} (${pool.fee / 10000}% fee)`);
     console.log(
-        `Token0 (${USDC.symbol}): ${USDC.fromOnchainAmount(maxUSDCAmount)} ${USDC.symbol}`
+        `Token0 (${token0.symbol}): ${token0.fromOnchainAmount(maxToken0Amount)} ${token0.symbol}`
     );
     console.log(
-        `Token1 (${WETH.symbol}): ${WETH.fromOnchainAmount(maxWETHAmount)} ${WETH.symbol}`
+        `Token1 (${token1.symbol}): ${token1.fromOnchainAmount(maxToken1Amount)} ${token1.symbol}`
     );
     console.log(`LP Token: ${pool.lpToken}`);
 

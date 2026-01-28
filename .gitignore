@@ -2,6 +2,10 @@
 *.js
 !jest.config.js
 
+# TypeScript build artifacts
+*.tsbuildinfo
+_types/
+
 # Ignore node_modules directory
 node_modules/
 .idea/

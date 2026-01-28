@@ -91,6 +91,32 @@ export const turbineLiquidityRouterABI = [
 export const turbineHookABI = [
     {
         type: "function",
+        name: "MINIMUM_LIQUIDITY",
+        inputs: [],
+        outputs: [
+            {
+                name: "",
+                type: "uint256",
+                internalType: "uint256",
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "INITIAL_LP_SCALE",
+        inputs: [],
+        outputs: [
+            {
+                name: "",
+                type: "uint256",
+                internalType: "uint256",
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         name: "getNumberOfRegisteredPools",
         inputs: [],
         outputs: [

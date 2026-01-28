@@ -52,6 +52,7 @@ import {
     getSignedBatchSignatureTransfer,
     getSignedSignatureTransfer,
 } from "./permit2SignatureTransfer";
+import { buildApiUrl } from "./utils";
 import {
     validateSignatureHex,
     validateHash,
@@ -124,6 +125,231 @@ export class TurbineClient {
         return new TurbineClient(walletClient, publicClient, apiUrl, config);
     }
 
+    /** Fee precision constant matching the backend (1_000_000) */
+    static readonly POOL_FEE_PRECISION = 1_000_000n;
+
+    /**
+     * Estimate LP tokens for initial pool mint (empty pool).
+     * First mint burns minimumLiquidity to address(0).
+     *
+     * @param token0Amount - Amount of token0 to provide
+     * @param token1Amount - Amount of token1 to provide
+     * @param initialLpScale - Scaling factor for initial LP calculation (fetch via getInitialLpScale())
+     * @param minimumLiquidity - Minimum liquidity burned on first mint (fetch via getMinimumLiquidity())
+     * @returns LP tokens the user will receive (after minimumLiquidity burn)
+     */
+    static estimateInitialLpTokens(
+        token0Amount: bigint,
+        token1Amount: bigint,
+        initialLpScale: bigint,
+        minimumLiquidity: bigint
+    ): bigint {
+        const totalLiquidity = (token0Amount + token1Amount) * initialLpScale;
+        if (totalLiquidity <= minimumLiquidity) {
+            return 0n;
+        }
+        return totalLiquidity - minimumLiquidity;
+    }
+
+    /**
+     * Estimate LP tokens for adding liquidity to a pool.
+     * Handles initial mints, proportional mode, and exact mode.
+     *
+     * @param token0Amount - Amount of token0 to provide
+     * @param token1Amount - Amount of token1 to provide
+     * @param reserve0 - Current pool reserve of token0
+     * @param reserve1 - Current pool reserve of token1
+     * @param lpSupply - Current total LP token supply
+     * @param initialLpScale - Scaling factor for initial LP calculation (fetch via getInitialLpScale())
+     * @param minimumLiquidity - Minimum liquidity burned on first mint (fetch via getMinimumLiquidity())
+     * @param exact - Whether to use exact mode (true) or proportional mode (false)
+     * @param fee - Pool fee in hundredths of basis points (e.g., 3000 for 0.3%), required for exact mode
+     * @returns Object with estimated LP tokens and actual token amounts used
+     */
+    static estimateLpTokens(
+        token0Amount: bigint,
+        token1Amount: bigint,
+        reserve0: bigint,
+        reserve1: bigint,
+        lpSupply: bigint,
+        initialLpScale: bigint,
+        minimumLiquidity: bigint,
+        exact: boolean = false,
+        fee: number = 0
+    ): { lpTokens: bigint; actualToken0: bigint; actualToken1: bigint } {
+        // Initial mint case
+        if (lpSupply === 0n) {
+            const lpTokens = TurbineClient.estimateInitialLpTokens(
+                token0Amount,
+                token1Amount,
+                initialLpScale,
+                minimumLiquidity
+            );
+            return { lpTokens, actualToken0: token0Amount, actualToken1: token1Amount };
+        }
+
+        // Check if ratios are equal: token0Amount * reserve1 == reserve0 * token1Amount
+        const ratiosEqual = token0Amount * reserve1 === reserve0 * token1Amount;
+
+        if (ratiosEqual) {
+            // When ratios match exactly, use direct calculation
+            const lpTokens =
+                reserve1 > 0n
+                    ? (lpSupply * token1Amount) / reserve1
+                    : (lpSupply * token0Amount) / reserve0;
+            return { lpTokens, actualToken0: token0Amount, actualToken1: token1Amount };
+        }
+
+        // Determine if provided ratio is less than reserves ratio
+        // provided_ratio < reserves_ratio means: token0Amount/token1Amount < reserve0/reserve1
+        // which is: token0Amount * reserve1 < reserve0 * token1Amount
+        const providedRatioLess = token0Amount * reserve1 < reserve0 * token1Amount;
+
+        if (exact) {
+            return TurbineClient.calculateExactLiquidity(
+                token0Amount,
+                token1Amount,
+                reserve0,
+                reserve1,
+                lpSupply,
+                fee,
+                providedRatioLess
+            );
+        } else {
+            return TurbineClient.calculateProportionalLiquidity(
+                token0Amount,
+                token1Amount,
+                reserve0,
+                reserve1,
+                lpSupply,
+                providedRatioLess
+            );
+        }
+    }
+
+    /**
+     * Calculate LP tokens for proportional mode (exact: false).
+     * Adjusts provided amounts to match the pool's reserve ratio.
+     */
+    private static calculateProportionalLiquidity(
+        token0Amount: bigint,
+        token1Amount: bigint,
+        reserve0: bigint,
+        reserve1: bigint,
+        lpSupply: bigint,
+        providedRatioLess: boolean
+    ): { lpTokens: bigint; actualToken0: bigint; actualToken1: bigint } {
+        let actualToken0: bigint;
+        let actualToken1: bigint;
+        let lpTokens: bigint;
+
+        if (providedRatioLess) {
+            // User has relatively more token1, use all of token0
+            actualToken0 = token0Amount;
+            actualToken1 = (token0Amount * reserve1) / reserve0;
+            lpTokens =
+                reserve1 > 0n
+                    ? (lpSupply * actualToken1) / reserve1
+                    : (lpSupply * actualToken0) / reserve0;
+        } else {
+            // User has relatively more token0, use all of token1
+            actualToken1 = token1Amount;
+            actualToken0 = (token1Amount * reserve0) / reserve1;
+            lpTokens =
+                reserve1 > 0n
+                    ? (lpSupply * actualToken1) / reserve1
+                    : (lpSupply * actualToken0) / reserve0;
+        }
+
+        return { lpTokens, actualToken0, actualToken1 };
+    }
+
+    /**
+     * Calculate LP tokens for exact mode (exact: true).
+     * Uses all provided amounts and applies a virtual swap fee for imbalance.
+     */
+    private static calculateExactLiquidity(
+        token0Amount: bigint,
+        token1Amount: bigint,
+        reserve0: bigint,
+        reserve1: bigint,
+        lpSupply: bigint,
+        fee: number,
+        providedRatioLess: boolean
+    ): { lpTokens: bigint; actualToken0: bigint; actualToken1: bigint } {
+        const feeBigInt = BigInt(fee);
+        const feeComplement = TurbineClient.POOL_FEE_PRECISION - feeBigInt;
+
+        // Reserve ratio is reserve1/reserve0 (token1 per token0)
+        // We represent it as numerator=reserve1, denominator=reserve0
+        let effectivePriceNum: bigint;
+        let effectivePriceDen: bigint;
+
+        if (providedRatioLess) {
+            // effective_price = reserve_ratio * fee_factor
+            effectivePriceNum = reserve1 * feeComplement;
+            effectivePriceDen = reserve0 * TurbineClient.POOL_FEE_PRECISION;
+        } else {
+            // effective_price = reserve_ratio / fee_factor
+            effectivePriceNum = reserve1 * TurbineClient.POOL_FEE_PRECISION;
+            effectivePriceDen = reserve0 * feeComplement;
+        }
+
+        // Value calculation:
+        // liq_inc = lp_supply * (effective_price_num * token1 + token0 * effective_price_den)
+        //                      / (effective_price_num * reserve1 + reserve0 * effective_price_den)
+        const addedValue =
+            effectivePriceNum * token1Amount + token0Amount * effectivePriceDen;
+        const poolValue = effectivePriceNum * reserve1 + reserve0 * effectivePriceDen;
+
+        const lpTokens = (lpSupply * addedValue) / poolValue;
+
+        return { lpTokens, actualToken0: token0Amount, actualToken1: token1Amount };
+    }
+
+    /**
+     * Get the MINIMUM_LIQUIDITY constant from the TurbineHook contract.
+     * This is the amount of LP tokens burned to address(0) on the first pool mint.
+     * @returns A Promise that resolves to the minimum liquidity value
+     */
+    async getMinimumLiquidity(): Promise<bigint> {
+        const minimumLiquidity = await this.publicClient.readContract({
+            address: this.config.lpHookAddress,
+            abi: turbineHookABI,
+            functionName: "MINIMUM_LIQUIDITY",
+        });
+        return minimumLiquidity as bigint;
+    }
+
+    /**
+     * Get the INITIAL_LP_SCALE constant from the TurbineHook contract.
+     * This is the scaling factor used for initial LP token calculation.
+     * @returns A Promise that resolves to the initial LP scale value
+     */
+    async getInitialLpScale(): Promise<bigint> {
+        const initialLpScale = await this.publicClient.readContract({
+            address: this.config.lpHookAddress,
+            abi: turbineHookABI,
+            functionName: "INITIAL_LP_SCALE",
+        });
+        return initialLpScale as bigint;
+    }
+
+    /**
+     * Get both liquidity constants from the TurbineHook contract in a single call.
+     * @returns A Promise that resolves to an object with minimumLiquidity and initialLpScale
+     */
+    async getLiquidityConstants(): Promise<{
+        minimumLiquidity: bigint;
+        initialLpScale: bigint;
+    }> {
+        const [minimumLiquidity, initialLpScale] = await Promise.all([
+            this.getMinimumLiquidity(),
+            this.getInitialLpScale(),
+        ]);
+        return { minimumLiquidity, initialLpScale };
+    }
+
     /* PRIVATE HELPER METHODS */
 
     /**
@@ -176,7 +402,7 @@ export class TurbineClient {
         endpoint: string,
         options: RequestInit = {}
     ): Promise<Response> {
-        const url = `${this.turbineApiUrl}${endpoint}`;
+        const url = buildApiUrl(this.turbineApiUrl, endpoint);
         const headers = this.createHeaders(options.headers as Record<string, string>);
 
         const response = await fetch(url, {
@@ -320,6 +546,13 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidity(intent: AddLiquidityIntent): Promise<string> {
+        if (intent.token0Amount === 0n && intent.token1Amount === 0n) {
+            throw new TurbineError(
+                "ZERO_LIQUIDITY",
+                "At least one token amount must be greater than zero for liquidity addition."
+            );
+        }
+
         const validatedIntent = validateAddLiquidityIntent(intent);
 
         try {
@@ -336,6 +569,13 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async removeLiquidity(intent: RemoveLiquidityIntent): Promise<string> {
+        if (intent.lpTokenAmount === 0n) {
+            throw new TurbineError(
+                "ZERO_LIQUIDITY",
+                "LP token amount must be greater than zero for liquidity removal."
+            );
+        }
+
         const validatedIntent = validateRemoveLiquidityIntent(intent);
 
         const address = await this.ensureAuthenticated();
@@ -481,7 +721,7 @@ export class TurbineClient {
         await this.ensureAuthenticated();
 
         try {
-            const response = await this.fetchWithCookies("/liquidity_intent_states", {
+            const response = await this.fetchWithCookies("liquidity_intent_states", {
                 method: "POST",
                 body: JSON.stringify({ intentHashes: validatedHashes }),
             });
@@ -869,7 +1109,7 @@ export class TurbineClient {
         const validatedIntent = validateOrderIntent(intent);
 
         try {
-            const response = await this.fetchWithCookies("/order_fees", {
+            const response = await this.fetchWithCookies("order_fees", {
                 method: "POST",
                 body: JSON.stringify(validatedIntent, bigIntReplacer),
             });
@@ -1069,7 +1309,7 @@ export class TurbineClient {
 
         try {
             // Get nonce - session cookies handled automatically
-            const nonceResponse = await this.fetchWithCookies("/nonce", {
+            const nonceResponse = await this.fetchWithCookies("nonce", {
                 method: "POST",
             });
             const nonce: string = await nonceResponse.json();
@@ -1094,7 +1334,7 @@ export class TurbineClient {
             const structuredSignature = this.parseSignature(signature);
 
             // Verify with signed message - session cookies handled automatically
-            const verifyResponse = await this.fetchWithCookies("/verify", {
+            const verifyResponse = await this.fetchWithCookies("verify", {
                 method: "POST",
                 body: JSON.stringify({
                     message,
@@ -1116,7 +1356,7 @@ export class TurbineClient {
      */
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
         try {
-            const response = await this.fetchWithCookies("/me");
+            const response = await this.fetchWithCookies("me");
             if (!response.ok) {
                 return { authenticated: false };
             }
@@ -1151,7 +1391,7 @@ export class TurbineClient {
      */
     async logout(): Promise<void> {
         try {
-            await this.fetchWithCookies("/logout", { method: "POST" });
+            await this.fetchWithCookies("logout", { method: "POST" });
         } catch (error) {
             // Server handles session cleanup, so we don't need to do anything locally
             throw toTurbineError(error);
@@ -1185,7 +1425,7 @@ export class TurbineClient {
             }
 
             // Re-check auth status after waiting
-            const response = await this.fetchWithCookies("/me");
+            const response = await this.fetchWithCookies("me");
             if (response.ok) {
                 const authStatus = await response.json();
                 if (authStatus.authenticated && authStatus.address) {
@@ -1197,7 +1437,7 @@ export class TurbineClient {
         this.authenticationInProgress = true;
 
         try {
-            const response = await this.fetchWithCookies("/me");
+            const response = await this.fetchWithCookies("me");
 
             if (response.ok) {
                 const authStatus = await response.json();
@@ -1259,7 +1499,7 @@ export class TurbineClient {
             | GetOrderStatesPayload,
         endpoint: string
     ) {
-        return await this.fetchWithCookies(`/${endpoint}`, {
+        return await this.fetchWithCookies(endpoint, {
             method: "POST",
             body: JSON.stringify(payload, bigIntReplacer),
         });
@@ -1476,7 +1716,7 @@ export async function getUserPositions(
  */
 export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig> {
     try {
-        const response = await fetch(`${turbineApiUrl}/config`);
+        const response = await fetch(buildApiUrl(turbineApiUrl, "config"));
         if (!response.ok) {
             throw await unsuccessfulResponseToTurbineError(response);
         }
@@ -1502,7 +1742,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
  */
 export async function checkStatus(turbineApiUrl: string): Promise<boolean> {
     try {
-        const response = await fetch(`${turbineApiUrl}/status`);
+        const response = await fetch(buildApiUrl(turbineApiUrl, "status"));
         if (!response.ok) {
             throw await unsuccessfulResponseToTurbineError(response);
         }

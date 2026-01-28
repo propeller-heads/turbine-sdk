@@ -204,9 +204,15 @@ export interface AddLiquidityIntent {
     token1: Address;
     /** fee of the pool to which the liquidity is provided, in BIPs (30=0.3%) */
     fee: number;
-    /** Maximum amount of token0 of the pool that the user is willing to provide */
+    /**
+     * Amount of token0 to provide. Can be 0 for single-sided liquidity addition
+     * (requires token1Amount > 0).
+     */
     token0Amount: bigint;
-    /** Maximum amount of token1 of the pool that the user is willing to provide */
+    /**
+     * Amount of token1 to provide. Can be 0 for single-sided liquidity addition
+     * (requires token0Amount > 0).
+     */
     token1Amount: bigint;
     /** Whether the user wants to provide exactly the specified amounts (and is willing to
      * pay a swap fee first) or would rather like to provide liquidity in current ratio of pool
