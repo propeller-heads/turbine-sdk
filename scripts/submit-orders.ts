@@ -45,8 +45,13 @@ async function main() {
     const now = BigInt(Math.floor(Date.now() / 1000));
     const orderDuration = 300n; // 5 minutes
 
-    const USDCAmount = USDC.toOnchainAmount(50);
-    const WETHAmount = WETH.toOnchainAmount(0.02);
+    // ⚠️  IMPORTANT: Update these amounts before running this script!
+    // Set realistic amounts based on your needs and current market conditions
+    const usdcAmountDecimal = 0; // UPDATE THIS - e.g., 50 for 50 USDC
+    const wethAmountDecimal = 0; // UPDATE THIS - e.g., 0.02 for 0.02 WETH
+
+    const USDCAmount = USDC.toOnchainAmount(usdcAmountDecimal);
+    const WETHAmount = WETH.toOnchainAmount(wethAmountDecimal);
 
     // Define your orders here - modify this array as needed
     const orders: OrderIntent[] = [

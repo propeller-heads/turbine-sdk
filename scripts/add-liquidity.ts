@@ -60,9 +60,13 @@ async function main() {
         process.exit(1);
     }
 
-    // Liquidity amounts
-    const maxUSDCAmount = USDC.toOnchainAmount(10); // 10 USDC
-    const maxWETHAmount = WETH.toOnchainAmount(0.004); // 0.004 WETH ~ $10
+    // ⚠️  IMPORTANT: Update these amounts before running this script!
+    // Set realistic amounts based on your needs and current market conditions
+    const usdcAmountDecimal = 0; // UPDATE THIS - e.g., 10 for 10 USDC
+    const wethAmountDecimal = 0; // UPDATE THIS - e.g., 0.004 for 0.004 WETH
+
+    const maxUSDCAmount = USDC.toOnchainAmount(usdcAmountDecimal);
+    const maxWETHAmount = WETH.toOnchainAmount(wethAmountDecimal);
 
     // Create liquidity addition intent
     const liquidityIntent: AddLiquidityIntent = {
