@@ -53,34 +53,7 @@ import {
     getSignedSignatureTransfer,
 } from "./permit2SignatureTransfer";
 import { buildApiUrl } from "./utils";
-import {
-    validateSignatureHex,
-    validateHash,
-    validateOrderIntent,
-    validateAddLiquidityIntent,
-    validateRemoveLiquidityIntent,
-    validateNonEmptyArray,
-    validateArray,
-    validateAddress,
-    validateFee,
-    validateTokenPair,
-    validateString,
-    validateObject,
-    validateBoolean,
-    validateOrderStateResponse,
-    validateLiquidityIntentStateResponse,
-    validateAddLiquidityPayload,
-    validateSignedSignatureTransferOnchain,
-    validateRemoveLiquidityIntentOnchain,
-    validateBigInt,
-    validateBigIntConvertible,
-    validatePoolData,
-    validateBalanceResult,
-    validateTurbineConfig,
-    hexToSignature,
-    signatureToComponents,
-    parseSignatureBytes,
-} from "./validation";
+import * as validate from "./validation";
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -441,7 +414,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted order hash.
      */
     async addOrder(intent: OrderIntent): Promise<string> {
-        const validatedIntent = validateOrderIntent(intent);
+        const validatedIntent = validate.validateOrderIntent(intent);
 
         const address = await this.ensureAuthenticated();
         if (getAddress(address) !== getAddress(validatedIntent.owner)) {
@@ -462,7 +435,7 @@ export class TurbineClient {
             const responseJson = await response.json();
 
             // Validate response
-            validateObject(responseJson, "addOrder response");
+            validate.validateObject(responseJson, "addOrder response");
             if (!("orderHash" in responseJson)) {
                 throw new TurbineError(
                     "UNEXPECTED_ADD_ORDER_RESPONSE",
@@ -471,7 +444,7 @@ export class TurbineClient {
                 );
             }
 
-            const orderHash = validateHash(
+            const orderHash = validate.validateHash(
                 responseJson["orderHash"],
                 "addOrder response.orderHash"
             );
@@ -488,10 +461,10 @@ export class TurbineClient {
      */
     async addOrders(intents: OrderIntent[]): Promise<string[]> {
         // Validate array is non-empty and validate each intent
-        const validatedIntents = validateNonEmptyArray(
+        const validatedIntents = validate.validateNonEmptyArray(
             intents,
             "addOrders intents",
-            (intent, _) => validateOrderIntent(intent)
+            (intent, _) => validate.validateOrderIntent(intent)
         );
 
         const address = await this.ensureAuthenticated();
@@ -529,8 +502,8 @@ export class TurbineClient {
 
             // Validate each order hash in the response
             return responseJson.map((order: any, index: number) => {
-                validateObject(order, `addOrders response.orders[${index}]`);
-                return validateHash(
+                validate.validateObject(order, `addOrders response.orders[${index}]`);
+                return validate.validateHash(
                     order.orderHash,
                     `addOrders response.orders[${index}].orderHash`
                 );
@@ -546,14 +519,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidity(intent: AddLiquidityIntent): Promise<string> {
-        if (intent.token0Amount === 0n && intent.token1Amount === 0n) {
-            throw new TurbineError(
-                "ZERO_LIQUIDITY",
-                "At least one token amount must be greater than zero for liquidity addition."
-            );
-        }
-
-        const validatedIntent = validateAddLiquidityIntent(intent);
+        const validatedIntent = validate.validateAddLiquidityIntent(intent);
 
         try {
             const payload = await this.createAddLiquidityData(validatedIntent);
@@ -569,14 +535,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async removeLiquidity(intent: RemoveLiquidityIntent): Promise<string> {
-        if (intent.lpTokenAmount === 0n) {
-            throw new TurbineError(
-                "ZERO_LIQUIDITY",
-                "LP token amount must be greater than zero for liquidity removal."
-            );
-        }
-
-        const validatedIntent = validateRemoveLiquidityIntent(intent);
+        const validatedIntent = validate.validateRemoveLiquidityIntent(intent);
 
         const address = await this.ensureAuthenticated();
         if (getAddress(validatedIntent.owner) !== getAddress(address)) {
@@ -616,7 +575,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to the response message from the API.
      */
     async cancelOrder(orderHash: Hex): Promise<{ orderHash: string; message: string }> {
-        const validatedHash = validateHash(orderHash, "orderHash");
+        const validatedHash = validate.validateHash(orderHash, "orderHash");
 
         await this.ensureAuthenticated();
 
@@ -633,7 +592,7 @@ export class TurbineClient {
 
             const responseJson = await response.json();
 
-            validateObject(responseJson, "cancelOrder response");
+            validate.validateObject(responseJson, "cancelOrder response");
             if (!responseJson || !responseJson.orderHash || !responseJson.message) {
                 throw new TurbineError(
                     "UNEXPECTED_CANCELLATION_RESPONSE",
@@ -642,11 +601,11 @@ export class TurbineClient {
                 );
             }
 
-            const responseOrderHash = validateHash(
+            const responseOrderHash = validate.validateHash(
                 responseJson.orderHash,
                 "cancelOrder response.orderHash"
             );
-            const message = validateString(
+            const message = validate.validateString(
                 responseJson.message,
                 "cancelOrder response.message"
             );
@@ -663,10 +622,11 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of `OrderState` objects.
      */
     async getOrderStates(orderHashes: Hex[]): Promise<OrderState[]> {
-        const validatedHashes = validateNonEmptyArray(
+        const validatedHashes = validate.validateNonEmptyArray(
             orderHashes,
             "getOrderStates orderHashes",
-            (hash, index) => validateHash(hash, `getOrderStates orderHashes[${index}]`)
+            (hash, index) =>
+                validate.validateHash(hash, `getOrderStates orderHashes[${index}]`)
         );
 
         await this.ensureAuthenticated();
@@ -693,8 +653,8 @@ export class TurbineClient {
             }
 
             // Validate each order state response structure before parsing
-            validateArray(responseJson, "orderStates", (orderState) => {
-                validateOrderStateResponse(orderState);
+            validate.validateArray(responseJson, "orderStates", (orderState) => {
+                validate.validateOrderStateResponse(orderState);
             });
 
             const orderStatesPromises = responseJson.map((orderState: any) =>
@@ -713,10 +673,10 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of liquidity intent state objects.
      */
     async getLiquidityIntents(intentHashes: Hex[]): Promise<LiquidityIntentState[]> {
-        const validatedHashes = validateNonEmptyArray(
+        const validatedHashes = validate.validateNonEmptyArray(
             intentHashes,
             "getLiquidityIntents intentHashes",
-            (hash, index) => validateHash(hash, `intentHashes[${index}]`)
+            (hash, index) => validate.validateHash(hash, `intentHashes[${index}]`)
         );
         await this.ensureAuthenticated();
 
@@ -733,8 +693,8 @@ export class TurbineClient {
             const responseJson = await response.json();
 
             // Validate each liquidity intent state response before parsing
-            validateArray(responseJson, "liquidityIntentStates", (state) => {
-                validateLiquidityIntentStateResponse(state);
+            validate.validateArray(responseJson, "liquidityIntentStates", (state) => {
+                validate.validateLiquidityIntentStateResponse(state);
             });
 
             return responseJson.map((state: any) => {
@@ -759,7 +719,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to a string containing the submitted intent hash.
      */
     async addLiquidityWithSignedPermit(payload: AddLiquidity): Promise<string> {
-        validateAddLiquidityPayload(payload);
+        validate.validateAddLiquidityPayload(payload);
         const address = await this.ensureAuthenticated();
 
         // Validate that the owner in the payload matches the authenticated address
@@ -787,7 +747,7 @@ export class TurbineClient {
                 );
             }
 
-            return validateHash(
+            return validate.validateHash(
                 responseJson["intentHash"],
                 "addLiquidity response.intentHash"
             );
@@ -807,7 +767,7 @@ export class TurbineClient {
     async submitRemoveLiquidityIntentOnchain(
         intent: RemoveLiquidityIntent
     ): Promise<{ txHash: string; intentHash: Hex }> {
-        validateRemoveLiquidityIntent(intent);
+        validate.validateRemoveLiquidityIntent(intent);
 
         try {
             const data = await this.createRemoveLiquidityDataOnchain(intent);
@@ -824,8 +784,8 @@ export class TurbineClient {
                 salt: intent.salt,
             });
 
-            validateHash(txHash, "txHash");
-            validateHash(intentHash, "intentHash");
+            validate.validateHash(txHash, "txHash");
+            validate.validateHash(intentHash, "intentHash");
 
             return { txHash, intentHash };
         } catch (error) {
@@ -845,8 +805,8 @@ export class TurbineClient {
         intent: RemoveLiquidityIntentOnchain,
         permit: SignedSignatureTransferOnchain
     ): Promise<string> {
-        validateRemoveLiquidityIntentOnchain(intent);
-        validateSignedSignatureTransferOnchain(permit);
+        validate.validateRemoveLiquidityIntentOnchain(intent);
+        validate.validateSignedSignatureTransferOnchain(permit);
 
         const { request } = await this.publicClient.simulateContract({
             address: this.config.lpRouterAddress,
@@ -898,10 +858,10 @@ export class TurbineClient {
      * @throws {TurbineError} If the transaction fails or is reverted
      */
     async executePendingRemoveLiquidityIntentsOnchain(hashes: Hex[]): Promise<void> {
-        const validatedHashes = validateNonEmptyArray(
+        const validatedHashes = validate.validateNonEmptyArray(
             hashes,
             "executePendingRemoveLiquidityIntentsOnchain hashes",
-            (hash, index) => validateHash(hash, `hashes[${index}]`)
+            (hash, index) => validate.validateHash(hash, `hashes[${index}]`)
         );
 
         const { request } = await this.publicClient.simulateContract({
@@ -973,7 +933,7 @@ export class TurbineClient {
         });
         const poolId = await this.publicClient.readContract(request);
 
-        validateHash(poolId, "poolId");
+        validate.validateHash(poolId, "poolId");
 
         return poolId as Hex;
     }
@@ -986,7 +946,7 @@ export class TurbineClient {
      * @returns The intent hash as a Hex string
      */
     computeRemoveLiquidityIntentHash(intent: RemoveLiquidityIntentOnchain): Hex {
-        validateRemoveLiquidityIntentOnchain(intent);
+        validate.validateRemoveLiquidityIntentOnchain(intent);
 
         const encoded = encodeAbiParameters(
             [
@@ -1010,11 +970,11 @@ export class TurbineClient {
      * @throws {TurbineError} If the pool already exists or the transaction fails
      */
     async createPool(token0: Address, token1: Address, fee: number): Promise<string> {
-        const validatedToken0 = validateAddress(token0, "token0");
-        const validatedToken1 = validateAddress(token1, "token1");
-        const validatedFee = validateFee(fee, "fee");
+        const validatedToken0 = validate.validateAddress(token0, "token0");
+        const validatedToken1 = validate.validateAddress(token1, "token1");
+        const validatedFee = validate.validateFee(fee, "fee");
 
-        validateTokenPair(validatedToken0, validatedToken1);
+        validate.validateTokenPair(validatedToken0, validatedToken1);
 
         try {
             const poolKey = this.createPoolKey(
@@ -1054,7 +1014,7 @@ export class TurbineClient {
                 );
             }
 
-            return validateHash(txHash, "txHash");
+            return validate.validateHash(txHash, "txHash");
         } catch (err) {
             if (err instanceof BaseError) {
                 const revertError = err.walk(
@@ -1084,16 +1044,16 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of OrderSettledAmount objects containing order hash and executed sell amount
      */
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
-        const validatedHashes = validateNonEmptyArray(
+        const validatedHashes = validate.validateNonEmptyArray(
             orderHashes,
             "getSettledAmounts orderHashes",
-            (hash, index) => validateHash(hash, `orderHashes[${index}]`)
+            (hash, index) => validate.validateHash(hash, `orderHashes[${index}]`)
         );
 
         let states = await this.getOrderStates(validatedHashes);
         return states.map((state) => ({
-            hash: validateHash(state.hash, "state.hash"),
-            executedSellAmount: validateBigInt(
+            hash: validate.validateHash(state.hash, "state.hash"),
+            executedSellAmount: validate.validateBigInt(
                 state.executedSellAmount,
                 "state.executedSellAmount"
             ),
@@ -1106,7 +1066,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to a bigint containing the fee expressed in absolute amount of the buy token.
      */
     async getOrderFee(intent: OrderIntent): Promise<bigint> {
-        const validatedIntent = validateOrderIntent(intent);
+        const validatedIntent = validate.validateOrderIntent(intent);
 
         try {
             const response = await this.fetchWithCookies("order_fees", {
@@ -1119,8 +1079,8 @@ export class TurbineClient {
             }
 
             const feeJson = await response.json();
-            validateString(feeJson, "feeJson");
-            return validateBigIntConvertible(feeJson, "feeJson");
+            validate.validateString(feeJson, "feeJson");
+            return validate.validateBigIntConvertible(feeJson, "feeJson");
         } catch (error) {
             throw toTurbineError(error);
         }
@@ -1362,8 +1322,8 @@ export class TurbineClient {
             }
             const data = await response.json();
 
-            validateObject(data, "authStatus response");
-            validateBoolean(data.authenticated, "authenticated");
+            validate.validateObject(data, "authStatus response");
+            validate.validateBoolean(data.authenticated, "authenticated");
 
             if (data.authenticated) {
                 if (!("address" in data)) {
@@ -1373,7 +1333,7 @@ export class TurbineClient {
                         data
                     );
                 }
-                validateAddress(data.address, "address");
+                validate.validateAddress(data.address, "address");
             }
 
             return {
@@ -1542,11 +1502,11 @@ export class TurbineClient {
      */
     private parseSignature(signature: Hex): any {
         // Validate signature format (0x + 130 hex chars = 65 bytes)
-        validateSignatureHex(signature, "signature");
+        validate.validateSignatureHex(signature, "signature");
 
         // Convert to bytes and parse components
-        const sigBytes = hexToSignature(signature);
-        const { r, s, v } = parseSignatureBytes(sigBytes);
+        const sigBytes = validate.hexToSignature(signature);
+        const { r, s, v } = validate.parseSignatureBytes(sigBytes);
 
         // Convert components to hex format expected by API
         const rHex = bytesToHex(r);
@@ -1594,7 +1554,7 @@ export async function getPools(
             functionName: "getNumberOfRegisteredPools",
         });
 
-        validateBigInt(numberOfPools, "numberOfPools");
+        validate.validateBigInt(numberOfPools, "numberOfPools");
 
         // Fetch pools in batches of up to 1000 at a time
         const BATCH_SIZE = 1000n;
@@ -1613,7 +1573,7 @@ export async function getPools(
 
         // Validate each pool data before mapping
         poolsData.forEach((poolData, index) => {
-            validatePoolData(poolData, index);
+            validate.validatePoolData(poolData, index);
         });
 
         return poolsData.map(
@@ -1680,7 +1640,7 @@ export async function getUserPositions(
 
             // Validate balance result structure
             try {
-                validateBalanceResult(balanceResult, `balanceResults[${i}]`);
+                validate.validateBalanceResult(balanceResult, `balanceResults[${i}]`);
             } catch (error) {
                 // Log warning for invalid balance result but continue processing
                 console.warn(
@@ -1722,7 +1682,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         }
         const config = await response.json();
 
-        validateTurbineConfig(config);
+        validate.validateTurbineConfig(config);
 
         return config;
     } catch (error: any) {
@@ -1764,11 +1724,11 @@ export function getRandomSalt(): Hex {
 }
 
 export function convertSignature(sig: Hex): PrimitiveSignature {
-    const validatedSig = validateSignatureHex(sig, "signature");
+    const validatedSig = validate.validateSignatureHex(sig, "signature");
 
     // Convert hex signature to bytes and extract components
-    const sigBytes = hexToSignature(validatedSig);
-    return signatureToComponents(sigBytes);
+    const sigBytes = validate.hexToSignature(validatedSig);
+    return validate.signatureToComponents(sigBytes);
 }
 
 /** Helps serializing BigInts into JSON */
