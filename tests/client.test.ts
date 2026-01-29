@@ -195,8 +195,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 30,
                     lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WETH.toOnchainAmount(500),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WETH.toOnchainAmount("500"),
                     liquidity: BigInt("1000000000000000000000"),
                 },
                 {
@@ -205,8 +205,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 50,
                     lpToken: "0x1234567890123456789012345678901234567890",
-                    reserve0: USDC.toOnchainAmount(2_000_000),
-                    reserve1: WETH.toOnchainAmount(1_000),
+                    reserve0: USDC.toOnchainAmount("2000000"),
+                    reserve1: WETH.toOnchainAmount("1000"),
                     liquidity: BigInt("2000000000000000000000"),
                 },
                 {
@@ -215,8 +215,8 @@ describe("TurbineClient", () => {
                     token1: WBTC.address,
                     fee: 10,
                     lpToken: "0x9876543210987654321098765432109876543210",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WBTC.toOnchainAmount(10),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WBTC.toOnchainAmount("10"),
                     liquidity: BigInt("500000000000000000000"),
                 },
             ];
@@ -265,8 +265,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 30,
                     lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WETH.toOnchainAmount(500),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WETH.toOnchainAmount("500"),
                     liquidity: BigInt("1000000000000000000000"),
                 },
                 {
@@ -275,8 +275,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 50,
                     lpToken: "0x1234567890123456789012345678901234567890",
-                    reserve0: USDC.toOnchainAmount(2_000_000),
-                    reserve1: WETH.toOnchainAmount(1_000),
+                    reserve0: USDC.toOnchainAmount("2000000"),
+                    reserve1: WETH.toOnchainAmount("1000"),
                     liquidity: BigInt("2000000000000000000000"),
                 },
                 {
@@ -285,8 +285,8 @@ describe("TurbineClient", () => {
                     token1: WBTC.address,
                     fee: 10,
                     lpToken: "0x9876543210987654321098765432109876543210",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WBTC.toOnchainAmount(10),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WBTC.toOnchainAmount("10"),
                     liquidity: BigInt("500000000000000000000"),
                 },
             ];
@@ -330,8 +330,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 3000,
                     lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WETH.toOnchainAmount(500),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WETH.toOnchainAmount("500"),
                     liquidity: BigInt("1000000000000000000000"),
                 },
                 {
@@ -340,8 +340,8 @@ describe("TurbineClient", () => {
                     token1: WBTC.address,
                     fee: 50,
                     lpToken: "0x1234567890123456789012345678901234567890",
-                    reserve0: USDC.toOnchainAmount(2_000_000),
-                    reserve1: WBTC.toOnchainAmount(10),
+                    reserve0: USDC.toOnchainAmount("2000000"),
+                    reserve1: WBTC.toOnchainAmount("10"),
                     liquidity: BigInt("2000000000000000000000"),
                 },
             ];
@@ -398,8 +398,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 3000,
                     lpToken: "0x24746c26c7B83DDabBAF384E02C3Eb0E7b8cD307",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WETH.toOnchainAmount(500),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WETH.toOnchainAmount("500"),
                     liquidity: BigInt("1000000000000000000000"),
                 },
                 {
@@ -408,8 +408,8 @@ describe("TurbineClient", () => {
                     token1: WBTC.address,
                     fee: 50,
                     lpToken: "0x1234567890123456789012345678901234567890",
-                    reserve0: USDC.toOnchainAmount(2_000_000),
-                    reserve1: WBTC.toOnchainAmount(10),
+                    reserve0: USDC.toOnchainAmount("2000000"),
+                    reserve1: WBTC.toOnchainAmount("10"),
                     liquidity: BigInt("2000000000000000000000"),
                 },
             ];
@@ -470,8 +470,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 3000,
                     lpToken: "0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WETH.toOnchainAmount(500),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WETH.toOnchainAmount("500"),
                     liquidity: BigInt("1000000000000000000000"),
                 },
                 {
@@ -480,8 +480,8 @@ describe("TurbineClient", () => {
                     token1: WETH.address,
                     fee: 4000,
                     lpToken: "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
-                    reserve0: USDC.toOnchainAmount(1_000_000),
-                    reserve1: WETH.toOnchainAmount(500),
+                    reserve0: USDC.toOnchainAmount("1000000"),
+                    reserve1: WETH.toOnchainAmount("500"),
                     liquidity: BigInt("1000000000000000000000"),
                 },
             ];
@@ -1418,6 +1418,174 @@ describe("TurbineClient", () => {
             expect(() => {
                 (client as any).parseSignature(invalidSignature);
             }).toThrow("signature is not a valid hex string");
+        });
+    });
+
+    describe("validateResponseSize", () => {
+        it("should reject response with Content-Length exceeding limit", async () => {
+            const client = await createMockTurbineClient();
+            const maxSize = 100; // 100 bytes
+
+            // Create mock response with Content-Length header exceeding limit
+            const mockResponse = new Response("OK", {
+                status: 200,
+                headers: new Headers({
+                    "content-length": "200", // Exceeds 100 byte limit
+                }),
+            });
+
+            await expect(
+                (client as any).validateResponseSize(mockResponse, maxSize)
+            ).rejects.toMatchObject({
+                code: "SDK_ERROR",
+                message: expect.stringContaining(
+                    "Response size (200 bytes) exceeds maximum allowed size (100 bytes)"
+                ),
+            });
+        });
+
+        it("should accept response with Content-Length within limit", async () => {
+            const client = await createMockTurbineClient();
+            const maxSize = 200; // 200 bytes
+
+            const body = "small response";
+            const mockResponse = new Response(body, {
+                status: 200,
+                headers: new Headers({
+                    "content-length": body.length.toString(),
+                }),
+            });
+
+            const validatedResponse = await (client as any).validateResponseSize(
+                mockResponse,
+                maxSize
+            );
+
+            expect(validatedResponse).toBeDefined();
+            const text = await validatedResponse.text();
+            expect(text).toBe(body);
+        });
+
+        it("should reject single chunk exceeding limit", async () => {
+            const client = await createMockTurbineClient();
+            const maxSize = 100; // 100 bytes
+
+            // Create a large chunk (exceeds maxSize in a single chunk)
+            const largeChunk = new Uint8Array(150); // 150 bytes in one chunk
+            largeChunk.fill(65); // Fill with 'A'
+
+            // Create a ReadableStream that emits one large chunk
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(largeChunk);
+                    controller.close();
+                },
+            });
+
+            const mockResponse = new Response(stream, {
+                status: 200,
+                headers: new Headers(),
+            });
+
+            await expect(
+                (client as any).validateResponseSize(mockResponse, maxSize)
+            ).rejects.toMatchObject({
+                code: "SDK_ERROR",
+                message: expect.stringContaining(
+                    "Single response chunk (150 bytes) exceeds maximum size (100 bytes)"
+                ),
+            });
+        });
+
+        it("should reject accumulated chunks exceeding limit", async () => {
+            const client = await createMockTurbineClient();
+            const maxSize = 100; // 100 bytes
+
+            // Create multiple small chunks that together exceed the limit
+            const chunk1 = new Uint8Array(60); // 60 bytes
+            const chunk2 = new Uint8Array(50); // 50 bytes
+            // Total: 110 bytes (exceeds 100 byte limit)
+
+            chunk1.fill(65); // Fill with 'A'
+            chunk2.fill(66); // Fill with 'B'
+
+            // Create a ReadableStream that emits multiple chunks
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(chunk1);
+                    controller.enqueue(chunk2);
+                    controller.close();
+                },
+            });
+
+            const mockResponse = new Response(stream, {
+                status: 200,
+                headers: new Headers(),
+            });
+
+            await expect(
+                (client as any).validateResponseSize(mockResponse, maxSize)
+            ).rejects.toMatchObject({
+                code: "SDK_ERROR",
+                message: expect.stringContaining(
+                    "Response size exceeds maximum allowed size (100 bytes)"
+                ),
+            });
+        });
+
+        it("should accept valid response with multiple chunks within limit", async () => {
+            const client = await createMockTurbineClient();
+            const maxSize = 200; // 200 bytes
+
+            // Create multiple small chunks within the limit
+            const chunk1 = new Uint8Array(50); // 50 bytes
+            const chunk2 = new Uint8Array(50); // 50 bytes
+            // Total: 100 bytes (within 200 byte limit)
+
+            chunk1.fill(65); // Fill with 'A'
+            chunk2.fill(66); // Fill with 'B'
+
+            // Create a ReadableStream that emits multiple chunks
+            const stream = new ReadableStream({
+                start(controller) {
+                    controller.enqueue(chunk1);
+                    controller.enqueue(chunk2);
+                    controller.close();
+                },
+            });
+
+            const mockResponse = new Response(stream, {
+                status: 200,
+                headers: new Headers(),
+            });
+
+            const validatedResponse = await (client as any).validateResponseSize(
+                mockResponse,
+                maxSize
+            );
+
+            expect(validatedResponse).toBeDefined();
+            const arrayBuffer = await validatedResponse.arrayBuffer();
+            expect(arrayBuffer.byteLength).toBe(100);
+        });
+
+        it("should handle response with no body", async () => {
+            const client = await createMockTurbineClient();
+            const maxSize = 100;
+
+            // Create response with null body
+            const mockResponse = new Response(null, {
+                status: 204, // No Content
+                headers: new Headers(),
+            });
+
+            const validatedResponse = await (client as any).validateResponseSize(
+                mockResponse,
+                maxSize
+            );
+
+            expect(validatedResponse).toBeDefined();
+            expect(validatedResponse.body).toBeNull();
         });
     });
 

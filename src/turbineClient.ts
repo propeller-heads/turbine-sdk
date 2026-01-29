@@ -373,9 +373,92 @@ export class TurbineClient {
     }
 
     /**
-     * Makes a fetch request with automatic cookie handling
+     * Reads response body with size limit to prevent memory exhaustion attacks.
+     * Streams the response chunk-by-chunk, checking size BEFORE accumulating each chunk.
+     *
+     * @param response - The fetch Response object
+     * @param maxSize - Maximum allowed size in bytes (default: 10 MB)
+     * @returns Response with validated body
+     * @throws TurbineError if response exceeds size limit
+     */
+    private async validateResponseSize(
+        response: Response,
+        maxSize: number = 10 * 1024 * 1024 // 10 MB
+    ): Promise<Response> {
+        const contentLength = response.headers.get("content-length");
+
+        // Early optimization: check Content-Length header if present
+        // Note: This is not relied upon for security as headers can be missing or incorrect
+        if (contentLength) {
+            const size = parseInt(contentLength, 10);
+            if (size > maxSize) {
+                throw new TurbineError(
+                    "SDK_ERROR",
+                    `Response size (${size} bytes) exceeds maximum allowed size (${maxSize} bytes)`
+                );
+            }
+        }
+
+        // Stream and validate response body chunk-by-chunk
+        if (!response.body) {
+            return response;
+        }
+
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let totalSize = 0;
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                // SECURITY: Check individual chunk size FIRST
+                // Runtime-provided chunks could be arbitrarily large, and we must not
+                // accumulate them into memory if they exceed our safety threshold
+                if (value.length > maxSize) {
+                    await reader.cancel();
+                    throw new TurbineError(
+                        "SDK_ERROR",
+                        `Single response chunk (${value.length} bytes) exceeds maximum size (${maxSize} bytes)`
+                    );
+                }
+
+                // Check total accumulated size BEFORE adding this chunk
+                if (totalSize + value.length > maxSize) {
+                    await reader.cancel();
+                    throw new TurbineError(
+                        "SDK_ERROR",
+                        `Response size exceeds maximum allowed size (${maxSize} bytes)`
+                    );
+                }
+
+                chunks.push(value);
+                totalSize += value.length;
+            }
+        } finally {
+            reader.releaseLock();
+        }
+
+        // Create a new Response from the validated chunks
+        const blob = new Blob(chunks);
+        return new Response(blob, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+        });
+    }
+
+    /**
+     * Makes a fetch request with automatic cookie handling and security controls
      * In browsers: relies on credentials: "include" for automatic cookie handling
      * In Node.js: manually manages cookies via CookieJar
+     *
+     * Security features:
+     * - HTTPS enforcement (via buildApiUrl, except localhost)
+     * - 10 second request timeout
+     * - Redirects disabled (returns error on redirect)
+     * - Response body size limited to 10 MB
      */
     private async fetchWithCookies(
         endpoint: string,
@@ -387,18 +470,40 @@ export class TurbineClient {
             url
         );
 
-        const response = await fetch(url, {
-            ...options,
-            headers,
-            credentials: "include",
-        });
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-        // Only extract cookies in Node.js environment
-        if (typeof window === "undefined") {
-            await this.extractAndStoreCookies(response, url);
+        try {
+            const response = await fetch(url, {
+                ...options,
+                headers,
+                credentials: "include",
+                signal: controller.signal,
+                redirect: "error", // Disable redirects - will throw on 3xx responses
+            });
+
+            // Validate response size before processing
+            await this.validateResponseSize(response);
+
+            // Only extract cookies in Node.js environment
+            if (typeof window === "undefined") {
+                await this.extractAndStoreCookies(response, url);
+            }
+
+            return response;
+        } catch (error: any) {
+            // Convert AbortError to more descriptive TurbineError
+            if (error.name === "AbortError") {
+                throw new TurbineError(
+                    "SDK_ERROR",
+                    "Request timed out after 10 seconds"
+                );
+            }
+            throw error;
+        } finally {
+            clearTimeout(timeoutId);
         }
-
-        return response;
     }
 
     private createPoolKey(token0: Address, token1: Address, fee: number): PoolKey {
