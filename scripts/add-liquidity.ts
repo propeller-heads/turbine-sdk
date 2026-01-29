@@ -52,8 +52,8 @@ async function main() {
     const token0 = USDC;
     const token1 = WETH;
     // Set realistic amounts based on your needs and current market conditions
-    const token0Amount = 0; // UPDATE THIS - e.g., 10 for 10 USDC
-    const token1Amount = 0; // UPDATE THIS - e.g., 0.004 for 0.004 WETH
+    const token0Amount = "0"; // UPDATE THIS - e.g., "10" for 10 USDC
+    const token1Amount = "0"; // UPDATE THIS - e.g., "0.004" for 0.004 WETH
 
     // Find the first pool with token0 and token1 tokens
     const pool = pools.find(

@@ -123,8 +123,8 @@ const order: OrderIntent = {
     owner: account.address,
     sellToken: USDC.address,
     buyToken: WETH.address,
-    sellAmount: USDC.toOnchainAmount(100), // Sell 100 USDC,
-    minBuyAmount: WETH.toOnchainAmount(0.05), // Buy 0.05 WETH
+    sellAmount: USDC.toOnchainAmount("100"), // Sell 100 USDC
+    minBuyAmount: WETH.toOnchainAmount("0.05"), // Buy 0.05 WETH
     midPriceDelta: 500, // At most 5% worse than market mid-price
     startTime: Math.floor(Date.now() / 1000), // Start now
     endTime: Math.floor(Date.now() / 1000) + 3600, // End in 1 hour
@@ -190,8 +190,8 @@ const intent: AddLiquidityIntent = {
     token0: USDC.address,
     token1: WETH.address,
     fee: 3000, // 0.3%
-    token0Amount: USDC.toOnchainAmount(3000),
-    token1Amount: WETH.toOnchainAmount(1),
+    token0Amount: USDC.toOnchainAmount("3000"),
+    token1Amount: WETH.toOnchainAmount("1"),
     exact: true,
     salt: getRandomSalt(),
 };
