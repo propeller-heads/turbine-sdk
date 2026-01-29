@@ -71,4 +71,51 @@ describe("buildApiUrl", () => {
             }
         });
     });
+
+    describe("HTTPS enforcement", () => {
+        test("allows HTTPS URLs", () => {
+            const result = buildApiUrl("https://api.example.com/v1", "config");
+            expect(result).toBe("https://api.example.com/v1/config");
+        });
+
+        test("allows HTTP for localhost", () => {
+            const result = buildApiUrl("http://localhost:8080/api", "config");
+            expect(result).toBe("http://localhost:8080/api/config");
+        });
+
+        test("allows HTTP for 127.0.0.1", () => {
+            const result = buildApiUrl("http://127.0.0.1:8080/api", "config");
+            expect(result).toBe("http://127.0.0.1:8080/api/config");
+        });
+
+        test("allows HTTP for ::1 (IPv6 localhost)", () => {
+            const result = buildApiUrl("http://[::1]:8080/api", "config");
+            expect(result).toBe("http://[::1]:8080/api/config");
+        });
+
+        test("rejects HTTP for non-localhost URLs", () => {
+            expect(() => buildApiUrl("http://api.example.com/v1", "config")).toThrow(
+                TurbineError
+            );
+        });
+
+        test("error message explains HTTPS requirement", () => {
+            try {
+                buildApiUrl("http://api.example.com/v1", "config");
+                fail("Should have thrown an error");
+            } catch (error) {
+                expect(error).toBeInstanceOf(TurbineError);
+                if (error instanceof TurbineError) {
+                    expect(error.message).toContain("HTTPS required");
+                    expect(error.message).toContain("http://api.example.com");
+                }
+            }
+        });
+
+        test("rejects HTTP for IP addresses other than localhost", () => {
+            expect(() => buildApiUrl("http://192.168.1.1:8080/api", "config")).toThrow(
+                TurbineError
+            );
+        });
+    });
 });

@@ -6,11 +6,12 @@ import { TurbineError } from "./errorHandling";
  * - Base URL is normalized to end with "/"
  * - Endpoint is normalized to not start with "/"
  * - URL is validated before being returned
+ * - HTTPS is enforced (except for localhost/127.0.0.1)
  *
- * @param baseUrl - The base URL (e.g., "http://127.0.0.1:8080/api" or "http://127.0.0.1:8080/api/")
+ * @param baseUrl - The base URL (e.g., "http://127.0.0.1:8080/api" or "https://api.example.com/v1")
  * @param endpoint - The endpoint path (e.g., "config", or "/config")
  * @returns The constructed URL string
- * @throws TurbineError if the URL is invalid
+ * @throws TurbineError if the URL is invalid or uses HTTP for non-localhost
  */
 export function buildApiUrl(baseUrl: string, endpoint: string): string {
     const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
@@ -23,5 +24,20 @@ export function buildApiUrl(baseUrl: string, endpoint: string): string {
         );
     }
 
-    return new URL(normalizedEndpoint, normalizedBase).toString();
+    const url = new URL(normalizedEndpoint, normalizedBase);
+
+    // Enforce HTTPS except for localhost/127.0.0.1 (for development)
+    if (
+        url.protocol === "http:" &&
+        url.hostname !== "localhost" &&
+        url.hostname !== "127.0.0.1" &&
+        url.hostname !== "[::1]"
+    ) {
+        throw new TurbineError(
+            "SDK_ERROR",
+            `HTTPS required for non-localhost URLs. Attempted to use: ${url.toString()}`
+        );
+    }
+
+    return url.toString();
 }
