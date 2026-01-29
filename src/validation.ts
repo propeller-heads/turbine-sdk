@@ -858,7 +858,7 @@ export function validateTokenPermissions(value: unknown): TokenPermissions {
         value,
         {
             token: validateAddress,
-            amount: validatePositiveBigInt,
+            amount: validateNonNegativeBigInt,
         },
         "tokenPermissions"
     );
