@@ -19,6 +19,7 @@ import {
     turbineLiquidityRouterABI,
 } from "./abi";
 import { TURBINE_API_URL } from "./config";
+import { TurbineCookieJar } from "./cookieJar";
 import { NULL_ADDRESS, SQRT_PRICE_IDENTITY } from "./constants";
 import {
     toTurbineError,
@@ -60,7 +61,7 @@ export class TurbineClient {
     public walletClient: WalletClient;
     public publicClient: PublicClient;
     public config: TurbineConfig;
-    private sessionId?: string;
+    private cookieJar: TurbineCookieJar;
     private authenticationInProgress: boolean = false;
 
     private constructor(
@@ -73,6 +74,7 @@ export class TurbineClient {
         this.publicClient = publicClient;
         this.turbineApiUrl = turbineApiUrl;
         this.config = config;
+        this.cookieJar = new TurbineCookieJar();
     }
 
     /**
@@ -326,41 +328,45 @@ export class TurbineClient {
     /* PRIVATE HELPER METHODS */
 
     /**
-     * Extracts and stores session ID from fetch response headers
+     * Extracts and stores cookies from fetch response headers using CookieJar
      */
-    private extractAndStoreCookies(response: Response): void {
+    private async extractAndStoreCookies(
+        response: Response,
+        url: string
+    ): Promise<void> {
         // Only extract cookies in Node.js environment
         if (typeof window !== "undefined") {
             return;
         }
 
-        const setCookieHeaders = response.headers.get("set-cookie");
-        if (setCookieHeaders) {
-            // Parse multiple cookies if present
-            const cookies = setCookieHeaders
-                .split(",")
-                .map((cookie) => cookie.trim().split(";")[0]);
+        // Use getSetCookie() for proper parsing of multiple Set-Cookie headers
+        // This avoids issues with comma-separated values in Expires dates
+        const setCookieHeaders = response.headers.getSetCookie
+            ? response.headers.getSetCookie()
+            : [];
 
-            for (const cookie of cookies) {
-                if (cookie.startsWith("id=")) {
-                    this.sessionId = cookie.substring(3);
-                    break;
-                }
-            }
+        for (const cookie of setCookieHeaders) {
+            await this.cookieJar.setCookieFromHeader(cookie, url);
         }
     }
 
     /**
-     * Creates headers with stored session ID
+     * Creates headers with cookies from CookieJar
      */
-    private createHeaders(additionalHeaders: Record<string, string> = {}): HeadersInit {
+    private async createHeaders(
+        additionalHeaders: Record<string, string> = {},
+        url: string
+    ): Promise<HeadersInit> {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
             ...additionalHeaders,
         };
 
-        if (typeof window === "undefined" && this.sessionId) {
-            headers["Cookie"] = `id=${this.sessionId}`;
+        if (typeof window === "undefined") {
+            const cookieHeader = await this.cookieJar.getCookieHeader(url);
+            if (cookieHeader) {
+                headers["Cookie"] = cookieHeader;
+            }
         }
 
         return headers;
@@ -369,14 +375,17 @@ export class TurbineClient {
     /**
      * Makes a fetch request with automatic cookie handling
      * In browsers: relies on credentials: "include" for automatic cookie handling
-     * In Node.js: manually manages cookies via extractAndStoreCookies
+     * In Node.js: manually manages cookies via CookieJar
      */
     private async fetchWithCookies(
         endpoint: string,
         options: RequestInit = {}
     ): Promise<Response> {
         const url = buildApiUrl(this.turbineApiUrl, endpoint);
-        const headers = this.createHeaders(options.headers as Record<string, string>);
+        const headers = await this.createHeaders(
+            options.headers as Record<string, string>,
+            url
+        );
 
         const response = await fetch(url, {
             ...options,
@@ -386,7 +395,7 @@ export class TurbineClient {
 
         // Only extract cookies in Node.js environment
         if (typeof window === "undefined") {
-            this.extractAndStoreCookies(response);
+            await this.extractAndStoreCookies(response, url);
         }
 
         return response;
@@ -1350,8 +1359,11 @@ export class TurbineClient {
     async logout(): Promise<void> {
         try {
             await this.fetchWithCookies("logout", { method: "POST" });
+            // Clear all cookies from jar
+            await this.cookieJar.clear();
         } catch (error) {
-            // Server handles session cleanup, so we don't need to do anything locally
+            // Still clear cookies even if server request fails
+            await this.cookieJar.clear();
             throw toTurbineError(error);
         }
     }

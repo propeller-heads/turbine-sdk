@@ -1420,4 +1420,138 @@ describe("TurbineClient", () => {
             }).toThrow("signature is not a valid hex string");
         });
     });
+
+    describe("Cookie handling with CookieJar", () => {
+        it("should use CookieJar instead of manual sessionId", async () => {
+            const client = await createMockTurbineClient();
+
+            // Verify cookieJar exists and sessionId is removed
+            expect((client as any).cookieJar).toBeDefined();
+            expect((client as any).sessionId).toBeUndefined();
+        });
+
+        it("should not send cookies over HTTP when marked Secure", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock a Set-Cookie with Secure flag
+            const mockResponse = new Response("OK", {
+                status: 200,
+                headers: new Headers({
+                    "set-cookie": "id=session123; Path=/; Secure; HttpOnly",
+                }),
+            });
+
+            // Simulate receiving cookie from HTTPS endpoint
+            await (client as any).extractAndStoreCookies(
+                mockResponse,
+                "https://api.turbine.com/nonce"
+            );
+
+            // Verify cookie is NOT sent over HTTP
+            const httpHeaders = await (client as any).createHeaders(
+                {},
+                "http://api.turbine.com/verify"
+            );
+            expect(httpHeaders["Cookie"]).toBeUndefined();
+
+            // Verify cookie IS sent over HTTPS
+            const httpsHeaders = await (client as any).createHeaders(
+                {},
+                "https://api.turbine.com/verify"
+            );
+            expect(httpsHeaders["Cookie"]).toContain("id=session123");
+        });
+
+        it("should respect cookie expiration dates", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock an expired cookie (1 second in the past)
+            const pastDate = new Date(Date.now() - 10000).toUTCString();
+            const mockResponse = new Response("OK", {
+                status: 200,
+                headers: new Headers({
+                    "set-cookie": `id=expired123; Path=/; Expires=${pastDate}; Domain=api.turbine.com`,
+                }),
+            });
+
+            await (client as any).extractAndStoreCookies(
+                mockResponse,
+                "https://api.turbine.com/nonce"
+            );
+
+            // Wait a brief moment to ensure cookie is recognized as expired
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            // Verify expired cookie is not sent
+            const headers = await (client as any).createHeaders(
+                {},
+                "https://api.turbine.com/verify"
+            );
+            expect(headers["Cookie"]).toBeUndefined();
+        });
+
+        it("should respect domain restrictions", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock a domain-restricted cookie
+            const mockResponse = new Response("OK", {
+                status: 200,
+                headers: new Headers({
+                    "set-cookie": "id=session123; Path=/; Domain=api.turbine.com",
+                }),
+            });
+
+            await (client as any).extractAndStoreCookies(
+                mockResponse,
+                "https://api.turbine.com/nonce"
+            );
+
+            // Verify cookie is NOT sent to different domain
+            const evilHeaders = await (client as any).createHeaders(
+                {},
+                "https://evil.com/steal"
+            );
+            expect(evilHeaders["Cookie"]).toBeUndefined();
+
+            // Verify cookie IS sent to correct domain
+            const validHeaders = await (client as any).createHeaders(
+                {},
+                "https://api.turbine.com/verify"
+            );
+            expect(validHeaders["Cookie"]).toContain("id=session123");
+        });
+
+        it("should clear cookies on logout", async () => {
+            const client = await createMockTurbineClient();
+
+            // Store a cookie
+            const mockResponse = new Response("OK", {
+                status: 200,
+                headers: new Headers({
+                    "set-cookie": "id=session123; Path=/",
+                }),
+            });
+
+            await (client as any).extractAndStoreCookies(
+                mockResponse,
+                "https://api.turbine.com/nonce"
+            );
+
+            // Mock logout endpoint
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(new Response("", { status: 200 }));
+
+            await client.logout();
+
+            // Verify cookies are cleared
+            const headers = await (client as any).createHeaders(
+                {},
+                "https://api.turbine.com/verify"
+            );
+            expect(headers["Cookie"]).toBeUndefined();
+
+            mockFetchWithCookies.mockRestore();
+        });
+    });
 });
