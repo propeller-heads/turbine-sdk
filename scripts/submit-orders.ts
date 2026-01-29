@@ -49,8 +49,8 @@ async function main() {
     // Set realistic amounts based on your needs and current market conditions
     const token0 = USDC;
     const token1 = WETH;
-    const token0Amount = 0; // UPDATE THIS - e.g., 50 for 50 USDC
-    const token1Amount = 0; // UPDATE THIS - e.g., 0.02 for 0.02 WETH
+    const token0Amount = "0"; // UPDATE THIS - e.g., "50" for 50 USDC
+    const token1Amount = "0"; // UPDATE THIS - e.g., "0.02" for 0.02 WETH
 
     const maxToken0Amount = token0.toOnchainAmount(token0Amount);
     const maxToken1Amount = token1.toOnchainAmount(token1Amount);

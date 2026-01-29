@@ -1,4 +1,4 @@
-import { Address, getAddress, Hex } from "viem";
+import { Address, getAddress, Hex, parseUnits, formatUnits } from "viem";
 
 export interface TurbineConfig {
     turbineSettlerAddress: Address;
@@ -21,12 +21,34 @@ export class Token {
         this.symbol = symbol;
     }
 
-    public toOnchainAmount(amount: number): bigint {
-        return BigInt(Math.round(amount * 10 ** this.decimals));
+    /**
+     * Converts a human-readable amount to on-chain atomic units (bigint).
+     * Uses string input to preserve full precision without floating-point errors.
+     *
+     * @param amount - The amount as a string (e.g., "100.5" for 100.5 tokens)
+     * @returns The amount in atomic units as a bigint
+     *
+     * @example
+     * const usdc = new Token("0x...", 6, "USDC");
+     * usdc.toOnchainAmount("100.5"); // Returns 100500000n
+     */
+    public toOnchainAmount(amount: string): bigint {
+        return parseUnits(amount, this.decimals);
     }
 
-    public fromOnchainAmount(amount: bigint): number {
-        return Number(amount) / 10 ** this.decimals;
+    /**
+     * Converts an on-chain amount (in atomic units) to a human-readable string.
+     * Returns a string to preserve full precision without floating-point errors.
+     *
+     * @param amount - The amount in atomic units as a bigint
+     * @returns The amount as a decimal string
+     *
+     * @example
+     * const usdc = new Token("0x...", 6, "USDC");
+     * usdc.fromOnchainAmount(100500000n); // Returns "100.5"
+     */
+    public fromOnchainAmount(amount: bigint): string {
+        return formatUnits(amount, this.decimals);
     }
 
     equals(other: Token): boolean {
