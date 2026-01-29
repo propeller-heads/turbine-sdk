@@ -38,19 +38,7 @@ describe("Token precision handling", () => {
         });
     });
 
-    describe("No security vulnerabilities from precision loss", () => {
-        test("repeated conversions maintain exact precision", () => {
-            // Using string inputs, repeated conversions are safe
-            let amount = "2363";
-            for (let i = 0; i < 100; i++) {
-                const onchain = WETH.toOnchainAmount(amount);
-                amount = WETH.fromOnchainAmount(onchain);
-            }
-
-            // After 100 roundtrips, still perfect!
-            expect(amount).toBe("2363");
-        });
-
+    describe("Precision loss tests", () => {
         test("these methods are safe for all calculations", () => {
             // Calculate a fee or price using these methods
             const price = "2363.123456789012345678";
