@@ -69,6 +69,22 @@ describe("TurbineCookieJar", () => {
         expect(cookieHeader).toContain("token=abc456");
     });
 
+    it("should correctly parse cookies with comma-separated dates in Expires", async () => {
+        const jar = new TurbineCookieJar();
+        const url = "https://api.turbine.com/api/nonce";
+
+        // Date format: "Thu, 29 Jan 2026 12:00:00 GMT" (contains commas!)
+        // Old buggy code would split on commas, corrupting the cookie
+        const futureDate = new Date(Date.now() + 86400000).toUTCString(); // 24 hours from now
+        const setCookieHeader = `id=session123; Path=/; Expires=${futureDate}`;
+
+        await jar.setCookieFromHeader(setCookieHeader, url);
+        const cookieHeader = await jar.getCookieHeader(url);
+
+        // Should correctly parse the date and return the cookie (not expired)
+        expect(cookieHeader).toContain("id=session123");
+    });
+
     it("should clear all cookies", async () => {
         const jar = new TurbineCookieJar();
         const url = "https://api.turbine.com/api/nonce";
