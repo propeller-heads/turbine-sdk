@@ -1368,12 +1368,6 @@ describe("Validation Functions", () => {
                 expect(() => validateTokenPermissions(invalidToken)).toThrow(
                     TurbineError
                 );
-
-                // Invalid amount (not positive bigint)
-                const invalidAmount = { token: USDC.address, amount: 0n };
-                expect(() => validateTokenPermissions(invalidAmount)).toThrow(
-                    TurbineError
-                );
             });
         });
 
@@ -1514,6 +1508,57 @@ describe("Validation Functions", () => {
                 expect(() => validateAddLiquidityPayload(missingPermit)).toThrow(
                     TurbineError
                 );
+            });
+
+            it("should validate single-sided liquidity payload (token0Amount = 0)", () => {
+                // Single-sided liquidity with only token1 (token0Amount = 0)
+                // Token permissions should allow 0 amount for token0
+                const permitTokensWithZero = {
+                    signature: VALID_PRIMITIVE_SIGNATURE,
+                    permit: {
+                        permitted: [
+                            { token: USDC.address as Address, amount: 0n }, // Zero amount for token0
+                            {
+                                token: WETH.address as Address,
+                                amount: 1000000000000000000n,
+                            },
+                        ],
+                        nonce: 0n,
+                        deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                    },
+                };
+
+                const singleSidedPayload = {
+                    addLiquidity: {
+                        owner: ACCOUNT.address,
+                        token0: USDC.address,
+                        token1: WETH.address,
+                        fee: 3000,
+                        token0Amount: 0n,
+                        token1Amount: 1000000000000000000n,
+                        exact: true,
+                        salt: ("0x" + "1".repeat(64)) as Hex,
+                    },
+                    permitTokens: permitTokensWithZero,
+                };
+
+                // Validate token permissions with 0 amount pass
+                expect(() =>
+                    validateTokenPermissions(permitTokensWithZero.permit.permitted[0])
+                ).not.toThrow();
+
+                // Both intent validation and permit validation should pass
+                expect(() =>
+                    validateAddLiquidityPayload(singleSidedPayload)
+                ).not.toThrow();
+                expect(() =>
+                    validateAddLiquidityIntent(singleSidedPayload.addLiquidity)
+                ).not.toThrow();
+                expect(() =>
+                    validateSignedBatchSignatureTransfer(
+                        singleSidedPayload.permitTokens
+                    )
+                ).not.toThrow();
             });
         });
     });
