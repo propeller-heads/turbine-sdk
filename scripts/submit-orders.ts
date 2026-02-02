@@ -1,27 +1,21 @@
 #!/usr/bin/env ts-node
 
-import { createPublicClient, createWalletClient, http, Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { createPublicClient, createWalletClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { OrderIntent } from "../src/models";
 import { USDC, WETH, NULL_ADDRESS } from "../src/constants";
 import { RPC_URL } from "../src/config";
+import { getAccount } from "./utils/keystore";
 
 // Configuration
-const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
-if (!PRIVATE_KEY) {
-    console.error("Please set PRIVATE_KEY environment variable");
-    process.exit(1);
-}
-
 const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 
 async function main() {
     console.log("🚀 Starting Turbine order submission script...");
 
     // Set up clients
-    const account = privateKeyToAccount(PRIVATE_KEY);
+    const account = await getAccount();
     const walletClient = createWalletClient({
         account: account,
         chain: mainnet,

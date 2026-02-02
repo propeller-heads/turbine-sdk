@@ -3,33 +3,30 @@
 // This script creates a pool on Turbine.
 //
 // Set following environment variables before running the script:
-// PRIVATE_KEY: Private key of the account that will create the pool
 // TURBINE_API_URL: URL of the Turbine API (to fetch contract addresses)
 // RPC_URL: URL of the RPC endpoint
 //
+// Authentication:
+// - Uses encrypted keystore from scripts/.keystores/ (run 'yarn create-keystore' to set up)
+// - Falls back to PRIVATE_KEY environment variable for CI/automation
+//
 // You can change pool details directly in the script.
 
-import { createPublicClient, createWalletClient, http, Hex, Address } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { createPublicClient, createWalletClient, http, Address } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient } from "../src/turbineClient";
 import { USDC, WETH } from "../src/constants";
 import { RPC_URL } from "../src/config";
+import { getAccount } from "./utils/keystore";
 
 // Configuration
-const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
-if (!PRIVATE_KEY) {
-    console.error("Please set PRIVATE_KEY environment variable");
-    process.exit(1);
-}
-
 const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 
 async function main() {
     console.log("🚀 Starting Turbine pool creation script...");
 
     // Set up clients
-    const account = privateKeyToAccount(PRIVATE_KEY);
+    const account = await getAccount();
     const walletClient = createWalletClient({
         account: account,
         chain: mainnet,
