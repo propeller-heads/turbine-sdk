@@ -18,3 +18,8 @@ node_modules/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Encrypted keystores containing private keys
+# These files should never be committed to version control
+scripts/.keystores/
+!scripts/.keystores/EXAMPLE-DO-NOT-USE.json
