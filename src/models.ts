@@ -84,8 +84,8 @@ export interface AllowanceTransferPermitBatch {
 }
 
 export interface PrimitiveSignature {
-    r: BigInt;
-    s: BigInt;
+    r: bigint;
+    s: bigint;
     yParity: boolean;
 }
 
