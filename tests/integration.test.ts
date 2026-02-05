@@ -339,4 +339,32 @@ describe("Integration test", () => {
         expect(result).toBeDefined();
         expect(result).toMatch(/^0x[0-9a-f]{64}$/);
     });
+
+    describe("Cookie security integration", () => {
+        it("should handle Set-Cookie headers with security attributes", async () => {
+            const client = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT);
+
+            try {
+                // Authenticate (should receive secure cookies)
+                await client.ensureAuthenticated();
+
+                // Verify cookies are stored (internal check)
+                const cookieJar = (client as any).cookieJar;
+                expect(cookieJar).toBeDefined();
+
+                // Make authenticated request to verify cookies work
+                const authStatus = await client.getAuthStatus();
+                expect(authStatus.authenticated).toBe(true);
+
+                // Logout and verify cookies are cleared
+                await client.logout();
+
+                const authStatusAfter = await client.getAuthStatus();
+                expect(authStatusAfter.authenticated).toBe(false);
+            } catch (error) {
+                console.error("Cookie security integration test failed:", error);
+                throw error;
+            }
+        });
+    });
 });
