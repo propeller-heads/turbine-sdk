@@ -3,7 +3,7 @@ import * as path from "path";
 import prompts from "prompts";
 import { Account, Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { Wallet } from "@ethereumjs/wallet";
+import { Keystore, Address, Secp256k1 } from "ox";
 
 /**
  * Load and decrypt a keystore file with password prompt
@@ -97,13 +97,9 @@ export async function loadAccount(
 
         // Try to decrypt
         try {
-            // Decrypt using @ethereumjs/wallet
-            const wallet = await Wallet.fromV3(keystoreJson, pwd);
-
-            // Extract private key and create viem Account
-            const privateKeyBuffer = wallet.getPrivateKey();
-            const privateKey =
-                `0x${Buffer.from(privateKeyBuffer).toString("hex")}` as Hex;
+            // Decrypt using ox
+            const key = Keystore.toKey(keystoreObj, { password: pwd });
+            const privateKey = Keystore.decrypt(keystoreObj, key) as Hex;
             const account = privateKeyToAccount(privateKey);
 
             return account;
@@ -214,18 +210,26 @@ export async function createKeystore(
         );
     }
 
-    // Create wallet from private key (remove 0x prefix for ethereumjs)
-    const privateKeyBuffer = Buffer.from(privateKey.slice(2), "hex");
-    const wallet = Wallet.fromPrivateKey(privateKeyBuffer);
+    // Derive address from private key
+    const publicKey = Secp256k1.getPublicKey({ privateKey });
+    const address = Address.fromPublicKey(publicKey);
 
     // Encrypt with V3 keystore format using scrypt
     // Use provided options for testing, otherwise use secure defaults
-    const keystoreJson = await wallet.toV3String(password, {
-        kdf: "scrypt",
+    const [key, opts] = Keystore.scrypt({
+        password,
         n: options?.n ?? 262144, // Default: 262144 (secure)
         r: options?.r ?? 8,
         p: options?.p ?? 1,
     });
+    const keystoreObj = Keystore.encrypt(privateKey, key, opts);
+
+    // Add address field (without 0x prefix) for compatibility
+    const keystoreWithAddress = {
+        ...keystoreObj,
+        address: address.slice(2).toLowerCase(),
+    };
+    const keystoreJson = JSON.stringify(keystoreWithAddress);
 
     // Ensure output directory exists
     const dir = path.dirname(outputPath);
@@ -242,7 +246,7 @@ export async function createKeystore(
     }
 
     console.log(`✅ Keystore created: ${outputPath}`);
-    console.log(`📍 Address: ${wallet.getAddressString()}`);
+    console.log(`📍 Address: ${address}`);
 }
 
 /**

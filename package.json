@@ -23,9 +23,9 @@
         "migrate-env-to-keystore": "tsx scripts/migrate-env-to-keystore.ts"
     },
     "dependencies": {
-        "@ethereumjs/wallet": "^10.0.0",
         "@uniswap/permit2-sdk": "^1.3.0",
         "moment": "^2.30.1",
+        "ox": "^0.8.6",
         "prompts": "^2.4.2",
         "ts-node": "^10.8.0",
         "typescript": "^5.3.3",

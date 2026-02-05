@@ -15,103 +15,6 @@ jest.mock("prompts");
 import prompts from "prompts";
 const mockPrompts = prompts as jest.MockedFunction<typeof prompts>;
 
-/**
- * Mock @ethereumjs/wallet to avoid ES module compatibility issues in Jest.
- *
- * WHY WE NEED THIS MOCK:
- * - @ethereumjs/wallet depends on @noble/curves, which is a pure ES Module (ESM)
- * - Jest runs in CommonJS mode and has difficulty transforming deeply nested ESM dependencies
- * - Scripts work fine with tsx (which handles ESM seamlessly), only Jest has this issue
- * - The mock mirrors the real Wallet API (fromPrivateKey, fromV3, toV3String, getPrivateKey)
- *
- * WHAT WE'RE TESTING:
- * - File operations (create, read, permissions)
- * - Password validation (length requirements)
- * - Error handling (wrong password, missing files, corrupted JSON)
- * - User interaction flow (prompts, retries, cancellation)
- * - Address validation and format
- *
- * WHAT WE'RE NOT TESTING:
- * - The actual scrypt encryption algorithm (that's @ethereumjs/wallet's responsibility)
- * - Cryptographic correctness (thoroughly tested by @ethereumjs/wallet maintainers)
- */
-jest.mock("@ethereumjs/wallet", () => {
-    const crypto = require("crypto");
-
-    class MockWallet {
-        private privateKey: Buffer;
-
-        constructor(privateKey: Buffer) {
-            this.privateKey = privateKey;
-        }
-
-        static fromPrivateKey(privateKey: Buffer): MockWallet {
-            return new MockWallet(privateKey);
-        }
-
-        static async fromV3(
-            keystoreJson: string,
-            password: string
-        ): Promise<MockWallet> {
-            JSON.parse(keystoreJson);
-
-            // Mock decryption: return test key for correct password, throw for incorrect
-            if (password === "test-password-123") {
-                const privateKey = Buffer.from(
-                    "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-                    "hex"
-                );
-                return new MockWallet(privateKey);
-            } else {
-                throw new Error("Invalid password");
-            }
-        }
-
-        getPrivateKey(): Buffer {
-            return this.privateKey;
-        }
-
-        getAddressString(): string {
-            // Derive address from private key (simplified for testing)
-            const hash = crypto.createHash("sha256").update(this.privateKey).digest();
-            return "0x" + hash.slice(0, 20).toString("hex");
-        }
-
-        async toV3String(
-            password: string,
-            opts?: { kdf?: string; n?: number; r?: number; p?: number }
-        ): Promise<string> {
-            // Mock V3 keystore generation with correct structure
-            const salt = crypto.randomBytes(32);
-            const iv = crypto.randomBytes(16);
-
-            const keystore = {
-                version: 3,
-                id: crypto.randomUUID(),
-                address: this.getAddressString().slice(2),
-                crypto: {
-                    ciphertext: crypto.randomBytes(32).toString("hex"),
-                    cipherparams: { iv: iv.toString("hex") },
-                    cipher: "aes-128-ctr",
-                    kdf: opts?.kdf || "scrypt",
-                    kdfparams: {
-                        dklen: 32,
-                        salt: salt.toString("hex"),
-                        n: opts?.n || 262144,
-                        r: opts?.r || 8,
-                        p: opts?.p || 1,
-                    },
-                    mac: crypto.randomBytes(32).toString("hex"),
-                },
-            };
-
-            return JSON.stringify(keystore);
-        }
-    }
-
-    return { Wallet: MockWallet };
-});
-
 describe("keystore", () => {
     let tempDir: string;
     let originalCwd: string;
@@ -282,6 +185,9 @@ describe("keystore", () => {
             expect(account).toBeDefined();
             expect(account.address).toBeDefined();
             expect(account.address.startsWith("0x")).toBe(true);
+            // Verify it matches the expected address for this private key
+            const expectedAccount = privateKeyToAccount(TEST_PRIVATE_KEY);
+            expect(account.address).toBe(expectedAccount.address);
         });
 
         it("should throw error for incorrect password when password is provided", async () => {
@@ -341,6 +247,9 @@ describe("keystore", () => {
 
             expect(account).toBeDefined();
             expect(account.address).toBeDefined();
+            // Verify it matches the expected address
+            const expectedAccount = privateKeyToAccount(TEST_PRIVATE_KEY);
+            expect(account.address).toBe(expectedAccount.address);
         });
 
         it("should prompt for password when not provided", async () => {
@@ -595,9 +504,11 @@ describe("keystore", () => {
 
                 const account = await loadAccount(keystorePath, TEST_PASSWORD);
 
-                // Verify we got a valid account
+                // Verify we got a valid account matching the original key
                 expect(account).toBeDefined();
                 expect(account.address).toBeDefined();
+                const expectedAccount = privateKeyToAccount(testKeys[i]);
+                expect(account.address).toBe(expectedAccount.address);
             }
         });
 
