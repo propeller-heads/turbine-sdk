@@ -1722,4 +1722,156 @@ describe("TurbineClient", () => {
             mockFetchWithCookies.mockRestore();
         });
     });
+
+    describe("Wallet switching detection", () => {
+        it("should logout and re-authenticate when wallet address changes", async () => {
+            const client = await createMockTurbineClient();
+
+            // Mock wallet with address 0x1111...
+            const oldAddress = "0x1111111111111111111111111111111111111111";
+            const newAddress = "0x2222222222222222222222222222222222222222";
+
+            // Mock getAddresses to return new address
+            jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
+                newAddress as `0x${string}`,
+            ]);
+
+            // Mock fetchWithCookies to return session with old address
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValueOnce(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: true,
+                            address: oldAddress,
+                        }),
+                        { status: 200 }
+                    )
+                );
+
+            // Mock logout
+            const mockLogout = jest.spyOn(client, "logout").mockResolvedValue();
+
+            // Mock authenticate
+            const mockAuthenticate = jest
+                .spyOn(client as any, "authenticate")
+                .mockResolvedValue(undefined);
+
+            // Mock second fetchWithCookies call after authenticate
+            mockFetchWithCookies.mockResolvedValueOnce(
+                new Response(
+                    JSON.stringify({
+                        authenticated: true,
+                        address: newAddress,
+                    }),
+                    { status: 200 }
+                )
+            );
+
+            // Call ensureAuthenticated
+            const result = await client.ensureAuthenticated();
+
+            // Verify logout was called
+            expect(mockLogout).toHaveBeenCalledTimes(1);
+
+            // Verify authenticate was called
+            expect(mockAuthenticate).toHaveBeenCalledTimes(1);
+
+            // Verify result is new address
+            expect(result.toLowerCase()).toBe(newAddress.toLowerCase());
+
+            // Restore mocks
+            mockFetchWithCookies.mockRestore();
+            mockLogout.mockRestore();
+            mockAuthenticate.mockRestore();
+        });
+
+        it("should NOT logout when wallet address matches session", async () => {
+            const client = await createMockTurbineClient();
+
+            const address = "0x1111111111111111111111111111111111111111";
+
+            // Mock getAddresses to return same address
+            jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
+                address as `0x${string}`,
+            ]);
+
+            // Mock fetchWithCookies to return session with same address
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValueOnce(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: true,
+                            address: address,
+                        }),
+                        { status: 200 }
+                    )
+                );
+
+            // Mock logout (should NOT be called)
+            const mockLogout = jest.spyOn(client, "logout").mockResolvedValue();
+
+            // Mock authenticate (should NOT be called)
+            const mockAuthenticate = jest
+                .spyOn(client as any, "authenticate")
+                .mockResolvedValue(undefined);
+
+            // Call ensureAuthenticated
+            const result = await client.ensureAuthenticated();
+
+            // Verify logout was NOT called
+            expect(mockLogout).not.toHaveBeenCalled();
+
+            // Verify authenticate was NOT called
+            expect(mockAuthenticate).not.toHaveBeenCalled();
+
+            // Verify result is the address
+            expect(result.toLowerCase()).toBe(address.toLowerCase());
+
+            // Restore mocks
+            mockFetchWithCookies.mockRestore();
+            mockLogout.mockRestore();
+            mockAuthenticate.mockRestore();
+        });
+
+        it("should handle checksum differences in addresses correctly", async () => {
+            const client = await createMockTurbineClient();
+
+            // Same address, different checksum (mixed case vs lowercase)
+            const addressLowercase = "0xabcdef0123456789abcdef0123456789abcdef01";
+            const addressChecksum = "0xAbCdEf0123456789aBcDeF0123456789AbCdEf01";
+
+            // Mock getAddresses to return lowercase
+            jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
+                addressLowercase as `0x${string}`,
+            ]);
+
+            // Mock fetchWithCookies to return checksum version
+            const mockFetchWithCookies = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValueOnce(
+                    new Response(
+                        JSON.stringify({
+                            authenticated: true,
+                            address: addressChecksum,
+                        }),
+                        { status: 200 }
+                    )
+                );
+
+            // Mock logout (should NOT be called - same address, just different checksum)
+            const mockLogout = jest.spyOn(client, "logout").mockResolvedValue();
+
+            // Call ensureAuthenticated
+            await client.ensureAuthenticated();
+
+            // Verify logout was NOT called (addresses are the same, just different checksum)
+            expect(mockLogout).not.toHaveBeenCalled();
+
+            // Restore mocks
+            mockFetchWithCookies.mockRestore();
+            mockLogout.mockRestore();
+        });
+    });
 });

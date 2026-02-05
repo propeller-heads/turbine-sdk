@@ -1484,6 +1484,10 @@ export class TurbineClient {
      * @returns {Promise<Address>} The authenticated user's address.
      */
     public async ensureAuthenticated(): Promise<Address> {
+        // Fetch current wallet address once at the start
+        const [currentAddress] = await this.walletClient.getAddresses();
+        const walletAddress = getAddress(currentAddress);
+
         // If authentication is already in progress, wait for it
         if (this.authenticationInProgress) {
             // Poll until authentication completes with 5 minute timeout
@@ -1504,7 +1508,12 @@ export class TurbineClient {
             if (response.ok) {
                 const authStatus = await response.json();
                 if (authStatus.authenticated && authStatus.address) {
-                    return authStatus.address;
+                    const sessionAddress = getAddress(authStatus.address);
+
+                    if (sessionAddress === walletAddress) {
+                        return authStatus.address;
+                    }
+                    // If wallet changed, fall through to re-authenticate
                 }
             }
         }
@@ -1517,7 +1526,19 @@ export class TurbineClient {
             if (response.ok) {
                 const authStatus = await response.json();
                 if (authStatus.authenticated && authStatus.address) {
-                    return authStatus.address;
+                    const sessionAddress = getAddress(authStatus.address);
+
+                    if (sessionAddress !== walletAddress) {
+                        // Wallet changed - logout old session and re-authenticate
+                        console.warn(
+                            `Wallet address changed from ${sessionAddress} to ${walletAddress}. ` +
+                                `Logging out old session and re-authenticating.`
+                        );
+                        await this.logout();
+                        // Fall through to authenticate with new wallet
+                    } else {
+                        return authStatus.address;
+                    }
                 }
             }
 
