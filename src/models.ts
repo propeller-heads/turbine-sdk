@@ -17,10 +17,10 @@ export class Token {
     public symbol: string;
 
     constructor(address: Address, decimals: number, symbol: string) {
-        // Validate address format and checksum
+        // Validate address format
         const validatedAddress = validateAddress(address, "address");
 
-        // Normalize to checksummed format
+        // Normalize to EIP-55 checksum encoding (checksum without chainId)
         this.address = getAddress(validatedAddress);
         this.decimals = decimals;
         this.symbol = symbol;

@@ -1,6 +1,6 @@
 import { Token } from "../src/models";
 
-describe("Token address checksum validation", () => {
+describe("Token address checksum validation (EIP55 checksum without the chainID)", () => {
     const validChecksummedAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // USDC
     const validLowercaseAddress = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"; // USDC lowercase
     const invalidChecksumAddress = "0xA0B86991c6218b36c1d19D4a2e9Eb0cE3606eB48"; // Wrong checksum (first 'b' should be lowercase)
