@@ -1,7 +1,6 @@
 import { Address } from "viem";
 import { Token } from "./models";
-
-export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
+export { NULL_ADDRESS } from "./validation";
 
 export const USDC = new Token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6, "USDC");
 export const USDT = new Token("0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, "USDT");

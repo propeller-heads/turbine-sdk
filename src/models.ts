@@ -1,4 +1,5 @@
 import { Address, getAddress, Hex, parseUnits, formatUnits } from "viem";
+import { validateAddress } from "./validation";
 
 export interface TurbineConfig {
     turbineSettlerAddress: Address;
@@ -16,7 +17,11 @@ export class Token {
     public symbol: string;
 
     constructor(address: Address, decimals: number, symbol: string) {
-        this.address = getAddress(address);
+        // Validate address format
+        const validatedAddress = validateAddress(address, "address");
+
+        // Normalize to EIP-55 checksum encoding (checksum without chainId)
+        this.address = getAddress(validatedAddress);
         this.decimals = decimals;
         this.symbol = symbol;
     }

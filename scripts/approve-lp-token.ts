@@ -9,9 +9,12 @@
  * 3. Grants infinite approval to the Permit2 contract to spend the selected pool's LP token
  *
  * Environment Variables:
- * - PRIVATE_KEY (required): Private key of the account that will approve the LP token (with 0x prefix)
  * - RPC_URL (optional): RPC endpoint URL for Ethereum mainnet (uses default if not set)
  * - TURBINE_API_URL (optional): Turbine API URL (defaults to http://127.0.0.1:8080/api)
+ *
+ * Authentication:
+ * - Uses encrypted keystore from scripts/.keystores/ (run 'yarn create-keystore' to set up)
+ * - Falls back to PRIVATE_KEY environment variable for CI/automation
  *
  * Usage:
  *   yarn approve-lp-token
@@ -27,13 +30,13 @@ import {
     Hex,
     maxUint256,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { PERMIT2_ADDRESS } from "@uniswap/permit2-sdk";
 import * as readline from "readline";
 import { getPools, fetchConfig } from "../src/turbineClient";
 import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { ADDR2TOKEN } from "../src/constants";
+import { getAccount } from "./utils/keystore";
 
 // Standard ERC20 approve ABI
 const erc20ApproveABI = [
@@ -72,14 +75,8 @@ async function main() {
     console.log("🔍 Fetching registered pools...\n");
 
     // Configuration
-    const PRIVATE_KEY = process.env.PRIVATE_KEY as Hex;
-    if (!PRIVATE_KEY) {
-        console.error("Please set PRIVATE_KEY environment variable");
-        process.exit(1);
-    }
-
     // Set up clients
-    const account = privateKeyToAccount(PRIVATE_KEY);
+    const account = await getAccount();
     const walletClient = createWalletClient({
         account: account,
         chain: mainnet,

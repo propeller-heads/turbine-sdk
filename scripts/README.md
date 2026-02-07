@@ -10,18 +10,59 @@ This directory contains scripts for interacting with the Turbine protocol.
 
 ## Prerequisites
 
-1. **Private Key**: You need a private key for the account that will submit the orders
-2. **Token Balances**: The account must have sufficient balances of the tokens being sold
+1. **Private Key Authentication**: You need a private key for the account that will interact with Turbine
+2. **Token Balances**: The account must have sufficient balances of the tokens being used
 3. **Permit2 Approvals**: The account must have approved the Permit2 contract to spend the tokens
+
+## Authentication Setup
+
+### Recommended: Encrypted Keystore (Secure)
+
+For local development, use an encrypted keystore file to securely store your private key:
+
+1. **Create a keystore** (for new users):
+   ```bash
+   yarn create-keystore
+   ```
+   Follow the prompts to:
+   - Enter your private key (input will be masked)
+   - Choose a strong password (12+ characters recommended)
+   - Confirm the password
+   - Choose a filename (default: `default.json`)
+
+2. **Or migrate from environment variable**:
+   ```bash
+   yarn migrate-env-to-keystore
+   ```
+   This will help you transition from `PRIVATE_KEY` env var to an encrypted keystore.
+
+**Security Benefits:**
+- 🔐 Private key encrypted with scrypt
+- 🚫 No plaintext keys in environment variables or shell history
+- 🔒 File permissions set to owner-only (0600)
+- ✅ Compatible with standard Ethereum keystore format
+
+**After setup**, all scripts will automatically:
+- Detect keystores in `scripts/.keystores/`
+- Prompt for your password when needed
+- Use the decrypted key only during signing operations
+
+### Alternative: Environment Variable (CI/Automation Only)
+
+⚠️ **WARNING**: Only use environment variables in CI/CD pipelines with proper secret management systems (GitHub Secrets, AWS Secrets Manager, HashiCorp Vault, etc.). **Never** use environment variables for local development or commit `.env` files to version control.
+
+```bash
+# For CI/automation only - Not recommended for local development
+export PRIVATE_KEY="your_private_key_here"
+```
+
+Scripts will fall back to `PRIVATE_KEY` environment variable if no keystore is found.
 
 ## Environment Variables
 
-Set the following environment variables before running the script:
+Optional environment variables for all scripts:
 
 ```bash
-# Required: Your private key (with 0x prefix)
-export PRIVATE_KEY="your_private_key_here"
-
 # Optional: Turbine API URL (defaults to http://0.0.0.0:8080/api)
 export TURBINE_API_URL="https://your-turbine-api.com/api"
 
