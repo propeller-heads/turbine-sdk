@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { Address, Hex, hexToBytes, bytesToHex } from "viem";
+import { Address, Hex } from "viem";
 import { TurbineError } from "../src/errorHandling";
 import { NULL_ADDRESS, USDC, WETH } from "../src/constants";
 import {

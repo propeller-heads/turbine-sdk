@@ -13,7 +13,6 @@
 
 import { Address, Hex, isAddress, isHex, hexToBytes, bytesToHex } from "viem";
 import { TurbineError } from "./errorHandling";
-import { NULL_ADDRESS } from "./constants";
 import {
     OrderIntent,
     AddLiquidityIntent,
@@ -28,6 +27,8 @@ import {
     SignatureTransferPermitTransferFrom,
     TurbineConfig,
 } from "./models";
+
+export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 // ============================================================================
 // PRIMITIVE TYPE VALIDATORS
