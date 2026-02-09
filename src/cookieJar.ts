@@ -11,10 +11,7 @@
 
 interface CookieJarLike {
     setCookie(cookie: string, url: string): Promise<unknown>;
-    getCookieString(
-        url: string,
-        options?: Record<string, unknown>
-    ): Promise<string>;
+    getCookieString(url: string, options?: Record<string, unknown>): Promise<string>;
     removeAllCookies(): Promise<void>;
 }
 
@@ -28,7 +25,8 @@ export class TurbineCookieJar {
                 // in browser builds. The variable indirection ensures bundlers
                 // cannot statically analyze and bundle this dependency.
                 const requireFn =
-                    typeof module !== "undefined" && typeof module.require === "function"
+                    typeof module !== "undefined" &&
+                    typeof module.require === "function"
                         ? module.require.bind(module)
                         : undefined;
                 if (requireFn) {
