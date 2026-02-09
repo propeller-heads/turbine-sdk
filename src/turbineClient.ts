@@ -471,7 +471,7 @@ export class TurbineClient {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
         try {
-            const response = await fetch(url, {
+            let response = await fetch(url, {
                 ...options,
                 headers,
                 credentials: "include",
@@ -480,7 +480,7 @@ export class TurbineClient {
             });
 
             // Validate response size before processing
-            await this.validateResponseSize(response);
+            response = await this.validateResponseSize(response);
 
             await this.extractAndStoreCookies(response, url);
 

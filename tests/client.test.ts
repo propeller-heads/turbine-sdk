@@ -1722,4 +1722,37 @@ describe("TurbineClient", () => {
             mockFetchWithCookies.mockRestore();
         });
     });
+
+    describe("fetchWithCookies response body handling", () => {
+        it("should return a response with readable body after size validation", async () => {
+            const client = await createMockTurbineClient();
+
+            // Create a response body that will go through validateResponseSize
+            const responseBody = JSON.stringify({ test: "data", value: 123 });
+
+            // Mock global fetch to return a response
+            const mockFetch = jest.spyOn(global, "fetch").mockResolvedValue(
+                new Response(responseBody, {
+                    status: 200,
+                    statusText: "OK",
+                    headers: new Headers({
+                        "content-type": "application/json",
+                    }),
+                })
+            );
+
+            // Call fetchWithCookies which internally calls validateResponseSize
+            const response = await (client as any).fetchWithCookies("test_endpoint", {
+                method: "GET",
+            });
+
+            // This would fail if validateResponseSize consumed the body and didn't return the new Response with a fresh body
+            const data = await response.json();
+
+            expect(data).toEqual({ test: "data", value: 123 });
+            expect(response.ok).toBe(true);
+
+            mockFetch.mockRestore();
+        });
+    });
 });
