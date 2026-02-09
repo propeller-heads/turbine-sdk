@@ -328,17 +328,13 @@ export class TurbineClient {
     /* PRIVATE HELPER METHODS */
 
     /**
-     * Extracts and stores cookies from fetch response headers using CookieJar
+     * Extracts and stores cookies from fetch response headers using CookieJar.
+     * No-op in browser environments (cookie jar methods are no-ops there).
      */
     private async extractAndStoreCookies(
         response: Response,
         url: string
     ): Promise<void> {
-        // Only extract cookies in Node.js environment
-        if (typeof window !== "undefined") {
-            return;
-        }
-
         // Use getSetCookie() for proper parsing of multiple Set-Cookie headers
         // This avoids issues with comma-separated values in Expires dates
         const setCookieHeaders = response.headers.getSetCookie
@@ -351,7 +347,9 @@ export class TurbineClient {
     }
 
     /**
-     * Creates headers with cookies from CookieJar
+     * Creates headers with cookies from CookieJar.
+     * In browser environments, getCookieHeader returns "" (no-op), so no Cookie header is added
+     * — the browser handles cookies natively via fetch credentials.
      */
     private async createHeaders(
         additionalHeaders: Record<string, string> = {},
@@ -362,11 +360,9 @@ export class TurbineClient {
             ...additionalHeaders,
         };
 
-        if (typeof window === "undefined") {
-            const cookieHeader = await this.cookieJar.getCookieHeader(url);
-            if (cookieHeader) {
-                headers["Cookie"] = cookieHeader;
-            }
+        const cookieHeader = await this.cookieJar.getCookieHeader(url);
+        if (cookieHeader) {
+            headers["Cookie"] = cookieHeader;
         }
 
         return headers;
@@ -486,10 +482,7 @@ export class TurbineClient {
             // Validate response size before processing
             await this.validateResponseSize(response);
 
-            // Only extract cookies in Node.js environment
-            if (typeof window === "undefined") {
-                await this.extractAndStoreCookies(response, url);
-            }
+            await this.extractAndStoreCookies(response, url);
 
             return response;
         } catch (error: any) {
