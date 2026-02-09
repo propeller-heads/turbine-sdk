@@ -35,6 +35,23 @@ export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 // ============================================================================
 
 /**
+ * Allows null to pass validation
+ * @param value - The value to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @param validator - The validator to use for non-null values
+ * @returns The validated value or null if the value is null
+ * @throws Whatever the validator throws
+ */
+export function optional<Tin, Tout>(
+    validator: (value: Tin, fieldName: string) => Tout,
+    value: Tin | null,
+    fieldName: string
+): Tout | null {
+    if (value === null) return null;
+    return validator(value, fieldName);
+}
+
+/**
  * Validates that a value is a string
  * @param value - The value to validate
  * @param fieldName - Name of the field being validated (for error messages)
@@ -1166,7 +1183,7 @@ export function validateOrderExecutionResponse(value: unknown): void {
 
     const execAny = obj as any;
 
-    validateHash(execAny.tx_hash, "orderExecution.tx_hash");
+    optional(validateHash, execAny.tx_hash, "orderExecution.tx_hash");
     validateBlockNumber(execAny.block_number, "orderExecution.block_number");
 
     validateBigIntConvertible(execAny.sold_amount, "orderExecution.sold_amount");

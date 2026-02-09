@@ -1678,6 +1678,15 @@ describe("Validation Functions", () => {
                     validateOrderExecutionResponse(validExecution)
                 ).not.toThrow();
 
+                // Valid execution with null tx_hash
+                const validExecutionWithNullTxHash = {
+                    ...validExecution,
+                    tx_hash: null,
+                };
+                expect(() =>
+                    validateOrderExecutionResponse(validExecutionWithNullTxHash)
+                ).not.toThrow();
+
                 // Missing field
                 const missingTxHash = { ...validExecution };
                 delete (missingTxHash as any).tx_hash;
