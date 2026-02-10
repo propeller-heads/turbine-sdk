@@ -679,7 +679,7 @@ export class TurbineClient {
      * @param orderHash The hash of the order to cancel
      * @returns A Promise that resolves to the response message from the API.
      */
-    async cancelOrder(orderHash: Hex): Promise<{ orderHash: string; message: string }> {
+    async cancelOrder(orderHash: Hex): Promise<{ orderHash: string }> {
         orderHash = validate.validateHash(orderHash, "orderHash");
 
         await this.ensureAuthenticated();
@@ -698,7 +698,7 @@ export class TurbineClient {
             const responseJson = await response.json();
 
             validate.validateObject(responseJson, "cancelOrder response");
-            if (!responseJson || !responseJson.orderHash || !responseJson.message) {
+            if (!responseJson || !responseJson.orderHash) {
                 throw new TurbineError(
                     "UNEXPECTED_CANCELLATION_RESPONSE",
                     "Order cancellation was submitted but confirmation is missing. Please check your orders to verify if it was processed.",
@@ -710,12 +710,8 @@ export class TurbineClient {
                 responseJson.orderHash,
                 "cancelOrder response.orderHash"
             );
-            const message = validate.validateString(
-                responseJson.message,
-                "cancelOrder response.message"
-            );
 
-            return { orderHash: responseOrderHash, message };
+            return { orderHash: responseOrderHash };
         } catch (error) {
             throw toTurbineError(error);
         }
