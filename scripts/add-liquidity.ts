@@ -4,15 +4,19 @@ import { createPublicClient, createWalletClient, http, Hex } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { AddLiquidityIntent } from "../src/models";
-import { USDC, WETH } from "../src/constants";
+import { TURBINE_API_URL } from "../src/config";
 import { RPC_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
-
-// Configuration
-const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
+import {
+    selectPool,
+    getPoolTokens,
+    formatPoolLabel,
+    getTokenDisplay,
+} from "./utils/pools";
+import prompts from "prompts";
 
 async function main() {
-    console.log("🚀 Starting Turbine liquidity addition script...");
+    console.log("🚀 Starting Turbine liquidity addition script...\n");
 
     // Set up clients
     const account = await getAccount();
@@ -26,89 +30,115 @@ async function main() {
         transport: http(RPC_URL),
     });
 
+    console.log(`👤 Account: ${account.address}`);
+    console.log(`🌐 Turbine API: ${TURBINE_API_URL}\n`);
+
+    // Step 1: Select a pool interactively
+    const pool = await selectPool(publicClient);
+    const { token0, token1 } = getPoolTokens(pool);
+    const token0Display = getTokenDisplay(pool.metadata.token0);
+    const token1Display = getTokenDisplay(pool.metadata.token1);
+
+    console.log(`\n✅ Selected pool: ${formatPoolLabel(pool)}`);
+    console.log(`   LP Token: ${pool.metadata.lpToken}\n`);
+
+    // Step 2: Prompt for token amounts
+    console.log(`\n💡 Enter amounts to add. Use base units (e.g. 10 USDC), not atomic units (not 10,000,000 USDC).\n`)
+    const response = await prompts([
+        {
+            type: "text",
+            name: "token0Amount",
+            message: `Amount of ${token0Display} to add:`,
+            validate: (value: string) => {
+                if (!value.trim()) return "Amount is required";
+                const num = Number(value);
+                if (isNaN(num) || num < 0) return "Must be a valid non-negative number";
+                return true;
+            },
+        },
+        {
+            type: "text",
+            name: "token1Amount",
+            message: `Amount of ${token1Display} to add:`,
+            validate: (value: string) => {
+                if (!value.trim()) return "Amount is required";
+                const num = Number(value);
+                if (isNaN(num) || num < 0) return "Must be a valid non-negative number";
+                return true;
+            },
+        },
+    ]);
+
+    // Handle Ctrl+C
+    if (
+        response.token0Amount === undefined ||
+        response.token1Amount === undefined
+    ) {
+        console.log("\n❌ Operation cancelled");
+        process.exit(1);
+    }
+
+    const token0AmountStr: string = response.token0Amount.trim();
+    const token1AmountStr: string = response.token1Amount.trim();
+
+    // Convert to on-chain amounts
+    // If we have known Token objects, use their decimals; otherwise fall back to raw bigint input
+    let maxToken0Amount: bigint;
+    let maxToken1Amount: bigint;
+
+    if (token0) {
+        maxToken0Amount = token0.toOnchainAmount(token0AmountStr);
+    } else {
+        maxToken0Amount = BigInt(token0AmountStr);
+    }
+
+    if (token1) {
+        maxToken1Amount = token1.toOnchainAmount(token1AmountStr);
+    } else {
+        maxToken1Amount = BigInt(token1AmountStr);
+    }
+
+    // Create the TurbineClient for submitting the intent
     const turbineClient = await TurbineClient.create(
         walletClient,
         publicClient,
         TURBINE_API_URL
     );
 
-    console.log(`👤 Account: ${account.address}`);
-    console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
-
-    // Pool configuration
-    const pools = await turbineClient.getPools();
-    if (pools.length === 0) {
-        console.error("No pools found. Please create a pool first.");
-        process.exit(1);
-    }
-
-    // ⚠️  IMPORTANT: Update these amounts and pool tokens before running this script!
-    const token0 = USDC;
-    const token1 = WETH;
-    // Set realistic amounts based on your needs and current market conditions
-    const token0Amount = "0"; // UPDATE THIS - e.g., "10" for 10 USDC
-    const token1Amount = "0"; // UPDATE THIS - e.g., "0.004" for 0.004 WETH
-
-    // Find the first pool with token0 and token1 tokens
-    const pool = pools.find(
-        (p) =>
-            p.metadata.token0.toLowerCase() === token0.address.toLowerCase() &&
-            p.metadata.token1.toLowerCase() === token1.address.toLowerCase()
-    )?.metadata;
-    if (!pool) {
-        console.error(
-            `No ${token0.symbol}/${token1.symbol} pool found. Please create one or adjust the script.`
-        );
-        process.exit(1);
-    }
-
-    const maxToken0Amount = token0.toOnchainAmount(token0Amount);
-    const maxToken1Amount = token1.toOnchainAmount(token1Amount);
-
-    // Create liquidity addition intent
+    // Build the liquidity intent
     const liquidityIntent: AddLiquidityIntent = {
         owner: account.address,
-        token0: token0.address as Hex,
-        token1: token1.address as Hex,
-        fee: pool.fee,
+        token0: pool.metadata.token0 as Hex,
+        token1: pool.metadata.token1 as Hex,
+        fee: pool.metadata.fee,
         token0Amount: maxToken0Amount,
         token1Amount: maxToken1Amount,
         exact: true,
         salt: getRandomSalt(),
     };
 
+    // Display summary
     console.log("\n📊 Liquidity Addition Details:");
-    console.log(`Pool: ${token0.symbol}/${token1.symbol} (${pool.fee / 10000}% fee)`);
     console.log(
-        `Token0 (${token0.symbol}): ${token0.fromOnchainAmount(maxToken0Amount)} ${token0.symbol}`
+        `   Pool: ${formatPoolLabel(pool)}`
     );
     console.log(
-        `Token1 (${token1.symbol}): ${token1.fromOnchainAmount(maxToken1Amount)} ${token1.symbol}`
+        `   ${token0Display}: ${token0 ? token0.fromOnchainAmount(maxToken0Amount) : maxToken0Amount.toString()}`
     );
-    console.log(`LP Token: ${pool.lpToken}`);
-
-    // Ask the user to confirm before submitting
-    const readline = require("readline");
-
-    async function promptConfirmation(message: string): Promise<boolean> {
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-        });
-
-        return new Promise((resolve) => {
-            rl.question(`${message} (y/N): `, (answer: string) => {
-                rl.close();
-                resolve(answer.trim().toLowerCase() === "y");
-            });
-        });
-    }
-
-    const confirmed = await promptConfirmation(
-        "Do you want to proceed with the liquidity provision above?"
+    console.log(
+        `   ${token1Display}: ${token1 ? token1.fromOnchainAmount(maxToken1Amount) : maxToken1Amount.toString()}`
     );
+    console.log(`   LP Token: ${pool.metadata.lpToken}`);
 
-    if (!confirmed) {
+    // Confirm before submitting
+    const confirm = await prompts({
+        type: "confirm",
+        name: "proceed",
+        message: "Proceed with the liquidity provision above?",
+        initial: false,
+    });
+
+    if (!confirm.proceed) {
         console.log("❌ Liquidity provision cancelled by user.");
         process.exit(0);
     }
