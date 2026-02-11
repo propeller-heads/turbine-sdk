@@ -162,7 +162,6 @@ describe("TurbineClient", () => {
                     new Response(
                         JSON.stringify({
                             orderHash: mockOrderHash,
-                            message: "Order cancelled successfully",
                         }),
                         {
                             status: 200,
@@ -177,7 +176,6 @@ describe("TurbineClient", () => {
 
             expect(result).toEqual({
                 orderHash: mockOrderHash,
-                message: "Order cancelled successfully",
             });
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
