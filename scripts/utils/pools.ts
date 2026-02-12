@@ -19,12 +19,19 @@ export function getTokenDisplay(address: Address): string {
  * Returns undefined for tokens not found in ADDR2TOKEN.
  */
 export function getPoolTokens(pool: TurbinePool): {
-    token0: Token | undefined;
-    token1: Token | undefined;
+    token0: Token;
+    token1: Token;
 } {
+    const token0 = ADDR2TOKEN.get(pool.metadata.token0);
+    const token1 = ADDR2TOKEN.get(pool.metadata.token1);
+    if (!token0 || !token1) {
+        throw new Error(
+            `Token not found for address: ${pool.metadata.token0} or ${pool.metadata.token1}. Check ADDR2TOKEN map in constants.ts.`
+        );
+    }
     return {
-        token0: ADDR2TOKEN.get(pool.metadata.token0),
-        token1: ADDR2TOKEN.get(pool.metadata.token1),
+        token0: token0!,
+        token1: token1!,
     };
 }
 
@@ -46,9 +53,7 @@ export function printPoolDetails(pool: TurbinePool, index?: number): void {
     console.log(header);
     console.log(`  Token0: ${getTokenDisplay(pool.metadata.token0)}`);
     console.log(`  Token1: ${getTokenDisplay(pool.metadata.token1)}`);
-    console.log(
-        `  Fee: ${pool.metadata.fee / 10000}% (raw: ${pool.metadata.fee})`
-    );
+    console.log(`  Fee: ${pool.metadata.fee / 10000}% (raw: ${pool.metadata.fee})`);
     console.log(`  LP Token: ${pool.metadata.lpToken}`);
     console.log(`  Reserve0: ${pool.state.reserve0.toString()}`);
     console.log(`  Reserve1: ${pool.state.reserve1.toString()}`);
@@ -59,9 +64,7 @@ export function printPoolDetails(pool: TurbinePool, index?: number): void {
 /**
  * Fetch all registered pools from on-chain via the Turbine Hook contract.
  */
-export async function fetchPools(
-    publicClient: PublicClient
-): Promise<TurbinePool[]> {
+export async function fetchPools(publicClient: PublicClient): Promise<TurbinePool[]> {
     const config = await fetchConfig(TURBINE_API_URL);
     return getPools(publicClient, config.lpHookAddress);
 }
@@ -72,9 +75,7 @@ export async function fetchPools(
  *
  * Exits the process if no pools are found or the user cancels.
  */
-export async function selectPool(
-    publicClient: PublicClient
-): Promise<TurbinePool> {
+export async function selectPool(publicClient: PublicClient): Promise<TurbinePool> {
     console.log("🔍 Fetching registered pools...\n");
     const pools = await fetchPools(publicClient);
 

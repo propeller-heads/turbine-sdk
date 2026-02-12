@@ -4,8 +4,7 @@ import { createPublicClient, createWalletClient, http, Hex } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { AddLiquidityIntent } from "../src/models";
-import { TURBINE_API_URL } from "../src/config";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
 import {
     selectPool,
@@ -43,7 +42,9 @@ async function main() {
     console.log(`   LP Token: ${pool.metadata.lpToken}\n`);
 
     // Step 2: Prompt for token amounts
-    console.log(`\n💡 Enter amounts to add. Use base units (e.g. 10 USDC), not atomic units (not 10,000,000 USDC).\n`)
+    console.log(
+        `\n💡 Enter amounts to add. Use base units (e.g. 10 USDC), not atomic units (not 10,000,000 USDC).\n`
+    );
     const response = await prompts([
         {
             type: "text",
@@ -70,10 +71,7 @@ async function main() {
     ]);
 
     // Handle Ctrl+C
-    if (
-        response.token0Amount === undefined ||
-        response.token1Amount === undefined
-    ) {
+    if (response.token0Amount === undefined || response.token1Amount === undefined) {
         console.log("\n❌ Operation cancelled");
         process.exit(1);
     }
@@ -119,9 +117,7 @@ async function main() {
 
     // Display summary
     console.log("\n📊 Liquidity Addition Details:");
-    console.log(
-        `   Pool: ${formatPoolLabel(pool)}`
-    );
+    console.log(`   Pool: ${formatPoolLabel(pool)}`);
     console.log(
         `   ${token0Display}: ${token0 ? token0.fromOnchainAmount(maxToken0Amount) : maxToken0Amount.toString()}`
     );
