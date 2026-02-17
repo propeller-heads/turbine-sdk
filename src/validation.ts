@@ -460,11 +460,11 @@ export function validateMidPriceDelta(delta: unknown, fieldName: string): number
         );
     }
 
-    // Delta range: 0 to 10,000 (0% to 100%)
-    if (deltaNum < 0 || deltaNum > 10000) {
+    // Delta range: -10,000 to 10,000 (-100% to 100%)
+    if (deltaNum < -10000 || deltaNum > 10000) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be between 0 and 10000 (0% to 100%), got ${deltaNum}. Example: 500 = 5%`,
+            `${fieldName} must be between -10000 and 10000 (-100% to 100%), got ${deltaNum}. Example: 500 = 5% (allow 5% worse than mid-price), -10 = -0.1% (earn 0.1% more than mid-price)`,
             { fieldName, receivedValue: delta }
         );
     }
