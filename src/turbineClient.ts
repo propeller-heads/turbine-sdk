@@ -328,16 +328,23 @@ export class TurbineClient {
     /* PRIVATE HELPER METHODS */
 
     /**
-     * Returns the canonical wallet address from a single source of truth.
-     * Prefers walletClient.account (deterministic, matches what signMessage expects) over
-     * getAddresses() (provider-level, can lag behind wallet switches).
+     * Returns the current wallet address from the provider.
+     * Always queries getAddresses() first — in browsers, this reflects the
+     * user's current wallet selection (e.g., MetaMask active account).
+     * Falls back to walletClient.account only when getAddresses() is unavailable.
      */
     private async getWalletAddress(): Promise<Address> {
+        const addresses = await this.walletClient.getAddresses();
+        if (addresses.length > 0) {
+            return getAddress(addresses[0]);
+        }
         if (this.walletClient.account) {
             return getAddress(this.walletClient.account.address);
         }
-        const [address] = await this.walletClient.getAddresses();
-        return getAddress(address);
+        throw new TurbineError(
+            "INTERNAL_ERROR",
+            "No wallet address available. Ensure a wallet is connected."
+        );
     }
 
     /**
