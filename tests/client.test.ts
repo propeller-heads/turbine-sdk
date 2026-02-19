@@ -1833,6 +1833,129 @@ describe("TurbineClient", () => {
             mockAuthenticate.mockRestore();
         });
 
+        it("should detect wallet change during concurrent auth polling and re-authenticate", async () => {
+            jest.useFakeTimers();
+            try {
+                const client = await createMockTurbineClient();
+
+                const oldAddress = "0x1111111111111111111111111111111111111111";
+                const newAddress = "0x2222222222222222222222222222222222222222";
+
+                // Simulate another authentication already in progress
+                (client as any).authenticationInProgress = true;
+
+                // First getAddresses call (start of ensureAuthenticated) returns old address;
+                // subsequent calls (in the loop and after) return the new address
+                jest.spyOn(client.walletClient, "getAddresses")
+                    .mockResolvedValueOnce([oldAddress as `0x${string}`])
+                    .mockResolvedValue([newAddress as `0x${string}`]);
+
+                const mockLogout = jest.spyOn(client, "logout").mockResolvedValue();
+                const mockAuthenticate = jest
+                    .spyOn(client as any, "authenticate")
+                    .mockResolvedValue(undefined);
+
+                // After wallet change detected and loop exits, the main flow calls:
+                // 1. fetchWithCookies("me") → old session still active
+                // 2. fetchWithCookies("/me") → new address after re-auth
+                const mockFetchWithCookies = jest
+                    .spyOn(client as any, "fetchWithCookies")
+                    .mockResolvedValueOnce(
+                        new Response(
+                            JSON.stringify({
+                                authenticated: true,
+                                address: oldAddress,
+                            }),
+                            { status: 200 }
+                        )
+                    )
+                    .mockResolvedValueOnce(
+                        new Response(
+                            JSON.stringify({
+                                authenticated: true,
+                                address: newAddress,
+                            }),
+                            { status: 200 }
+                        )
+                    );
+
+                // Start ensureAuthenticated (don't await yet — it's blocked on the poll sleep)
+                const authPromise = client.ensureAuthenticated();
+
+                // Advance past the 100ms ticks until the 3s wallet check fires
+                await jest.advanceTimersByTimeAsync(3100);
+
+                const result = await authPromise;
+
+                // Wallet change detected in loop → falls through to main flow →
+                // detects session mismatch → logout + re-authenticate
+                expect(mockLogout).toHaveBeenCalledTimes(1);
+                expect(mockAuthenticate).toHaveBeenCalledTimes(1);
+                expect(result.toLowerCase()).toBe(newAddress.toLowerCase());
+
+                mockFetchWithCookies.mockRestore();
+                mockLogout.mockRestore();
+                mockAuthenticate.mockRestore();
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it("should resume normally after concurrent auth completes with same wallet", async () => {
+            jest.useFakeTimers();
+            try {
+                const client = await createMockTurbineClient();
+
+                const address = "0x1111111111111111111111111111111111111111";
+
+                // Simulate another authentication already in progress
+                (client as any).authenticationInProgress = true;
+
+                // Wallet address stays the same throughout
+                jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
+                    address as `0x${string}`,
+                ]);
+
+                // After the polling loop exits, getAuthStatus calls fetchWithCookies("me")
+                const mockFetchWithCookies = jest
+                    .spyOn(client as any, "fetchWithCookies")
+                    .mockResolvedValue(
+                        new Response(
+                            JSON.stringify({
+                                authenticated: true,
+                                address: address,
+                            }),
+                            { status: 200 }
+                        )
+                    );
+
+                // Mock authenticate (should NOT be called)
+                const mockAuthenticate = jest
+                    .spyOn(client as any, "authenticate")
+                    .mockResolvedValue(undefined);
+
+                // Start ensureAuthenticated
+                const authPromise = client.ensureAuthenticated();
+
+                // Simulate the concurrent auth finishing: clear the flag
+                (client as any).authenticationInProgress = false;
+
+                // Advance past a 100ms tick so the loop sees the flag is false
+                await jest.advanceTimersByTimeAsync(100);
+
+                const result = await authPromise;
+
+                // Should return the address without re-authenticating
+                expect(result.toLowerCase()).toBe(address.toLowerCase());
+                expect(mockAuthenticate).not.toHaveBeenCalled();
+
+                mockFetchWithCookies.mockRestore();
+                mockAuthenticate.mockRestore();
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it("should handle checksum differences in addresses correctly", async () => {
             const client = await createMockTurbineClient();
 

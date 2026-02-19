@@ -1475,16 +1475,30 @@ export class TurbineClient {
     public async ensureAuthenticated(): Promise<Address> {
         // Fetch current wallet address once at the start
         const [currentAddress] = await this.walletClient.getAddresses();
-        const walletAddress = getAddress(currentAddress);
+        let walletAddress = getAddress(currentAddress);
 
         // If authentication is already in progress, wait for it
         if (this.authenticationInProgress) {
             // Poll until authentication completes with 5 minute timeout
             const startTime = Date.now();
             const timeout = 300000; // 5 minutes
+            let walletChanged = false;
+
+            const walletCheckInterval = 3000;
+            let lastWalletCheck = startTime;
 
             while (this.authenticationInProgress && Date.now() - startTime < timeout) {
                 await new Promise((resolve) => setTimeout(resolve, 100));
+
+                // Check if the wallet changed every 3s
+                if (Date.now() - lastWalletCheck >= walletCheckInterval) {
+                    lastWalletCheck = Date.now();
+                    const [currentAddr] = await this.walletClient.getAddresses();
+                    if (getAddress(currentAddr) !== walletAddress) {
+                        walletChanged = true;
+                        break;
+                    }
+                }
             }
 
             // If we timed out, reset the flag and proceed with authentication
@@ -1492,15 +1506,18 @@ export class TurbineClient {
                 this.authenticationInProgress = false;
             }
 
-            // Re-check auth status after waiting
-            const response = await this.fetchWithCookies("me");
-            if (response.ok) {
-                const authStatus = await response.json();
+            // If wallet changed, update walletAddress and fall through to re-authenticate
+            if (walletChanged) {
+                const [newAddr] = await this.walletClient.getAddresses();
+                walletAddress = getAddress(newAddr);
+            } else {
+                // Re-check auth status after waiting
+                const authStatus = await this.getAuthStatus();
                 if (authStatus.authenticated && authStatus.address) {
                     const sessionAddress = getAddress(authStatus.address);
 
                     if (sessionAddress === walletAddress) {
-                        return authStatus.address;
+                        return authStatus.address as Address;
                     }
                     // If wallet changed, fall through to re-authenticate
                 }
