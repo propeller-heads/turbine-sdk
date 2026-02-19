@@ -575,6 +575,7 @@ describe("Validation Functions", () => {
                 expect(validateMidPriceDelta(0, "midPriceDelta")).toBe(0);
                 expect(validateMidPriceDelta(500, "midPriceDelta")).toBe(500);
                 expect(validateMidPriceDelta(10000, "midPriceDelta")).toBe(10000);
+                expect(validateMidPriceDelta(-10000, "midPriceDelta")).toBe(-10000);
 
                 // Invalid: non-integer
                 expect(() => validateMidPriceDelta(500.5, "midPriceDelta")).toThrow(
@@ -584,12 +585,12 @@ describe("Validation Functions", () => {
                     /must be an integer/
                 );
 
-                // Invalid: negative
-                expect(() => validateMidPriceDelta(-100, "midPriceDelta")).toThrow(
+                // Invalid: less than min
+                expect(() => validateMidPriceDelta(-10001, "midPriceDelta")).toThrow(
                     TurbineError
                 );
-                expect(() => validateMidPriceDelta(-100, "midPriceDelta")).toThrow(
-                    /must be between 0 and 10000/
+                expect(() => validateMidPriceDelta(-10001, "midPriceDelta")).toThrow(
+                    /must be between -10000 and 10000/
                 );
 
                 // Invalid: exceeds max
@@ -597,12 +598,12 @@ describe("Validation Functions", () => {
                     TurbineError
                 );
                 expect(() => validateMidPriceDelta(10001, "midPriceDelta")).toThrow(
-                    /must be between 0 and 10000/
+                    /must be between -10000 and 10000/
                 );
 
                 // Check error details
                 try {
-                    validateMidPriceDelta(-1, "testField");
+                    validateMidPriceDelta(-10001, "testField");
                     fail("Should have thrown");
                 } catch (error) {
                     expect(error).toBeInstanceOf(TurbineError);
@@ -1676,6 +1677,15 @@ describe("Validation Functions", () => {
                 // Valid execution
                 expect(() =>
                     validateOrderExecutionResponse(validExecution)
+                ).not.toThrow();
+
+                // Valid execution with null tx_hash
+                const validExecutionWithNullTxHash = {
+                    ...validExecution,
+                    tx_hash: null,
+                };
+                expect(() =>
+                    validateOrderExecutionResponse(validExecutionWithNullTxHash)
                 ).not.toThrow();
 
                 // Missing field

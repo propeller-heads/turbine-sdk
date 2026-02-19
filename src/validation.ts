@@ -35,6 +35,23 @@ export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 // ============================================================================
 
 /**
+ * Allows null to pass validation
+ * @param value - The value to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @param validator - The validator to use for non-null values
+ * @returns The validated value or null if the value is null
+ * @throws Whatever the validator throws
+ */
+export function optional<Tin, Tout>(
+    validator: (value: Tin, fieldName: string) => Tout,
+    value: Tin | null,
+    fieldName: string
+): Tout | null {
+    if (value === null) return null;
+    return validator(value, fieldName);
+}
+
+/**
  * Validates that a value is a string
  * @param value - The value to validate
  * @param fieldName - Name of the field being validated (for error messages)
@@ -443,11 +460,11 @@ export function validateMidPriceDelta(delta: unknown, fieldName: string): number
         );
     }
 
-    // Delta range: 0 to 10,000 (0% to 100%)
-    if (deltaNum < 0 || deltaNum > 10000) {
+    // Delta range: -10,000 to 10,000 (-100% to 100%)
+    if (deltaNum < -10000 || deltaNum > 10000) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be between 0 and 10000 (0% to 100%), got ${deltaNum}. Example: 500 = 5%`,
+            `${fieldName} must be between -10000 and 10000 (-100% to 100%), got ${deltaNum}. Example: 500 = 5% (allow 5% worse than mid-price), -10 = -0.1% (earn 0.1% more than mid-price)`,
             { fieldName, receivedValue: delta }
         );
     }
@@ -1166,7 +1183,7 @@ export function validateOrderExecutionResponse(value: unknown): void {
 
     const execAny = obj as any;
 
-    validateHash(execAny.tx_hash, "orderExecution.tx_hash");
+    optional(validateHash, execAny.tx_hash, "orderExecution.tx_hash");
     validateBlockNumber(execAny.block_number, "orderExecution.block_number");
 
     validateBigIntConvertible(execAny.sold_amount, "orderExecution.sold_amount");
