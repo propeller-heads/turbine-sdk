@@ -328,6 +328,19 @@ export class TurbineClient {
     /* PRIVATE HELPER METHODS */
 
     /**
+     * Returns the canonical wallet address from a single source of truth.
+     * Prefers walletClient.account (deterministic, matches what signMessage expects) over
+     * getAddresses() (provider-level, can lag behind wallet switches).
+     */
+    private async getWalletAddress(): Promise<Address> {
+        if (this.walletClient.account) {
+            return getAddress(this.walletClient.account.address);
+        }
+        const [address] = await this.walletClient.getAddresses();
+        return getAddress(address);
+    }
+
+    /**
      * Extracts and stores cookies from fetch response headers using CookieJar.
      * No-op in browser environments (cookie jar methods are no-ops there).
      */
@@ -1364,8 +1377,7 @@ export class TurbineClient {
      */
     async authenticate(): Promise<void> {
         const chainId = await this.walletClient.getChainId();
-        const addresses = await this.walletClient.getAddresses();
-        const address = addresses[0];
+        const address = await this.getWalletAddress();
         const config = this.getConfig();
 
         try {
@@ -1386,9 +1398,10 @@ export class TurbineClient {
                 version: "1",
             });
 
+            // Use walletClient.account if already set, otherwise pass the current address of the walletClient
             const signature = await this.walletClient.signMessage({
                 message: message,
-                account: this.walletClient.account!,
+                account: this.walletClient.account ?? address,
             });
 
             // Convert signature to structured format expected by Turbine API
@@ -1474,8 +1487,7 @@ export class TurbineClient {
      */
     public async ensureAuthenticated(): Promise<Address> {
         // Fetch current wallet address once at the start
-        const [currentAddress] = await this.walletClient.getAddresses();
-        let walletAddress = getAddress(currentAddress);
+        let walletAddress = await this.getWalletAddress();
 
         // If authentication is already in progress, wait for it
         if (this.authenticationInProgress) {
@@ -1493,8 +1505,8 @@ export class TurbineClient {
                 // Check if the wallet changed every 3s
                 if (Date.now() - lastWalletCheck >= walletCheckInterval) {
                     lastWalletCheck = Date.now();
-                    const [currentAddr] = await this.walletClient.getAddresses();
-                    if (getAddress(currentAddr) !== walletAddress) {
+                    const currentAddr = await this.getWalletAddress();
+                    if (currentAddr !== walletAddress) {
                         walletChanged = true;
                         break;
                     }
@@ -1508,8 +1520,7 @@ export class TurbineClient {
 
             // If wallet changed, update walletAddress and fall through to re-authenticate
             if (walletChanged) {
-                const [newAddr] = await this.walletClient.getAddresses();
-                walletAddress = getAddress(newAddr);
+                walletAddress = await this.getWalletAddress();
             } else {
                 // Re-check auth status after waiting
                 const authStatus = await this.getAuthStatus();

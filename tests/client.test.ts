@@ -1729,6 +1729,9 @@ describe("TurbineClient", () => {
             const oldAddress = "0x1111111111111111111111111111111111111111";
             const newAddress = "0x2222222222222222222222222222222222222222";
 
+            // Clear walletClient.account so getWalletAddress() falls through to getAddresses()
+            (client.walletClient as any).account = undefined;
+
             // Mock getAddresses to return new address
             jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
                 newAddress as `0x${string}`,
@@ -1789,6 +1792,9 @@ describe("TurbineClient", () => {
 
             const address = "0x1111111111111111111111111111111111111111";
 
+            // Clear walletClient.account so getWalletAddress() falls through to getAddresses()
+            (client.walletClient as any).account = undefined;
+
             // Mock getAddresses to return same address
             jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
                 address as `0x${string}`,
@@ -1840,6 +1846,9 @@ describe("TurbineClient", () => {
 
                 const oldAddress = "0x1111111111111111111111111111111111111111";
                 const newAddress = "0x2222222222222222222222222222222222222222";
+
+                // Clear walletClient.account so getWalletAddress() falls through to getAddresses()
+                (client.walletClient as any).account = undefined;
 
                 // Simulate another authentication already in progress
                 (client as any).authenticationInProgress = true;
@@ -1908,6 +1917,9 @@ describe("TurbineClient", () => {
 
                 const address = "0x1111111111111111111111111111111111111111";
 
+                // Clear walletClient.account so getWalletAddress() falls through to getAddresses()
+                (client.walletClient as any).account = undefined;
+
                 // Simulate another authentication already in progress
                 (client as any).authenticationInProgress = true;
 
@@ -1962,6 +1974,9 @@ describe("TurbineClient", () => {
             // Same address, different checksum (mixed case vs lowercase)
             const addressLowercase = "0xabcdef0123456789abcdef0123456789abcdef01";
             const addressChecksum = "0xAbCdEf0123456789aBcDeF0123456789AbCdEf01";
+
+            // Clear walletClient.account so getWalletAddress() falls through to getAddresses()
+            (client.walletClient as any).account = undefined;
 
             // Mock getAddresses to return lowercase
             jest.spyOn(client.walletClient, "getAddresses").mockResolvedValue([
