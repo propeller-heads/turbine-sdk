@@ -1154,7 +1154,7 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
 // ============================================================================
 
 /**
- * Validates a raw OrderExecution response from the API (with snake_case fields).
+ * Validates a raw OrderExecution response from the API (with camelCase fields).
  * Only validates structure and types, does not transform the data.
  *
  * @param value - The value to validate
@@ -1164,11 +1164,11 @@ export function validateOrderExecutionResponse(value: unknown): void {
     const obj = validateObject(value, "orderExecution");
 
     const requiredFields = [
-        "tx_hash",
-        "block_number",
-        "sold_amount",
-        "bought_amount",
-        "surplus_buy_amount",
+        "txHash",
+        "blockNumber",
+        "soldAmount",
+        "boughtAmount",
+        "surplusBuyAmount",
     ];
 
     for (const field of requiredFields) {
@@ -1183,19 +1183,19 @@ export function validateOrderExecutionResponse(value: unknown): void {
 
     const execAny = obj as any;
 
-    optional(validateHash, execAny.tx_hash, "orderExecution.tx_hash");
-    validateBlockNumber(execAny.block_number, "orderExecution.block_number");
+    optional(validateHash, execAny.txHash, "orderExecution.txHash");
+    validateBlockNumber(execAny.blockNumber, "orderExecution.blockNumber");
 
-    validateBigIntConvertible(execAny.sold_amount, "orderExecution.sold_amount");
-    validateBigIntConvertible(execAny.bought_amount, "orderExecution.bought_amount");
+    validateBigIntConvertible(execAny.soldAmount, "orderExecution.soldAmount");
+    validateBigIntConvertible(execAny.boughtAmount, "orderExecution.boughtAmount");
     validateBigIntConvertible(
-        execAny.surplus_buy_amount,
-        "orderExecution.surplus_buy_amount"
+        execAny.surplusBuyAmount,
+        "orderExecution.surplusBuyAmount"
     );
 }
 
 /**
- * Validates a raw OrderState response from the API (with snake_case fields).
+ * Validates a raw OrderState response from the API (with camelCase fields).
  * Only validates structure and types, does not transform the data.
  *
  * @param value - The value to validate
