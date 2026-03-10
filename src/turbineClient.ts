@@ -1330,7 +1330,7 @@ export class TurbineClient {
             lpTokenAmount: intent.lpTokenAmount,
             salt: intent.salt,
         };
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 3); // 3 hours from now
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 2.5); // 2.5 hours from now
         const { permit, permitSignature } = await getSignedSignatureTransfer({
             token: intent.lpToken,
             amount: intent.lpTokenAmount,
