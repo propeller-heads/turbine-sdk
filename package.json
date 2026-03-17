@@ -19,7 +19,10 @@
         }
     },
     "files": [
-        "dist"
+        "dist",
+        "src",
+        "tsup.config.ts",
+        "tsconfig.json"
     ],
     "sideEffects": false,
     "scripts": {
