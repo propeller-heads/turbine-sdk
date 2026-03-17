@@ -1,5 +1,4 @@
-# Build output
-dist/
+# Build output (dist/ is committed for git-based installs; will stop once published to npm)
 build/
 
 # TypeScript build artifacts
