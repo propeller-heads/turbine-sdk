@@ -1,10 +1,14 @@
-# Ignore all.js files
-*.js
-!jest.config.js
+# Build output
+dist/
+build/
 
 # TypeScript build artifacts
 *.tsbuildinfo
-_types/
+
+# Legacy pre-built outputs
+src/_cjs/
+src/_esm/
+src/_types/
 
 # Ignore node_modules directory
 node_modules/
