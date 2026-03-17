@@ -28,6 +28,7 @@
         "test": "jest",
         "test-no-integration": "jest --testPathIgnorePatterns integration",
         "lint": "prettier --write .",
+        "prepare": "tsup",
         "prepublishOnly": "yarn build",
         "submit-orders": "tsx scripts/submit-orders.ts",
         "get-order-states": "tsx scripts/get-order-states.ts",
