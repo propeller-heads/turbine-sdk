@@ -1,7 +1,14 @@
 {
-    "name": "@propellerheads/turbine-sdk",
+    "name": "@propeller-heads/turbine-sdk",
     "version": "0.20.0",
     "description": "TypeScript SDK for the Turbine protocol",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/propeller-heads/turbine-sdk.git"
+    },
+    "publishConfig": {
+        "registry": "https://npm.pkg.github.com"
+    },
     "type": "module",
     "main": "./dist/index.cjs",
     "module": "./dist/index.js",
