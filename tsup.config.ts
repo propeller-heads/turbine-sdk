@@ -8,5 +8,5 @@ export default defineConfig({
     sourcemap: false,
     clean: true,
     outDir: "dist",
-    external: ["tough-cookie"],
+    external: ["tough-cookie", "viem", "viem/siwe", "@uniswap/permit2-sdk"],
 });
