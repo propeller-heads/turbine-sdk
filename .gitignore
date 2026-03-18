@@ -1,5 +1,4 @@
-# Build output
-dist/
+# Build output (dist/ committed temporarily for git-based installs until published to GitHub Packages)
 build/
 
 # TypeScript build artifacts
