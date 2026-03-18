@@ -1,9 +1,9 @@
 /**
  * Wrapper around tough-cookie's CookieJar to provide Turbine-specific cookie handling.
- * Manages session cookies with proper security (expiration, Secure flag, domain restrictions).
  *
  * In Node.js: uses tough-cookie for manual cookie management (since Node's fetch
- * doesn't have a built-in cookie store).
+ * doesn't have a built-in cookie store). tough-cookie is loaded via dynamic import()
+ * so bundlers can tree-shake it out of browser builds.
  *
  * In the browser: all methods are no-ops. The browser handles cookies natively
  * via fetch with `credentials: "include"`.
@@ -17,56 +17,39 @@ interface CookieJarLike {
 
 export class TurbineCookieJar {
     private jar: CookieJarLike | null = null;
+    private initPromise: Promise<void> | null = null;
 
-    constructor() {
-        if (typeof window === "undefined") {
-            try {
-                // Dynamic require prevents bundlers from including tough-cookie
-                // in browser builds. The variable indirection ensures bundlers
-                // cannot statically analyze and bundle this dependency.
-                const requireFn =
-                    typeof module !== "undefined" &&
-                    typeof module.require === "function"
-                        ? module.require.bind(module)
-                        : undefined;
-                if (requireFn) {
-                    const { CookieJar } = requireFn("tough-cookie");
-                    this.jar = new CookieJar();
-                }
-            } catch {
-                // tough-cookie not available — cookie management disabled
-            }
+    private async init(): Promise<void> {
+        if (typeof window !== "undefined") return;
+        try {
+            const { CookieJar } = await import("tough-cookie");
+            this.jar = new CookieJar();
+        } catch {
+            // tough-cookie not available — cookie management disabled
         }
-        // In browser environments, jar stays null — cookies are handled natively
     }
 
-    /**
-     * Store a cookie from a Set-Cookie header.
-     * No-op in browser environments.
-     * @param setCookieHeader The Set-Cookie header value
-     * @param url The URL where the cookie was received
-     */
+    private ensureInit(): Promise<void> {
+        if (!this.initPromise) {
+            this.initPromise = this.init();
+        }
+        return this.initPromise;
+    }
+
     async setCookieFromHeader(setCookieHeader: string, url: string): Promise<void> {
+        await this.ensureInit();
         if (!this.jar) return;
         try {
             await this.jar.setCookie(setCookieHeader, url);
         } catch (error) {
-            // Silently ignore invalid cookies (matches browser behavior)
             console.debug("Failed to set cookie:", error);
         }
     }
 
-    /**
-     * Get the Cookie header value for a given URL.
-     * Respects all cookie security attributes (Secure, HttpOnly, Domain, Path, Expires, SameSite).
-     * Returns empty string in browser environments.
-     * @param url The URL to get cookies for
-     * @returns The Cookie header value (empty string if no cookies)
-     */
     async getCookieHeader(url: string): Promise<string> {
+        await this.ensureInit();
         if (!this.jar) return "";
         try {
-            // Pass current time to ensure expired cookies are filtered out
             const cookieString = await this.jar.getCookieString(url, { expire: true });
             return cookieString;
         } catch (error) {
@@ -75,11 +58,8 @@ export class TurbineCookieJar {
         }
     }
 
-    /**
-     * Clear all cookies from the jar.
-     * No-op in browser environments.
-     */
     async clear(): Promise<void> {
+        await this.ensureInit();
         if (!this.jar) return;
         try {
             await this.jar.removeAllCookies();

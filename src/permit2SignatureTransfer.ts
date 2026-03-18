@@ -6,7 +6,6 @@ import {
     SignatureTransferPermitTransferFrom,
     TokenPermissions,
 } from "./models";
-import { randomBytes } from "crypto";
 
 // Minimal ABI for Permit2 nonce bitmap reads
 const permit2NonceBitmapAbi = [
@@ -71,9 +70,13 @@ export async function getRandomNonce(
 ): Promise<bigint> {
     const maxAttempts = 100;
     for (let attempts = 0; attempts < maxAttempts; attempts++) {
-        // Generate a random 256-bit nonce using crypto.randomBytes
-        const bytes = randomBytes(32);
-        const randomHex = "0x" + bytes.toString("hex");
+        const bytes = new Uint8Array(32);
+        globalThis.crypto.getRandomValues(bytes);
+        const randomHex =
+            "0x" +
+            Array.from(bytes)
+                .map((b) => b.toString(16).padStart(2, "0"))
+                .join("");
         const randomNonce = BigInt(randomHex);
 
         const randomWordPos = randomNonce >> 8n;

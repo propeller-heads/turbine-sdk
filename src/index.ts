@@ -57,14 +57,7 @@ export {
 } from "./errorHandling";
 
 // Config
-export {
-    CHAIN_ID,
-    TURBINE_API_URL,
-    RPC_URL,
-    W3_WEBSOCKET,
-    W3_BLOCK_NUMBER_RPC_URL,
-    MOCKED_TURBINE_POOL,
-} from "./config";
+export { CHAIN_ID, TURBINE_API_URL } from "./config";
 
 // Constants
 export {
