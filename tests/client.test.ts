@@ -778,20 +778,18 @@ describe("TurbineClient", () => {
                     status: "Invalid",
                     execution: [
                         {
-                            tx_hash:
-                                "0x1111111111111111111111111111111111111111111111111111111111111111",
-                            block_number: "23882001",
-                            sold_amount: "1000000",
-                            bought_amount: "950000",
-                            surplus_buy_amount: "10",
+                            txHash: "0x1111111111111111111111111111111111111111111111111111111111111111",
+                            blockNumber: "23882001",
+                            soldAmount: "1000000",
+                            boughtAmount: "950000",
+                            surplusBuyAmount: "10",
                         },
                         {
-                            tx_hash:
-                                "0x2222222222222222222222222222222222222222222222222222222222222222",
-                            block_number: "23882281",
-                            sold_amount: "2000000",
-                            bought_amount: "1900000",
-                            surplus_buy_amount: "11",
+                            txHash: "0x2222222222222222222222222222222222222222222222222222222222222222",
+                            blockNumber: "23882281",
+                            soldAmount: "2000000",
+                            boughtAmount: "1900000",
+                            surplusBuyAmount: "11",
                         },
                     ],
                 },

@@ -1667,11 +1667,11 @@ describe("Validation Functions", () => {
         describe("validateOrderExecutionResponse", () => {
             it("should validate order execution response correctly", () => {
                 const validExecution = {
-                    tx_hash: VALID_HASH,
-                    block_number: 12345,
-                    sold_amount: "1000000",
-                    bought_amount: "950000",
-                    surplus_buy_amount: "50000",
+                    txHash: VALID_HASH,
+                    blockNumber: 12345,
+                    soldAmount: "1000000",
+                    boughtAmount: "950000",
+                    surplusBuyAmount: "50000",
                 };
 
                 // Valid execution
@@ -1679,10 +1679,10 @@ describe("Validation Functions", () => {
                     validateOrderExecutionResponse(validExecution)
                 ).not.toThrow();
 
-                // Valid execution with null tx_hash
+                // Valid execution with null txHash
                 const validExecutionWithNullTxHash = {
                     ...validExecution,
-                    tx_hash: null,
+                    txHash: null,
                 };
                 expect(() =>
                     validateOrderExecutionResponse(validExecutionWithNullTxHash)
@@ -1690,19 +1690,19 @@ describe("Validation Functions", () => {
 
                 // Missing field
                 const missingTxHash = { ...validExecution };
-                delete (missingTxHash as any).tx_hash;
+                delete (missingTxHash as any).txHash;
                 expect(() => validateOrderExecutionResponse(missingTxHash)).toThrow(
                     TurbineError
                 );
 
-                // Invalid tx_hash (too short)
-                const invalidTxHash = { ...validExecution, tx_hash: "0x123" };
+                // Invalid txHash (too short)
+                const invalidTxHash = { ...validExecution, txHash: "0x123" };
                 expect(() => validateOrderExecutionResponse(invalidTxHash)).toThrow(
                     TurbineError
                 );
 
-                // Invalid block_number (zero)
-                const invalidBlockNumber = { ...validExecution, block_number: 0 };
+                // Invalid blockNumber (zero)
+                const invalidBlockNumber = { ...validExecution, blockNumber: 0 };
                 expect(() =>
                     validateOrderExecutionResponse(invalidBlockNumber)
                 ).toThrow(TurbineError);
@@ -1712,11 +1712,11 @@ describe("Validation Functions", () => {
         describe("validateOrderStateResponse", () => {
             it("should validate order state response correctly", () => {
                 const validExecution = {
-                    tx_hash: VALID_HASH,
-                    block_number: 12345,
-                    sold_amount: "1000000",
-                    bought_amount: "950000",
-                    surplus_buy_amount: "50000",
+                    txHash: VALID_HASH,
+                    blockNumber: 12345,
+                    soldAmount: "1000000",
+                    boughtAmount: "950000",
+                    surplusBuyAmount: "50000",
                 };
 
                 const validState = {

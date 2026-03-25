@@ -1571,19 +1571,19 @@ export class TurbineClient {
 
     /**
      * Parse an order status from the API response format to our TypeScript interface.
-     * Converts snake_case to camelCase and string numbers to BigInts.
+     * Converts string numbers to BigInts.
      * @param orderState The raw order status from the API
      * @returns The parsed OrderState object
      */
     private async parseOrderState(orderState: any): Promise<OrderState> {
         const executionsPromises = orderState.execution.map(async (exec: any) => ({
-            txHash: exec.tx_hash,
+            txHash: exec.txHash,
             clearedAt: new Date(
-                (await this.getBlockTimestamp(Number(exec.block_number))) * 1000
+                (await this.getBlockTimestamp(Number(exec.blockNumber))) * 1000
             ),
-            soldAmount: BigInt(exec.sold_amount),
-            boughtAmount: BigInt(exec.bought_amount),
-            surplusBoughtAmount: BigInt(exec.surplus_buy_amount),
+            soldAmount: BigInt(exec.soldAmount),
+            boughtAmount: BigInt(exec.boughtAmount),
+            surplusBoughtAmount: BigInt(exec.surplusBuyAmount),
         }));
         const executions = await Promise.all(executionsPromises);
         return {
