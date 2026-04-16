@@ -1584,6 +1584,13 @@ export class TurbineClient {
             soldAmount: BigInt(exec.soldAmount),
             boughtAmount: BigInt(exec.boughtAmount),
             surplusBoughtAmount: BigInt(exec.surplusBuyAmount),
+            midPrice:
+                exec.midPrice != null
+                    ? {
+                          numerator: BigInt(exec.midPrice.numerator),
+                          denominator: BigInt(exec.midPrice.denominator),
+                      }
+                    : undefined,
         }));
         const executions = await Promise.all(executionsPromises);
         return {

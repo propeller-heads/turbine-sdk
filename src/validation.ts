@@ -26,6 +26,7 @@ import {
     SignedSignatureTransferOnchain,
     SignatureTransferPermitTransferFrom,
     TurbineConfig,
+    Price,
 } from "./models";
 
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -1154,6 +1155,25 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
 // ============================================================================
 
 /**
+ * Validates a Price structure (numerator and denominator).
+ *
+ * @param value - The value to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @returns The validated Price with numerator and denominator as bigints
+ * @throws TurbineError if validation fails
+ */
+export function validatePrice(value: unknown, fieldName: string): Price {
+    return validateFields<Price>(
+        value,
+        {
+            numerator: validateBigIntConvertible,
+            denominator: validateBigIntConvertible,
+        },
+        fieldName
+    );
+}
+
+/**
  * Validates a raw OrderExecution response from the API (with camelCase fields).
  * Only validates structure and types, does not transform the data.
  *
@@ -1192,6 +1212,10 @@ export function validateOrderExecutionResponse(value: unknown): void {
         execAny.surplusBuyAmount,
         "orderExecution.surplusBuyAmount"
     );
+
+    if (execAny.midPrice != null) {
+        validatePrice(execAny.midPrice, "orderExecution.midPrice");
+    }
 }
 
 /**
