@@ -38,6 +38,7 @@ import {
     validateBalanceResult,
     validateTurbineConfig,
     validateOrderExecutionResponse,
+    validatePrice,
     validateOrderStateResponse,
     validateLiquidityIntentStateResponse,
     hexToSignature,
@@ -1706,6 +1707,75 @@ describe("Validation Functions", () => {
                 expect(() =>
                     validateOrderExecutionResponse(invalidBlockNumber)
                 ).toThrow(TurbineError);
+            });
+
+            it("should validate optional midPrice field", () => {
+                const validExecution = {
+                    txHash: VALID_HASH,
+                    blockNumber: 12345,
+                    soldAmount: "1000000",
+                    boughtAmount: "950000",
+                    surplusBuyAmount: "50000",
+                };
+
+                // midPrice absent
+                expect(() =>
+                    validateOrderExecutionResponse(validExecution)
+                ).not.toThrow();
+
+                // midPrice present and valid
+                expect(() =>
+                    validateOrderExecutionResponse({
+                        ...validExecution,
+                        midPrice: {
+                            numerator: "99970127000000000000",
+                            denominator: "235230203657",
+                        },
+                    })
+                ).not.toThrow();
+
+                // midPrice null
+                expect(() =>
+                    validateOrderExecutionResponse({
+                        ...validExecution,
+                        midPrice: null,
+                    })
+                ).not.toThrow();
+
+                // midPrice undefined
+                expect(() =>
+                    validateOrderExecutionResponse({
+                        ...validExecution,
+                        midPrice: undefined,
+                    })
+                ).not.toThrow();
+
+                // missing numerator
+                expect(() =>
+                    validateOrderExecutionResponse({
+                        ...validExecution,
+                        midPrice: { denominator: "235230203657" },
+                    })
+                ).toThrow(/missing required field.*numerator/);
+
+                // missing denominator
+                expect(() =>
+                    validateOrderExecutionResponse({
+                        ...validExecution,
+                        midPrice: { numerator: "99970127000000000000" },
+                    })
+                ).toThrow(/missing required field.*denominator/);
+
+                // invalid numerator value
+                expect(() =>
+                    validateOrderExecutionResponse({
+                        ...validExecution,
+                        midPrice: {
+                            numerator: "not-a-number",
+                            denominator: "235230203657",
+                        },
+                    })
+                ).toThrow(/cannot be converted to BigInt/);
             });
         });
 

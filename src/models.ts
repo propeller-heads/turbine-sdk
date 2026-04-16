@@ -364,6 +364,8 @@ export interface OrderExecution {
     soldAmount: bigint;
     boughtAmount: bigint;
     surplusBoughtAmount: bigint;
+    /** Mid-market price at execution time. Absent for older executions. */
+    midPrice?: Price;
 }
 
 /**
