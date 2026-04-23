@@ -42,7 +42,7 @@ Here's how to instantiate it. This example requires a private key and an RPC URL
 > -   `staging` environment in a TEE on DStack: <https://staging-api.turbine.exchange/api>
 
 ```typescript
-import { TurbineClient } from "turbine-sdk/turbineClient";
+import { TurbineClient } from "turbine-sdk";
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
