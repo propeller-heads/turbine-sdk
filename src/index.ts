@@ -17,6 +17,8 @@ export type {
     UserPosition,
     OrderState,
     TurbineConfig,
+    TurbineToken,
+    TurbineTokenClass,
 } from "./models";
 
 export { TurbineError, isTurbineError } from "./errorHandling";

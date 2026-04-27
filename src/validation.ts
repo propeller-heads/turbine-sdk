@@ -26,6 +26,8 @@ import {
     SignedSignatureTransferOnchain,
     SignatureTransferPermitTransferFrom,
     TurbineConfig,
+    TurbineToken,
+    TurbineTokenClass,
     Price,
 } from "./models";
 
@@ -1134,6 +1136,29 @@ export function validateBalanceResult(result: unknown, fieldName: string): void 
  * @returns The validated config
  * @throws TurbineError if validation fails
  */
+export function validateTurbineToken(token: unknown, fieldName: string): TurbineToken {
+    return validateFields<TurbineToken>(
+        token,
+        {
+            address: validateAddress,
+            symbol: validateString,
+            decimals: validateNumber,
+            class: (value: unknown, name: string) => {
+                const str = validateString(value, name);
+                if (str !== "Regular" && str !== "Stable" && str !== "Meme") {
+                    throw new TurbineError(
+                        "INPUT_VALIDATION_ERROR",
+                        `${name} must be "Regular", "Stable", or "Meme", got "${str}"`,
+                        { fieldName: name, receivedValue: value }
+                    );
+                }
+                return str as TurbineTokenClass;
+            },
+        },
+        fieldName
+    );
+}
+
 export function validateTurbineConfig(config: unknown): TurbineConfig {
     return validateFields<TurbineConfig>(
         config,
@@ -1145,6 +1170,10 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
             submitSettlements: validateBoolean,
             siweDomain: validateString,
             siweUri: validateString,
+            tokens: (value: unknown, name: string) =>
+                validateArray(value, name, (item, index) =>
+                    validateTurbineToken(item, `${name}[${index}]`)
+                ),
         },
         "TurbineConfig"
     );
