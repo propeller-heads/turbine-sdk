@@ -1,6 +1,15 @@
 import { Address, getAddress, Hex, parseUnits, formatUnits } from "viem";
 import { validateAddress } from "./validation";
 
+export type TurbineTokenClass = "Regular" | "Stable" | "Meme";
+
+export interface TurbineToken {
+    address: Address;
+    symbol: string;
+    decimals: number;
+    class: TurbineTokenClass;
+}
+
 export interface TurbineConfig {
     turbineSettlerAddress: Address;
     lpHookAddress: Address;
@@ -9,6 +18,7 @@ export interface TurbineConfig {
     submitSettlements: boolean;
     siweDomain: string;
     siweUri: string;
+    tokens: TurbineToken[];
 }
 
 export class Token {

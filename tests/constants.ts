@@ -92,6 +92,20 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
     submitSettlements: true,
     siweDomain: "test.propellerheads.xyz",
     siweUri: "https://test-turbine.propellerheads.xyz/api",
+    tokens: [
+        {
+            address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address,
+            symbol: "USDC",
+            decimals: 6,
+            class: "Stable",
+        },
+        {
+            address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2" as Address,
+            symbol: "WETH",
+            decimals: 18,
+            class: "Regular",
+        },
+    ],
 };
 
 // Helper function to create a mocked TurbineClient for testing
