@@ -930,6 +930,182 @@ describe("TurbineClient", () => {
         });
     });
 
+    describe("getOrders", () => {
+        const HASH_A =
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const HASH_B =
+            "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        const SELL_TOKEN = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+        const BUY_TOKEN = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+
+        function makeOrder(hash: string, status: string, ts: string) {
+            return {
+                hash,
+                status,
+                execution: [],
+                orderDetails: {
+                    sellToken: SELL_TOKEN,
+                    buyToken: BUY_TOKEN,
+                    sellAmount: "1000000",
+                    limitPrice: { numerator: "1", denominator: "3500" },
+                    startTime: "1713264000",
+                    endTime: "1713350400",
+                    midPriceDelta: -50,
+                    createdTimestamp: ts,
+                },
+            };
+        }
+
+        function mockResponse(payload: any, init: ResponseInit = { status: 200 }) {
+            return new Response(JSON.stringify(payload), init);
+        }
+
+        function getEndpoint(spy: any): string {
+            return spy.mock.calls[0][0] as string;
+        }
+
+        it("returns parsed orders with cursor and hasMore", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const fetchSpy = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    mockResponse({
+                        orders: [makeOrder(HASH_A, "Active", "2026-04-16T12:00:00")],
+                        cursor: "abc123",
+                        hasMore: true,
+                    })
+                );
+
+            const result = await client.getOrders();
+
+            expect(getEndpoint(fetchSpy)).toBe("orders");
+            expect(result.orders).toHaveLength(1);
+            expect(result.orders[0].hash).toBe(HASH_A);
+            expect(result.orders[0].status).toBe("Active");
+            expect(result.orders[0].orderDetails!.sellAmount).toBe(1000000n);
+            expect(result.orders[0].orderDetails!.createdTimestamp).toEqual(
+                new Date("2026-04-16T12:00:00")
+            );
+            expect(result.cursor).toBe("abc123");
+            expect(result.hasMore).toBe(true);
+        });
+
+        it("encodes hash filter as repeated query keys", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const fetchSpy = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    mockResponse({
+                        orders: [
+                            makeOrder(HASH_A, "Active", "2026-04-16T12:00:00"),
+                            makeOrder(HASH_B, "Filled", "2026-04-15T12:00:00"),
+                        ],
+                        cursor: null,
+                        hasMore: false,
+                    })
+                );
+
+            const result = await client.getOrders({ hashes: [HASH_A, HASH_B] });
+
+            const endpoint = getEndpoint(fetchSpy);
+            expect(endpoint).toMatch(/^orders\?/);
+            expect(endpoint).toContain(`hash=${HASH_A}`);
+            expect(endpoint).toContain(`hash=${HASH_B}`);
+            expect(result.orders).toHaveLength(2);
+            expect(result.cursor).toBeNull();
+            expect(result.hasMore).toBe(false);
+        });
+
+        it("encodes status filter as repeated query keys", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const fetchSpy = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    mockResponse({ orders: [], cursor: null, hasMore: false })
+                );
+
+            await client.getOrders({ statuses: ["Active", "Filled"] });
+
+            const endpoint = getEndpoint(fetchSpy);
+            expect(endpoint).toContain("status=Active");
+            expect(endpoint).toContain("status=Filled");
+        });
+
+        it("encodes cursor and limit", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const fetchSpy = jest
+                .spyOn(client as any, "fetchWithCookies")
+                .mockResolvedValue(
+                    mockResponse({ orders: [], cursor: null, hasMore: false })
+                );
+
+            await client.getOrders({ cursor: "xyz", limit: 25 });
+
+            const endpoint = getEndpoint(fetchSpy);
+            expect(endpoint).toContain("cursor=xyz");
+            expect(endpoint).toContain("limit=25");
+        });
+
+        it("rejects more than 30 hashes without calling the API", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const fetchSpy = jest.spyOn(client as any, "fetchWithCookies");
+
+            const tooManyHashes = Array.from({ length: 31 }, (_, i) =>
+                ("0x" + i.toString(16).padStart(64, "0")) as Hex
+            );
+
+            await expect(
+                withTurbineErrorHandling(() =>
+                    client.getOrders({ hashes: tooManyHashes })
+                )
+            ).rejects.toMatchObject({ code: "TOO_MANY_HASHES" });
+            expect(fetchSpy).not.toHaveBeenCalled();
+        });
+
+        it("rejects limit above 200 without calling the API", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const fetchSpy = jest.spyOn(client as any, "fetchWithCookies");
+
+            await expect(
+                withTurbineErrorHandling(() => client.getOrders({ limit: 201 }))
+            ).rejects.toMatchObject({ code: "LIMIT_TOO_HIGH" });
+            expect(fetchSpy).not.toHaveBeenCalled();
+        });
+
+        it("maps server INVALID_CURSOR errors to TurbineError", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            jest.spyOn(client as any, "fetchWithCookies").mockResolvedValue(
+                new Response(
+                    JSON.stringify({
+                        code: "INVALID_CURSOR",
+                        message: "Cursor cannot be decoded",
+                    }),
+                    { status: 400, statusText: "Bad Request" }
+                )
+            );
+
+            await expect(
+                withTurbineErrorHandling(() =>
+                    client.getOrders({ cursor: "not-valid" })
+                )
+            ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
+        });
+    });
+
     describe("getLiquidityIntents", () => {
         it("should call Turbine API and return liquidity intent states", async () => {
             const mockStates = [

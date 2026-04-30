@@ -33,6 +33,8 @@ import {
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatesPayload,
+    GetOrdersOptions,
+    GetOrdersResponse,
     LiquidityIntentStatus,
     LiquidityIntentState,
     OrderDetails,
@@ -56,6 +58,9 @@ import {
 } from "./permit2SignatureTransfer";
 import { buildApiUrl } from "./utils";
 import * as validate from "./validation";
+
+const GET_ORDERS_MAX_HASHES = 30;
+const GET_ORDERS_MAX_LIMIT = 200;
 
 export class TurbineClient {
     public turbineApiUrl: string;
@@ -764,6 +769,89 @@ export class TurbineClient {
             );
             const orderStates = await Promise.all(orderStatesPromises);
             return orderStates;
+        } catch (error) {
+            throw toTurbineError(error);
+        }
+    }
+
+    /**
+     * List the authenticated user's orders, with optional filters.
+     *
+     * - When `hashes` is provided (max 30), pagination is skipped and the response
+     *   contains all matching orders intersected with `statuses` (if also set).
+     * - Otherwise, the response is paginated newest-first by creation time. Pass
+     *   the returned `cursor` back on the next call to fetch the next page;
+     *   `cursor` is `null` on the last page.
+     *
+     * @param options Filter and pagination options. All fields are optional.
+     * @returns Page of `OrderState` (with `orderDetails` populated), plus
+     *          `cursor` and `hasMore`.
+     */
+    async getOrders(options: GetOrdersOptions = {}): Promise<GetOrdersResponse> {
+        const { hashes, statuses, cursor, limit } = options;
+
+        if (hashes !== undefined) {
+            if (hashes.length > GET_ORDERS_MAX_HASHES) {
+                throw new TurbineError(
+                    "TOO_MANY_HASHES",
+                    `getOrders accepts at most ${GET_ORDERS_MAX_HASHES} hashes per call, got ${hashes.length}.`,
+                    { provided: hashes.length, max: GET_ORDERS_MAX_HASHES }
+                );
+            }
+            hashes.forEach((hash, index) =>
+                validate.validateHash(hash, `getOrders hashes[${index}]`)
+            );
+        }
+        if (limit !== undefined) {
+            if (
+                !Number.isInteger(limit) ||
+                limit <= 0 ||
+                limit > GET_ORDERS_MAX_LIMIT
+            ) {
+                throw new TurbineError(
+                    "LIMIT_TOO_HIGH",
+                    `getOrders limit must be an integer in [1, ${GET_ORDERS_MAX_LIMIT}], got ${limit}.`,
+                    { provided: limit, max: GET_ORDERS_MAX_LIMIT }
+                );
+            }
+        }
+
+        await this.ensureAuthenticated();
+
+        const queryParams = new URLSearchParams();
+        hashes?.forEach((hash) => queryParams.append("hash", hash));
+        statuses?.forEach((status) => queryParams.append("status", status));
+        if (cursor !== undefined) {
+            queryParams.set("cursor", cursor);
+        }
+        if (limit !== undefined) {
+            queryParams.set("limit", String(limit));
+        }
+
+        const queryString = queryParams.toString();
+        const endpoint = queryString ? `orders?${queryString}` : "orders";
+
+        try {
+            const response = await this.fetchWithCookies(endpoint, {
+                method: "GET",
+            });
+
+            if (!response.ok) {
+                throw await unsuccessfulResponseToTurbineError(response);
+            }
+
+            const responseJson = await response.json();
+            validate.validateGetOrdersResponse(responseJson);
+
+            const orders = await Promise.all(
+                responseJson.orders.map((order: any) => this.parseOrderState(order))
+            );
+
+            return {
+                orders,
+                cursor: responseJson.cursor ?? null,
+                hasMore: !!responseJson.hasMore,
+            };
         } catch (error) {
             throw toTurbineError(error);
         }
