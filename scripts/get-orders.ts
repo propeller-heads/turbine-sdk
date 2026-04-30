@@ -19,9 +19,13 @@ function displayPage(label: string, orders: OrderState[]): void {
         console.log(`\n  ${index + 1}. ${order.hash}`);
         console.log(`     Status: ${order.status}`);
         if (details) {
-            console.log(`     Sell: ${details.sellAmount.toString()} @ ${details.sellToken}`);
+            console.log(
+                `     Sell: ${details.sellAmount.toString()} @ ${details.sellToken}`
+            );
             console.log(`     Buy:  ${details.buyToken}`);
-            console.log(`     Limit: ${details.limitPrice.numerator.toString()}/${details.limitPrice.denominator.toString()}`);
+            console.log(
+                `     Limit: ${details.limitPrice.numerator.toString()}/${details.limitPrice.denominator.toString()}`
+            );
             console.log(`     Created: ${details.createdTimestamp.toISOString()}`);
         } else {
             console.log("     (no orderDetails on this response)");
@@ -54,7 +58,11 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const client = await TurbineClient.create(walletClient, publicClient, TURBINE_API_URL);
+    const client = await TurbineClient.create(
+        walletClient,
+        publicClient,
+        TURBINE_API_URL
+    );
     console.log(`👤 Account: ${account.address}`);
 
     const all = await run(client, "All orders (no filters)", {});
@@ -63,9 +71,14 @@ async function main() {
 
     const firstPage = await run(client, "Limit 1 — first page", { limit: 1 });
     if (firstPage.cursor) {
-        await run(client, "Limit 1 — second page", { limit: 1, cursor: firstPage.cursor });
+        await run(client, "Limit 1 — second page", {
+            limit: 1,
+            cursor: firstPage.cursor,
+        });
     } else {
-        console.log("\n(no cursor returned — fewer than 2 orders, skipping pagination check)");
+        console.log(
+            "\n(no cursor returned — fewer than 2 orders, skipping pagination check)"
+        );
     }
 
     if (all.orders.length > 0) {

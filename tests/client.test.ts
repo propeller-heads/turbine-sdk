@@ -898,9 +898,7 @@ describe("TurbineClient", () => {
             expect(details!.startTime).toBe(1713264000n);
             expect(details!.endTime).toBe(1713350400n);
             expect(details!.midPriceDelta).toBe(-50);
-            expect(details!.createdTimestamp).toEqual(
-                new Date("2026-04-16T12:00:00")
-            );
+            expect(details!.createdTimestamp).toEqual(new Date("2026-04-16T12:00:00"));
         });
 
         it("should leave orderDetails undefined when absent from response", async () => {
@@ -1060,8 +1058,9 @@ describe("TurbineClient", () => {
 
             const fetchSpy = jest.spyOn(client as any, "fetchWithCookies");
 
-            const tooManyHashes = Array.from({ length: 31 }, (_, i) =>
-                ("0x" + i.toString(16).padStart(64, "0")) as Hex
+            const tooManyHashes = Array.from(
+                { length: 31 },
+                (_, i) => ("0x" + i.toString(16).padStart(64, "0")) as Hex
             );
 
             await expect(
