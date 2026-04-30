@@ -35,6 +35,7 @@ import {
     GetOrderStatesPayload,
     LiquidityIntentStatus,
     LiquidityIntentState,
+    OrderDetails,
     OrderIntent,
     OrderSettledAmount,
     OrderState,
@@ -1593,7 +1594,7 @@ export class TurbineClient {
                     : undefined,
         }));
         const executions = await Promise.all(executionsPromises);
-        return {
+        const result: OrderState = {
             hash: orderState.hash,
             status: orderState.status,
             execution: executions,
@@ -1605,7 +1606,25 @@ export class TurbineClient {
                 (acc, exec) => acc + exec.boughtAmount,
                 0n
             ),
-        } as OrderState;
+        };
+        if (orderState.orderDetails != null) {
+            const raw = orderState.orderDetails;
+            const orderDetails: OrderDetails = {
+                sellToken: raw.sellToken,
+                buyToken: raw.buyToken,
+                sellAmount: BigInt(raw.sellAmount),
+                limitPrice: {
+                    numerator: BigInt(raw.limitPrice.numerator),
+                    denominator: BigInt(raw.limitPrice.denominator),
+                },
+                startTime: BigInt(raw.startTime),
+                endTime: BigInt(raw.endTime),
+                midPriceDelta: raw.midPriceDelta,
+                createdTimestamp: new Date(raw.createdTimestamp),
+            };
+            result.orderDetails = orderDetails;
+        }
+        return result;
     }
 
     /**

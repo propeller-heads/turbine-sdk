@@ -847,6 +847,87 @@ describe("TurbineClient", () => {
                 "order_states"
             );
         });
+
+        it("should parse orderDetails when included in the response", async () => {
+            const mockOrderStates = [
+                {
+                    hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+                    status: "Active",
+                    execution: [],
+                    orderDetails: {
+                        sellToken: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                        buyToken: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                        sellAmount: "1000000",
+                        limitPrice: {
+                            numerator: "1",
+                            denominator: "3500",
+                        },
+                        startTime: "1713264000",
+                        endTime: "1713350400",
+                        midPriceDelta: -50,
+                        createdTimestamp: "2026-04-16T12:00:00",
+                    },
+                },
+            ];
+
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                new Response(JSON.stringify(mockOrderStates), {
+                    status: 200,
+                    statusText: "OK",
+                })
+            );
+
+            const result = await client.getOrderStates([
+                "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+            ]);
+
+            expect(result).toHaveLength(1);
+            const details = result[0].orderDetails;
+            expect(details).toBeDefined();
+            expect(details!.sellToken).toBe(
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            );
+            expect(details!.buyToken).toBe(
+                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+            );
+            expect(details!.sellAmount).toBe(1000000n);
+            expect(details!.limitPrice.numerator).toBe(1n);
+            expect(details!.limitPrice.denominator).toBe(3500n);
+            expect(details!.startTime).toBe(1713264000n);
+            expect(details!.endTime).toBe(1713350400n);
+            expect(details!.midPriceDelta).toBe(-50);
+            expect(details!.createdTimestamp).toEqual(
+                new Date("2026-04-16T12:00:00")
+            );
+        });
+
+        it("should leave orderDetails undefined when absent from response", async () => {
+            const mockOrderStates = [
+                {
+                    hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+                    status: "Active",
+                    execution: [],
+                },
+            ];
+
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                new Response(JSON.stringify(mockOrderStates), {
+                    status: 200,
+                    statusText: "OK",
+                })
+            );
+
+            const result = await client.getOrderStates([
+                "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+            ]);
+
+            expect(result).toHaveLength(1);
+            expect(result[0].orderDetails).toBeUndefined();
+        });
     });
 
     describe("getLiquidityIntents", () => {
