@@ -20,6 +20,9 @@ const TURBINE_ERROR_CODES = [
     "VERIFICATION_FAILED", // failed to verify authentication request
     "ORDER_NOT_AVAILABLE", // order not found or owner is not authenticated
     "MID_PRICE_NOT_FOUND", // Turbine couldn't determine mid-price necessary to perform the operation
+    "INVALID_CURSOR", // pagination cursor passed to GET /api/orders is malformed
+    "TOO_MANY_HASHES", // too many hashes passed as filter to GET /api/orders (max 30)
+    "LIMIT_TOO_HIGH", // pagination limit passed to GET /api/orders exceeds max (200)
     // SDK-specific error codes
     "SDK_ERROR", // developer error, wrong usage of the SDK
     "UNEXPECTED_CANCELLATION_RESPONSE", // server returned a successful but unexpected response format for a cancellation request

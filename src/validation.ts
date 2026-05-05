@@ -1278,6 +1278,86 @@ export function validateOrderStateResponse(value: unknown): void {
     validateArray(stateAny.execution, "orderState.execution", (exec) => {
         validateOrderExecutionResponse(exec);
     });
+
+    if (stateAny.orderDetails != null) {
+        validateOrderDetailsResponse(stateAny.orderDetails);
+    }
+}
+
+/**
+ * Validates a raw OrderDetails response from the API (with camelCase fields).
+ * Only validates structure and types, does not transform the data.
+ *
+ * @param value - The value to validate
+ * @throws TurbineError if validation fails
+ */
+export function validateOrderDetailsResponse(value: unknown): void {
+    const obj = validateObject(value, "orderDetails");
+
+    const requiredFields = [
+        "sellToken",
+        "buyToken",
+        "sellAmount",
+        "limitPrice",
+        "startTime",
+        "endTime",
+        "midPriceDelta",
+        "createdTimestamp",
+    ];
+
+    for (const field of requiredFields) {
+        if (!(field in obj)) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `orderDetails is missing required field: ${field}`,
+                { field, receivedValue: value }
+            );
+        }
+    }
+
+    const detailsAny = obj as any;
+
+    validateAddress(detailsAny.sellToken, "orderDetails.sellToken");
+    validateAddress(detailsAny.buyToken, "orderDetails.buyToken");
+    validateBigIntConvertible(detailsAny.sellAmount, "orderDetails.sellAmount");
+    validatePrice(detailsAny.limitPrice, "orderDetails.limitPrice");
+    validateBigIntConvertible(detailsAny.startTime, "orderDetails.startTime");
+    validateBigIntConvertible(detailsAny.endTime, "orderDetails.endTime");
+    validateNumber(detailsAny.midPriceDelta, "orderDetails.midPriceDelta");
+    validateString(detailsAny.createdTimestamp, "orderDetails.createdTimestamp");
+}
+
+/**
+ * Validates a raw GetOrders response from the API.
+ *
+ * @param value - The value to validate
+ * @throws TurbineError if validation fails
+ */
+export function validateGetOrdersResponse(value: unknown): void {
+    const obj = validateObject(value, "getOrdersResponse");
+
+    const requiredFields = ["orders", "cursor", "hasMore"];
+    for (const field of requiredFields) {
+        if (!(field in obj)) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `getOrdersResponse is missing required field: ${field}`,
+                { field, receivedValue: value }
+            );
+        }
+    }
+
+    const respAny = obj as any;
+
+    validateArray(respAny.orders, "getOrdersResponse.orders", (order) => {
+        validateOrderStateResponse(order);
+    });
+
+    if (respAny.cursor !== null) {
+        validateString(respAny.cursor, "getOrdersResponse.cursor");
+    }
+
+    validateBoolean(respAny.hasMore, "getOrdersResponse.hasMore");
 }
 
 /**

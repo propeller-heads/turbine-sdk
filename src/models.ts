@@ -345,27 +345,6 @@ export interface Price {
 }
 
 /**
- * Represents an order as returned by the order status endpoint
- */
-export interface OrderStatusOrder {
-    hash: Hex;
-    owner: Address;
-    sellToken: Address;
-    buyToken: Address;
-    startTime: bigint;
-    endTime: bigint;
-    partialFill: boolean;
-    salt: Hex;
-    createdTimestamp: string;
-    callData: Hex;
-    callDataTarget: Address;
-    sellAmount: bigint;
-    executedSellAmount: bigint;
-    midPriceDelta: number;
-    limitPrice: Price;
-}
-
-/**
  * Represents a single, possibly partial, execution of an order
  */
 export interface OrderExecution {
@@ -379,6 +358,33 @@ export interface OrderExecution {
 }
 
 /**
+ * Possible statuses of an order returned by the API.
+ */
+export type OrderStatus =
+    | "Active"
+    | "Filled"
+    | "Expired"
+    | "Canceled"
+    | "PendingCancellation"
+    | "Invalid";
+
+/**
+ * Display details of an order, preserved on `OrderState` even after the order
+ * reaches a terminal status. Populated by endpoints that return enriched
+ * `OrderState` (notably `GET /api/orders`).
+ */
+export interface OrderDetails {
+    sellToken: Address;
+    buyToken: Address;
+    sellAmount: bigint;
+    limitPrice: Price;
+    startTime: bigint;
+    endTime: bigint;
+    midPriceDelta: number;
+    createdTimestamp: Date;
+}
+
+/**
  * Represents the status of an order
  */
 export interface OrderState {
@@ -387,6 +393,36 @@ export interface OrderState {
     execution: OrderExecution[];
     executedSellAmount: bigint;
     executedBuyAmount: bigint;
+    /**
+     * Display detail for the order. Present on responses from endpoints that
+     * carry enriched order data (e.g. `getOrders`); may be undefined on
+     * responses from older endpoints or older backends.
+     */
+    orderDetails?: OrderDetails;
+}
+
+/**
+ * Optional filters for {@link TurbineClient.getOrders}.
+ */
+export interface GetOrdersOptions {
+    /** Direct lookup by order hash. Max 30. When set, pagination is skipped. */
+    hashes?: Hex[];
+    /** Filter by status. Multiple values are OR'd together. */
+    statuses?: OrderStatus[];
+    /** Opaque cursor returned by a previous call. Ignored when `hashes` is set. */
+    cursor?: string;
+    /** Page size. Defaults to 50 server-side; max 200. Ignored when `hashes` is set. */
+    limit?: number;
+}
+
+/**
+ * Response shape of {@link TurbineClient.getOrders}.
+ */
+export interface GetOrdersResponse {
+    orders: OrderState[];
+    /** Cursor to pass on the next call, or `null` on the last page. */
+    cursor: string | null;
+    hasMore: boolean;
 }
 
 export enum LiquidityIntentStatus {
