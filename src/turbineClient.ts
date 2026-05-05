@@ -1709,7 +1709,11 @@ export class TurbineClient {
                 endTime: BigInt(raw.endTime),
                 midPriceDelta: raw.midPriceDelta,
                 // `endsWith("Z") ?` defensive guard in case backend adds Z, so we don't duplicate it
-                createdTimestamp: new Date(raw.createdTimestamp.endsWith("Z") ? raw.createdTimestamp : raw.createdTimestamp + "Z"),
+                createdTimestamp: new Date(
+                    raw.createdTimestamp.endsWith("Z")
+                        ? raw.createdTimestamp
+                        : raw.createdTimestamp + "Z"
+                ),
             };
             result.orderDetails = orderDetails;
         }
