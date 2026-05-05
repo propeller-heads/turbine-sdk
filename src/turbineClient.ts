@@ -820,7 +820,7 @@ export class TurbineClient {
 
         const queryParams = new URLSearchParams();
         hashes?.forEach((hash) => queryParams.append("hash", hash));
-        statuses?.forEach((status) => queryParams.append("status", status));
+        if (statuses?.length) queryParams.set("status", statuses.join(","));
         if (cursor !== undefined) {
             queryParams.set("cursor", cursor);
         }
@@ -1708,7 +1708,8 @@ export class TurbineClient {
                 startTime: BigInt(raw.startTime),
                 endTime: BigInt(raw.endTime),
                 midPriceDelta: raw.midPriceDelta,
-                createdTimestamp: new Date(raw.createdTimestamp),
+                // `endsWith("Z") ?` defensive guard in case backend adds Z, so we don't duplicate it
+                createdTimestamp: new Date(raw.createdTimestamp.endsWith("Z") ? raw.createdTimestamp : raw.createdTimestamp + "Z"),
             };
             result.orderDetails = orderDetails;
         }

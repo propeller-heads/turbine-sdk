@@ -898,7 +898,7 @@ describe("TurbineClient", () => {
             expect(details!.startTime).toBe(1713264000n);
             expect(details!.endTime).toBe(1713350400n);
             expect(details!.midPriceDelta).toBe(-50);
-            expect(details!.createdTimestamp).toEqual(new Date("2026-04-16T12:00:00"));
+            expect(details!.createdTimestamp).toEqual(new Date("2026-04-16T12:00:00Z"));
         });
 
         it("should leave orderDetails undefined when absent from response", async () => {
@@ -984,7 +984,7 @@ describe("TurbineClient", () => {
             expect(result.orders[0].status).toBe("Active");
             expect(result.orders[0].orderDetails!.sellAmount).toBe(1000000n);
             expect(result.orders[0].orderDetails!.createdTimestamp).toEqual(
-                new Date("2026-04-16T12:00:00")
+                new Date("2026-04-16T12:00:00Z")
             );
             expect(result.cursor).toBe("abc123");
             expect(result.hasMore).toBe(true);
@@ -1018,7 +1018,7 @@ describe("TurbineClient", () => {
             expect(result.hasMore).toBe(false);
         });
 
-        it("encodes status filter as repeated query keys", async () => {
+        it("encodes status filter as comma-separated value", async () => {
             const client = await createMockTurbineClient();
             mockAuthentication(client, ACCOUNT.address);
 
@@ -1031,8 +1031,8 @@ describe("TurbineClient", () => {
             await client.getOrders({ statuses: ["Active", "Filled"] });
 
             const endpoint = getEndpoint(fetchSpy);
-            expect(endpoint).toContain("status=Active");
-            expect(endpoint).toContain("status=Filled");
+            const params = new URLSearchParams(endpoint.split("?")[1]);
+            expect(params.get("status")).toBe("Active,Filled");
         });
 
         it("encodes cursor and limit", async () => {
