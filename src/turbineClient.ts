@@ -1277,11 +1277,22 @@ export class TurbineClient {
     }
 
     /**
-     * Get all registered pools from the Turbine Hook contract.
+     * Get all registered pools from the Turbine Hook contract, filtered to
+     * only include pools whose token0 and token1 are both present in
+     * `config.tokens`. Pools containing any token outside the allowlist are
+     * excluded.
      * @returns A Promise that resolves to an array of TurbinePool objects
      */
     async getPools(): Promise<TurbinePool[]> {
-        return await getPools(this.publicClient, this.config.lpHookAddress);
+        const pools = await getPools(this.publicClient, this.config.lpHookAddress);
+        const allowedAddresses = new Set(
+            this.config.tokens.map((token) => token.address.toLowerCase())
+        );
+        return pools.filter(
+            (pool) =>
+                allowedAddresses.has(pool.metadata.token0.toLowerCase()) &&
+                allowedAddresses.has(pool.metadata.token1.toLowerCase())
+        );
     }
 
     /**
@@ -1761,7 +1772,10 @@ export class TurbineClient {
 }
 
 /**
- * Get the registered pools from the Turbine Hook contract.
+ * Get the registered pools from the Turbine Hook contract. Returns every
+ * registered pool without filtering — callers that need to restrict the
+ * result to a token allowlist (e.g. `TurbineClient.getPools`) should apply
+ * the filter themselves.
  * @param publicClient The public client used for blockchain interactions
  * @param hookAddress The address of the Turbine Hook contract
  * @returns A Promise that resolves to an array of `TurbinePool` objects.
