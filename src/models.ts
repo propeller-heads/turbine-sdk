@@ -214,6 +214,14 @@ export interface OrderIntent {
     callDataTarget: Address;
     /** Used to differentiate between orders with the same parameters */
     salt: Hex;
+    /**
+     * Spread curve mode. Accepts two values:
+     * - "constant": fixed spread.
+     * - "auto": dynamically adjusted spread (check Turbine backend for auto implementation).
+     *
+     * NOTE: Not yet supported by the backend. It is currently a placeholder for future support.
+     */
+    spreadCurve?: string;
 }
 
 /**
