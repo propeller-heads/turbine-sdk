@@ -242,7 +242,9 @@ describe("TurbineClient", () => {
             // Restore the mock
             mockReadContract.mockRestore();
 
-            expect(pools).toHaveLength(3);
+            // The third pool (USDC/WBTC) is filtered out because WBTC is not
+            // in MOCK_TURBINE_CONFIG.tokens.
+            expect(pools).toHaveLength(2);
             expect(pools[0].metadata.token0).toEqual(mockContractData[0].token0);
             expect(pools[0].metadata.token1).toEqual(mockContractData[0].token1);
             expect(pools[0].metadata.fee).toEqual(mockContractData[0].fee);
@@ -252,6 +254,9 @@ describe("TurbineClient", () => {
             expect(pools[0].state.liquidity).toEqual(mockContractData[0].liquidity);
             expect(pools[0].stats.weeklySellVolumeToken0).toEqual(0n);
             expect(pools[0].stats.weeklySellVolumeToken1).toEqual(0n);
+            for (const pool of pools) {
+                expect(pool.metadata.token1).not.toEqual(WBTC.address);
+            }
         });
 
         it("should return mocked turbine pool (standalone function)", async () => {
