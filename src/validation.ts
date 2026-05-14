@@ -1490,7 +1490,6 @@ export function validateOrderDetailsResponse(value: unknown): void {
         "limitPrice",
         "startTime",
         "endTime",
-        "spreadCurve",
         "createdTimestamp",
     ];
 
