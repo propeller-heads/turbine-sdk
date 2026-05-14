@@ -407,8 +407,7 @@ export interface OrderDetails {
     limitPrice: Price;
     startTime: bigint;
     endTime: bigint;
-    spreadCurve: SpreadCurve;
-    createdTimestamp: Date;
+createdTimestamp: Date;
 }
 
 /**

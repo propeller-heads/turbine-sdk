@@ -1511,7 +1511,6 @@ export function validateOrderDetailsResponse(value: unknown): void {
     validatePrice(detailsAny.limitPrice, "orderDetails.limitPrice");
     validateBigIntConvertible(detailsAny.startTime, "orderDetails.startTime");
     validateBigIntConvertible(detailsAny.endTime, "orderDetails.endTime");
-    validateSpreadCurve(detailsAny.spreadCurve, "orderDetails.spreadCurve");
     validateString(detailsAny.createdTimestamp, "orderDetails.createdTimestamp");
 }
 
