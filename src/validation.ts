@@ -29,7 +29,26 @@ import {
     TurbineToken,
     TurbineTokenClass,
     Price,
+    SpreadCurve,
+    CurvePoint,
 } from "./models";
+
+/**
+ * Bounds for the bps fields on `SpreadCurve`. Mirrored at `constants.ts`
+ * (`MIN_DELTA_BPS`, `MAX_DELTA_BPS`, `MIN_WINDOW_BPS`, `MAX_WINDOW_BPS`,
+ * `MAX_SPREAD_CURVE_POINTS`); duplicated here to avoid a `validation` ↔
+ * `constants` import cycle.
+ *
+ * `deltaBps` is signed `[-10_000, 10_000)` (half-open, matches the backend's
+ * `ALLOWED_MID_PRICE_DELTA_RANGE = -BASIS_POINTS..BASIS_POINTS`). `windowBps`
+ * is unsigned `(0, 10_000)` (open interval, matches the wire schema).
+ */
+const MIN_DELTA_BPS = -10000;
+const MAX_DELTA_BPS = 9999;
+const MIN_WINDOW_BPS = 1;
+const MAX_WINDOW_BPS = 9999;
+const MAX_SPREAD_CURVE_POINTS = 1024;
+const WINDOW_BPS_DENOMINATOR = 10000;
 
 export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -436,43 +455,177 @@ export function validateFee(fee: unknown, fieldName: string): number {
     return feeNum;
 }
 
+/** Validate a `deltaBps` field on a {@link SpreadCurve}. Signed `[-10_000, 10_000)`. */
+function validateDeltaBps(value: unknown, fieldName: string): number {
+    const n = validateNumber(value, fieldName);
+    if (!Number.isInteger(n)) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be an integer (in basis points), got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    if (n < MIN_DELTA_BPS || n > MAX_DELTA_BPS) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be in [${MIN_DELTA_BPS}, ${MAX_DELTA_BPS + 1}) — i.e. ${MIN_DELTA_BPS}..=${MAX_DELTA_BPS} — got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    return n;
+}
+
+/** Validate a `windowBps` field on a {@link SpreadCurve} point. Open `(0, 10_000)`. */
+function validateWindowBps(value: unknown, fieldName: string): number {
+    const n = validateNumber(value, fieldName);
+    if (!Number.isInteger(n)) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be an integer (in basis points), got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    if (n < MIN_WINDOW_BPS || n > MAX_WINDOW_BPS) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be in the open interval (0, 10000) — i.e. ${MIN_WINDOW_BPS}..=${MAX_WINDOW_BPS} — got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    return n;
+}
+
 /**
- * Validates a mid-price delta value in basis points
- * - 1 basis point = 0.01%
- * - 500 = 5% (common tolerance)
- * - Range: 0 to 10,000 (0% to 100%)
+ * Validate a {@link SpreadCurve}.
  *
- * @param delta - The mid-price delta to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated delta
- * @throws TurbineError if validation fails
- *
- * @example
- * validateMidPriceDelta(500, 'midPriceDelta') // 5% - OK
- * validateMidPriceDelta(15000, 'midPriceDelta') // > 100% - throws
+ * Invariants enforced:
+ * - `startDeltaBps`, `endDeltaBps`, and every `points[i].deltaBps` is an integer
+ *   in `[-10_000, 10_000)`. `points[i].windowBps` is an integer in `(0, 10_000)`.
+ * - `points` is an array (empty allowed) of `{ windowBps, deltaBps }`.
+ * - `points[i].windowBps` is strictly increasing.
  */
-export function validateMidPriceDelta(delta: unknown, fieldName: string): number {
-    const deltaNum = validateNumber(delta, fieldName);
+export function validateSpreadCurve(value: unknown, fieldName: string): SpreadCurve {
+    const obj = validateObject(value, fieldName);
+    const curve = obj as Record<string, unknown>;
 
-    // Delta must be an integer
-    if (!Number.isInteger(deltaNum)) {
+    const startDeltaBps = validateDeltaBps(
+        curve.startDeltaBps,
+        `${fieldName}.startDeltaBps`
+    );
+    const endDeltaBps = validateDeltaBps(curve.endDeltaBps, `${fieldName}.endDeltaBps`);
+
+    if (!Array.isArray(curve.points)) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be an integer (in basis points), got ${deltaNum}`,
-            { fieldName, receivedValue: delta }
+            `${fieldName}.points must be an array`,
+            { fieldName: `${fieldName}.points`, receivedValue: curve.points }
         );
     }
 
-    // Delta range: -10,000 to 10,000 (-100% to 100%)
-    if (deltaNum < -10000 || deltaNum > 10000) {
+    // DoS guard: cap before per-point allocation. Backend enforces a tighter
+    // duration-relative cap; this is a coarse pre-check so a malicious caller cannot
+    // force the SDK to walk a huge array before the wire validator rejects.
+    if (curve.points.length > MAX_SPREAD_CURVE_POINTS) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be between -10000 and 10000 (-100% to 100%), got ${deltaNum}. Example: 500 = 5% (allow 5% worse than mid-price), -10 = -0.1% (earn 0.1% more than mid-price)`,
-            { fieldName, receivedValue: delta }
+            `${fieldName}.points has ${curve.points.length} entries; max is ${MAX_SPREAD_CURVE_POINTS}`,
+            { fieldName: `${fieldName}.points`, receivedValue: curve.points.length }
         );
     }
 
-    return deltaNum;
+    const points: CurvePoint[] = curve.points.map((p, i) => {
+        const pObj = validateObject(p, `${fieldName}.points[${i}]`);
+        const point = pObj as Record<string, unknown>;
+        return {
+            windowBps: validateWindowBps(
+                point.windowBps,
+                `${fieldName}.points[${i}].windowBps`
+            ),
+            deltaBps: validateDeltaBps(
+                point.deltaBps,
+                `${fieldName}.points[${i}].deltaBps`
+            ),
+        };
+    });
+
+    for (let i = 1; i < points.length; i++) {
+        if (points[i].windowBps <= points[i - 1].windowBps) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points must have strictly increasing windowBps; ` +
+                    `got points[${i - 1}].windowBps=${points[i - 1].windowBps} >= ` +
+                    `points[${i}].windowBps=${points[i].windowBps}`,
+                { fieldName, receivedValue: value }
+            );
+        }
+    }
+
+    return { startDeltaBps, endDeltaBps, points };
+}
+
+/**
+ * Cross-validate a {@link SpreadCurve}'s interior `points` against an order's
+ * duration in seconds.
+ *
+ * The backend converts `windowBps` to an absolute time offset via integer
+ * truncation `floor(windowBps * durationSecs / 10_000)`, so for short orders:
+ *
+ * - small `windowBps` values can round to offset `0` and collide with the order
+ *   start (rejected on-server as "PointOutsideWindow"), and
+ * - distinct `windowBps` values can map to the same `time_secs` and trip the
+ *   backend's `NonMonotonicPoints` check.
+ *
+ * The minimum effective resolution is `durationSecs / 10_000` seconds; for an
+ * order shorter than 10_000 seconds you cannot place an interior point at every
+ * possible `windowBps`. This validator surfaces both failure modes with a clear
+ * error before the order is signed and submitted.
+ */
+function validateSpreadCurveTruncation(
+    curve: SpreadCurve,
+    durationSecs: bigint,
+    fieldName: string
+): void {
+    if (curve.points.length === 0) return;
+
+    if (durationSecs <= 0n) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName}: order duration must be positive to host any interior curve points`,
+            { fieldName, receivedValue: durationSecs.toString() }
+        );
+    }
+
+    let prevOffset: bigint | null = null;
+    for (let i = 0; i < curve.points.length; i++) {
+        const point = curve.points[i];
+        const offset =
+            (BigInt(point.windowBps) * durationSecs) / BigInt(WINDOW_BPS_DENOMINATOR);
+        if (offset === 0n) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points[${i}].windowBps=${point.windowBps} truncates to ` +
+                    `time offset 0 against order duration ${durationSecs}s ` +
+                    `(min effective windowBps = ceil(10000 / durationSecs)). ` +
+                    `Increase order duration or drop the point.`,
+                { fieldName, receivedValue: point.windowBps }
+            );
+        }
+        // `offset >= durationSecs` is unreachable: validateSpreadCurve already
+        // bounds `windowBps <= 9999`, so `floor(9999 * d / 10000) < d` for any
+        // positive `d`. The upper boundary is enforced by `validateSpreadCurve`'s
+        // open-interval bps check.
+        if (prevOffset !== null && offset <= prevOffset) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points[${i}].windowBps=${point.windowBps} collides with ` +
+                    `points[${i - 1}] after truncation against order duration ${durationSecs}s ` +
+                    `(both resolve to time offset ${offset}s). ` +
+                    `Min spacing in windowBps = ceil(10000 / durationSecs).`,
+                { fieldName, receivedValue: point.windowBps }
+            );
+        }
+        prevOffset = offset;
+    }
 }
 
 /**
@@ -764,6 +917,33 @@ export function validateFields<T>(
  * @throws TurbineError if validation fails
  */
 export function validateOrderIntent(intent: unknown): OrderIntent {
+    const obj = validateObject(intent, "orderIntent") as Record<string, unknown>;
+
+    // Both `callData` and `callDataTarget` must point at a real target for smart
+    // orders, or both unset for regular orders. Reject half-set early — calldata
+    // aimed at the null address (or a target with no calldata) would otherwise
+    // produce an unexecutable on-chain transaction.
+    const callDataPresent = typeof obj.callData === "string" && obj.callData !== "0x";
+    const callDataTargetPresent =
+        typeof obj.callDataTarget === "string" && obj.callDataTarget !== NULL_ADDRESS;
+    if (callDataPresent !== callDataTargetPresent) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "orderIntent: `callData` and `callDataTarget` must both be set for a smart " +
+                "order or both unset for a regular order. Got callData=" +
+                (callDataPresent ? "non-empty" : '"0x"') +
+                ", callDataTarget=" +
+                (callDataTargetPresent ? "non-zero" : "NULL_ADDRESS"),
+            {
+                field: "orderIntent.callData/callDataTarget",
+                receivedValue: {
+                    callData: obj.callData,
+                    callDataTarget: obj.callDataTarget,
+                },
+            }
+        );
+    }
+
     const validated = validateFields<OrderIntent>(
         intent,
         {
@@ -772,9 +952,10 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
             buyToken: validateAddress,
             sellAmount: validatePositiveBigInt,
             minBuyAmount: validatePositiveBigInt,
-            midPriceDelta: validateMidPriceDelta,
+            spreadCurve: validateSpreadCurve,
             startTime: validateTimestamp,
-            endTime: (v, n) => validateTimestamp(v, n, { allowPast: false }),
+            endTime: (v: unknown, n: string) =>
+                validateTimestamp(v, n, { allowPast: false }),
             partialFill: validateBoolean,
             callData: validateHex,
             callDataTarget: validateAddress,
@@ -783,9 +964,17 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
         "orderIntent"
     );
 
-    // Relationship validation
     validateTimeRange(validated.startTime, validated.endTime);
     validateTokenPair(validated.sellToken, validated.buyToken);
+
+    // Reject curves whose `windowBps` points truncate to the order start or
+    // collide after truncation. Catches the failure modes the backend surfaces
+    // as `PointOutsideWindow` / `NonMonotonicPoints` for short-duration orders.
+    validateSpreadCurveTruncation(
+        validated.spreadCurve,
+        validated.endTime - validated.startTime,
+        "orderIntent.spreadCurve"
+    );
 
     return validated;
 }
@@ -1301,7 +1490,7 @@ export function validateOrderDetailsResponse(value: unknown): void {
         "limitPrice",
         "startTime",
         "endTime",
-        "midPriceDelta",
+        "spreadCurve",
         "createdTimestamp",
     ];
 
@@ -1323,7 +1512,7 @@ export function validateOrderDetailsResponse(value: unknown): void {
     validatePrice(detailsAny.limitPrice, "orderDetails.limitPrice");
     validateBigIntConvertible(detailsAny.startTime, "orderDetails.startTime");
     validateBigIntConvertible(detailsAny.endTime, "orderDetails.endTime");
-    validateNumber(detailsAny.midPriceDelta, "orderDetails.midPriceDelta");
+    validateSpreadCurve(detailsAny.spreadCurve, "orderDetails.spreadCurve");
     validateString(detailsAny.createdTimestamp, "orderDetails.createdTimestamp");
 }
 

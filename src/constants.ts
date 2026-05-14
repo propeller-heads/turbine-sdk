@@ -27,3 +27,20 @@ export const ADDR2TOKEN: Map<Address, Token> = new Map([
 ]);
 
 export const SQRT_PRICE_IDENTITY = 79228162514264337593543950336n;
+
+/** Smallest allowed `deltaBps` on a SpreadCurve (inclusive). */
+export const MIN_DELTA_BPS = -10000;
+/** Largest allowed `deltaBps` on a SpreadCurve (inclusive). */
+export const MAX_DELTA_BPS = 9999;
+/** Smallest allowed `windowBps` on a CurvePoint (inclusive). */
+export const MIN_WINDOW_BPS = 1;
+/** Largest allowed `windowBps` on a CurvePoint (inclusive). */
+export const MAX_WINDOW_BPS = 9999;
+
+/**
+ * Hard cap on `SpreadCurve.points.length`. Backend enforces a tighter bound based
+ * on order duration and block interval; this cap is a DoS guard for the SDK so a
+ * malicious or buggy caller cannot allocate unbounded arrays before the wire
+ * validator runs.
+ */
+export const MAX_SPREAD_CURVE_POINTS = 1024;

@@ -1708,7 +1708,15 @@ export class TurbineClient {
         };
         if (orderState.orderDetails != null) {
             const raw = orderState.orderDetails;
-            const orderDetails: OrderDetails = {
+            // Re-run `validateSpreadCurve` on the raw curve and use its typed return
+            // so the parsed `OrderDetails` matches the validated value exactly. Doubles
+            // as a defensive null guard on `raw.spreadCurve` even if a future code path
+            // bypasses the upstream `validateOrderStateResponse` call.
+            const spreadCurve = validate.validateSpreadCurve(
+                raw.spreadCurve,
+                "orderDetails.spreadCurve"
+            );
+            result.orderDetails = {
                 sellToken: raw.sellToken,
                 buyToken: raw.buyToken,
                 sellAmount: BigInt(raw.sellAmount),
@@ -1718,7 +1726,7 @@ export class TurbineClient {
                 },
                 startTime: BigInt(raw.startTime),
                 endTime: BigInt(raw.endTime),
-                midPriceDelta: raw.midPriceDelta,
+                spreadCurve,
                 // `endsWith("Z") ?` defensive guard in case backend adds Z, so we don't duplicate it
                 createdTimestamp: new Date(
                     raw.createdTimestamp.endsWith("Z")
@@ -1726,7 +1734,6 @@ export class TurbineClient {
                         : raw.createdTimestamp + "Z"
                 ),
             };
-            result.orderDetails = orderDetails;
         }
         return result;
     }

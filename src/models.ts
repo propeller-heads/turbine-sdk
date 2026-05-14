@@ -180,7 +180,38 @@ export interface AddSmartOrder {
 }
 
 /**
+ * A piecewise-linear mid-price-delta curve parametrised in order-window basis points.
+ *
+ * `windowBps` runs from `0` at the order's `startTime` to `10_000` at its `endTime`.
+ * Between `points`, `deltaBps` interpolates linearly; outside the curve clamps to
+ * `startDeltaBps` / `endDeltaBps`. `deltaBps` is a signed integer in
+ * `[-10_000, 10_000)` — negative values mean the order accepts only fills *better*
+ * than the mid-price. `windowBps` is unsigned in `(0, 10_000)` (open interval).
+ *
+ * Use {@link import("./spreads").constant} for the flat case.
+ */
+export interface SpreadCurve {
+    /** Mid-price delta at `windowBps = 0` (order start). i32, `[-10_000, 10_000)`. */
+    startDeltaBps: number;
+    /** Mid-price delta at `windowBps = 10_000` (order end). i32, `[-10_000, 10_000)`. */
+    endDeltaBps: number;
+    /** Interior knots, strictly increasing `windowBps`, each `windowBps` in `(0, 10_000)`. */
+    points: CurvePoint[];
+}
+
+/** A single interior knot of a {@link SpreadCurve}. */
+export interface CurvePoint {
+    /** Position in the order window in basis points. u32, `(0, 10_000)`. */
+    windowBps: number;
+    /** Mid-price delta at this point. i32, `[-10_000, 10_000)`. */
+    deltaBps: number;
+}
+
+/**
  * A swap order created by a user.
+ *
+ * Every order — regular and smart — carries a `spreadCurve`. Build with the
+ * `spreads.constant` (or other) helper from the `turbine-sdk/spreads` module.
  */
 export interface OrderIntent {
     /** Address of the swapper */
@@ -193,12 +224,8 @@ export interface OrderIntent {
     sellAmount: bigint;
     /** Minimum buy amount, effectively defining limit price. */
     minBuyAmount: bigint;
-    /**
-     * Allowed deviation from the mid-price delta in basis points.
-     * E.g. 1% (100 basis points) mid-price delta means that the trade will be executed
-     * at a price at most 1% worse than mid-price.
-     */
-    midPriceDelta: number;
+    /** Piecewise-linear spread curve over the order window. */
+    spreadCurve: SpreadCurve;
     /**
      * Unix timestamp since when the order is valid.
      * Note: only immediately valid orders are supported for now.
@@ -214,14 +241,6 @@ export interface OrderIntent {
     callDataTarget: Address;
     /** Used to differentiate between orders with the same parameters */
     salt: Hex;
-    /**
-     * Spread curve mode. Accepts two values:
-     * - "constant": fixed spread.
-     * - "auto": dynamically adjusted spread (check Turbine backend for auto implementation).
-     *
-     * NOTE: Not yet supported by the backend. It is currently a placeholder for future support.
-     */
-    spreadCurve?: string;
 }
 
 /**
@@ -388,7 +407,7 @@ export interface OrderDetails {
     limitPrice: Price;
     startTime: bigint;
     endTime: bigint;
-    midPriceDelta: number;
+    spreadCurve: SpreadCurve;
     createdTimestamp: Date;
 }
 

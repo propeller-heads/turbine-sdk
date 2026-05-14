@@ -4,6 +4,7 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { OrderIntent } from "../src/models";
+import * as spreads from "../src/spreads";
 import { USDC, WETH, NULL_ADDRESS } from "../src/constants";
 import { RPC_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
@@ -58,7 +59,7 @@ async function main() {
             buyToken: token1.address,
             sellAmount: maxToken0Amount,
             minBuyAmount: (maxToken1Amount * 75n) / 100n, // 75% of maxToken1Amount
-            midPriceDelta: 500, // 5%
+            spreadCurve: spreads.constant(500), // 5% flat spread
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,
@@ -73,7 +74,7 @@ async function main() {
             buyToken: token0.address,
             sellAmount: maxToken1Amount,
             minBuyAmount: (maxToken0Amount * 75n) / 100n, // 75% of maxToken0Amount
-            midPriceDelta: 500, // 5%
+            spreadCurve: spreads.constant(500), // 5% flat spread
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,

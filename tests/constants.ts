@@ -8,6 +8,7 @@ import {
     RemoveLiquidityIntent,
     TurbineConfig,
 } from "../src/models";
+import * as spreads from "../src/spreads";
 import { TurbineClient } from "../src/turbineClient";
 import { mainnet } from "viem/chains";
 import { jest } from "@jest/globals";
@@ -37,7 +38,7 @@ export const ORDER_INTENT: OrderIntent = {
     buyToken: USDT.address,
     sellAmount: 100000000n,
     minBuyAmount: 95000000n,
-    midPriceDelta: 5,
+    spreadCurve: spreads.constant(5),
     startTime: getCurrentTimestamp(),
     endTime: getCurrentTimestamp() + 3600n, // 1 hour in the future
     partialFill: true,
@@ -46,14 +47,15 @@ export const ORDER_INTENT: OrderIntent = {
     salt: "0xbc99a2cb0a86c1eb704c1b670ec4c59eae55ceaa8f1b0068f170d6d66d1301a1",
 } as const;
 
-// A smart order is characterized by having calldata and callDataTarget fields set
+// A smart order is characterized by having calldata and callDataTarget fields set.
+// Smart orders carry a `spreadCurve` like regular orders.
 export const SMART_ORDER_INTENT: OrderIntent = {
     owner: ACCOUNT.address,
     sellToken: USDC.address,
     buyToken: USDT.address,
     sellAmount: 100000000n,
     minBuyAmount: 95000000n,
-    midPriceDelta: 0,
+    spreadCurve: spreads.constant(5),
     startTime: getCurrentTimestamp(),
     endTime: getCurrentTimestamp() + 3600n, // 1 hour in the future
     partialFill: true,

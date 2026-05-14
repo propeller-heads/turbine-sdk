@@ -23,10 +23,21 @@ export type {
     TurbineConfig,
     TurbineToken,
     TurbineTokenClass,
+    SpreadCurve,
+    CurvePoint,
 } from "./models";
+
+export * as spreads from "./spreads";
 
 export { TurbineError, isTurbineError } from "./errorHandling";
 
-export { USDT } from "./constants";
+export {
+    USDT,
+    MIN_DELTA_BPS,
+    MAX_DELTA_BPS,
+    MIN_WINDOW_BPS,
+    MAX_WINDOW_BPS,
+    MAX_SPREAD_CURVE_POINTS,
+} from "./constants";
 
 export { TURBINE_API_URL } from "./config";
