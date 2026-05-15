@@ -1,5 +1,5 @@
 import { Address, getAddress, Hex, parseUnits, formatUnits } from "viem";
-import { validateAddress } from "./validation";
+import { validateAddress } from "./validationPrimitives";
 
 export type TurbineTokenClass = "Regular" | "Stable" | "Meme";
 
