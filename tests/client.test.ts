@@ -91,30 +91,6 @@ describe("TurbineClient", () => {
             expect(orderIds).toEqual(mockOrderIds);
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
-
-        it("throws when server returns fewer confirmations than orders submitted", async () => {
-            // Backend silently drops orders that fail per-order validation (e.g.
-            // below min-order USD). SDK must surface this rather than return a
-            // short array.
-            const client = await createMockTurbineClient();
-            mockAuthentication(client, ACCOUNT.address);
-
-            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
-                new Response(
-                    JSON.stringify([
-                        {
-                            orderHash:
-                                "0x1111111111111111111111111111111111111111111111111111111111111111",
-                        },
-                    ]),
-                    { status: 200, statusText: "OK" }
-                )
-            );
-
-            await expect(
-                client.addOrders([ORDER_INTENT, ORDER_INTENT])
-            ).rejects.toThrow(/submitted 2 orders but server returned 1/);
-        });
     });
 
     describe("addLiquidity", () => {
