@@ -2129,13 +2129,13 @@ describe("Validation Functions", () => {
 
         describe("spreads.auto", () => {
             it("emits the four-knot zone-width PWL from the design doc", () => {
-                // Defaults: yolo=1000, delta=round(100*0.1)=10.
+                // Defaults: yolo=-1000, delta=round(100*0.2)=20.
                 expect(spreads.auto({ fastSpreadBps: 100 })).toEqual({
                     startDeltaBps: -1000,
-                    endDeltaBps: 110,
+                    endDeltaBps: 120,
                     points: [
                         { windowBps: 1000, deltaBps: -100 },
-                        { windowBps: 5000, deltaBps: 90 },
+                        { windowBps: 5000, deltaBps: 80 },
                     ],
                 });
             });

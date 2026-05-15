@@ -21,7 +21,7 @@ export function constant(deltaBps: number): SpreadCurve {
 export interface AutoSpreadParams {
     /** Average market spread for the pair, in basis points. */
     fastSpreadBps: number;
-    /** Opportunity-zone half-width in basis points. Default: `max(1, round(fastSpreadBps * 0.1))`. */
+    /** Opportunity-zone half-width in basis points. Default: `max(1, round(fastSpreadBps * 0.2))`. */
     deltaBps?: number;
     /**
      * Signed starting delta in basis points; the curve starts at exactly this
@@ -47,7 +47,7 @@ export interface AutoSpreadParams {
  */
 export function auto(params: AutoSpreadParams): SpreadCurve {
     const fastSpreadBps = params.fastSpreadBps;
-    const deltaBps = params.deltaBps ?? Math.max(1, Math.round(fastSpreadBps * 0.1));
+    const deltaBps = params.deltaBps ?? Math.max(1, Math.round(fastSpreadBps * 0.2));
     const yoloBps = params.yoloBps ?? -1000;
 
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
