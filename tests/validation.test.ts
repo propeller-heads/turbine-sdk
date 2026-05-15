@@ -2115,7 +2115,6 @@ describe("Validation Functions", () => {
                     TurbineError
                 );
             });
-
         });
 
         describe("spreads.constant", () => {
@@ -2125,6 +2124,108 @@ describe("Validation Functions", () => {
                     endDeltaBps: 500,
                     points: [],
                 });
+            });
+        });
+
+        describe("spreads.auto", () => {
+            it("emits the four-knot zone-width PWL from the design doc", () => {
+                // Defaults: yolo=1000, delta=round(100*0.1)=10.
+                expect(spreads.auto({ fastSpreadBps: 100 })).toEqual({
+                    startDeltaBps: -1000,
+                    endDeltaBps: 110,
+                    points: [
+                        { windowBps: 1000, deltaBps: -100 },
+                        { windowBps: 5000, deltaBps: 90 },
+                    ],
+                });
+            });
+
+            it("honours custom deltaBps and yoloBps", () => {
+                expect(
+                    spreads.auto({
+                        fastSpreadBps: 500,
+                        deltaBps: 50,
+                        yoloBps: 2000,
+                    })
+                ).toEqual({
+                    startDeltaBps: -2000,
+                    endDeltaBps: 550,
+                    points: [
+                        { windowBps: 1000, deltaBps: -500 },
+                        { windowBps: 5000, deltaBps: 450 },
+                    ],
+                });
+            });
+
+            it("produces a valid SpreadCurve that passes validateSpreadCurve", () => {
+                expect(() =>
+                    validateSpreadCurve(spreads.auto({ fastSpreadBps: 100 }), "auto")
+                ).not.toThrow();
+            });
+
+            it("produces a strictly increasing curve", () => {
+                const curve = spreads.auto({ fastSpreadBps: 500 });
+                let prev = curve.startDeltaBps;
+                for (const p of curve.points) {
+                    expect(p.deltaBps).toBeGreaterThan(prev);
+                    prev = p.deltaBps;
+                }
+                expect(curve.endDeltaBps).toBeGreaterThan(prev);
+            });
+
+            it("rejects non-positive fastSpreadBps", () => {
+                expect(() => spreads.auto({ fastSpreadBps: 0 })).toThrow(
+                    /fastSpreadBps must be in/
+                );
+                expect(() => spreads.auto({ fastSpreadBps: -10 })).toThrow(
+                    /fastSpreadBps must be in/
+                );
+            });
+
+            it("rejects non-integer deltaBps", () => {
+                expect(() =>
+                    spreads.auto({ fastSpreadBps: 100, deltaBps: 5.5 })
+                ).toThrow(/deltaBps must be an integer/);
+            });
+
+            it("rejects yoloBps <= fastSpreadBps (would break monotonicity)", () => {
+                expect(() =>
+                    spreads.auto({ fastSpreadBps: 1000, yoloBps: 1000 })
+                ).toThrow(/yoloBps .* > fastSpreadBps/);
+            });
+
+            it("accepts yoloBps == fastSpreadBps + 1 (smallest valid yolo)", () => {
+                const curve = spreads.auto({
+                    fastSpreadBps: 100,
+                    yoloBps: 101,
+                });
+                expect(curve.startDeltaBps).toBe(-101);
+            });
+
+            it("rejects deltaBps >= 2 * fastSpreadBps (would break monotonicity)", () => {
+                expect(() =>
+                    spreads.auto({ fastSpreadBps: 100, deltaBps: 200 })
+                ).toThrow(/deltaBps .* < 2 \* fastSpreadBps/);
+            });
+
+            it("accepts deltaBps == 2*fastSpreadBps - 1 (largest valid delta)", () => {
+                const curve = spreads.auto({
+                    fastSpreadBps: 100,
+                    deltaBps: 199,
+                });
+                // Zone-2 knot lands at fast - delta = 100 - 199 = -99.
+                expect(curve.points[1]).toEqual({ windowBps: 5000, deltaBps: -99 });
+                expect(curve.endDeltaBps).toBe(299);
+            });
+
+            it("rejects parameters that push fastSpreadBps + deltaBps above MAX_DELTA_BPS", () => {
+                expect(() =>
+                    spreads.auto({
+                        fastSpreadBps: 8000,
+                        deltaBps: 2500,
+                        yoloBps: 9000,
+                    })
+                ).toThrow(/exceeds MAX_DELTA_BPS/);
             });
         });
 
