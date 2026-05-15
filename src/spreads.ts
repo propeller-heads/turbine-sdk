@@ -5,7 +5,7 @@ import { SpreadCurve } from "./models";
  * Helpers for building {@link SpreadCurve} values.
  *
  * `windowBps` runs from `0` (order start) to `10_000` (order end), with interior
- * points strictly inside `(0, 10_000)`. `deltaBps` is signed, `[-10_000, 10_000)`.
+ * points in `[1, 9_999]`. `deltaBps` is signed, `[-10_000, 9_999]`.
  */
 
 /** A flat curve that returns the same delta across the entire order window. */

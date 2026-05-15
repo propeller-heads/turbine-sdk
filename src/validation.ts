@@ -90,7 +90,7 @@ export function validateFee(fee: unknown, fieldName: string): number {
     return feeNum;
 }
 
-/** Validate a `deltaBps` field on a {@link SpreadCurve}. Signed `[-10_000, 10_000)`. */
+/** Validate a `deltaBps` field on a {@link SpreadCurve}. Signed `[-10_000, 9_999]`. */
 function validateDeltaBps(value: unknown, fieldName: string): number {
     const n = validateNumber(value, fieldName);
     if (!Number.isInteger(n)) {
@@ -103,14 +103,14 @@ function validateDeltaBps(value: unknown, fieldName: string): number {
     if (n < MIN_DELTA_BPS || n > MAX_DELTA_BPS) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be in [${MIN_DELTA_BPS}, ${MAX_DELTA_BPS + 1}) — i.e. ${MIN_DELTA_BPS}..=${MAX_DELTA_BPS} — got ${n}`,
+            `${fieldName} must be in [${MIN_DELTA_BPS}, ${MAX_DELTA_BPS}], got ${n}`,
             { fieldName, receivedValue: value }
         );
     }
     return n;
 }
 
-/** Validate a `windowBps` field on a {@link SpreadCurve} point. Open `(0, 10_000)`. */
+/** Validate a `windowBps` field on a {@link SpreadCurve} point. Unsigned `[1, 9_999]`. */
 function validateWindowBps(value: unknown, fieldName: string): number {
     const n = validateNumber(value, fieldName);
     if (!Number.isInteger(n)) {
@@ -123,7 +123,7 @@ function validateWindowBps(value: unknown, fieldName: string): number {
     if (n < MIN_WINDOW_BPS || n > MAX_WINDOW_BPS) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be in the open interval (0, 10000) — i.e. ${MIN_WINDOW_BPS}..=${MAX_WINDOW_BPS} — got ${n}`,
+            `${fieldName} must be in [${MIN_WINDOW_BPS}, ${MAX_WINDOW_BPS}], got ${n}`,
             { fieldName, receivedValue: value }
         );
     }
@@ -135,7 +135,7 @@ function validateWindowBps(value: unknown, fieldName: string): number {
  *
  * Invariants enforced:
  * - `startDeltaBps`, `endDeltaBps`, and every `points[i].deltaBps` is an integer
- *   in `[-10_000, 10_000)`. `points[i].windowBps` is an integer in `(0, 10_000)`.
+ *   in `[-10_000, 9_999]`. `points[i].windowBps` is an integer in `[1, 9_999]`.
  * - `points` is an array (empty allowed) of `{ windowBps, deltaBps }`.
  * - `points[i].windowBps` is strictly increasing.
  */

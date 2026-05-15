@@ -646,7 +646,7 @@ describe("Validation Functions", () => {
                 ).not.toThrow();
             });
 
-            it("rejects windowBps outside (0, 10000)", () => {
+            it("rejects windowBps outside [1, 9999]", () => {
                 for (const bad of [0, 10000, -1, 10001]) {
                     expect(() =>
                         validateSpreadCurve(
@@ -657,7 +657,7 @@ describe("Validation Functions", () => {
                             },
                             "spreadCurve"
                         )
-                    ).toThrow(/open interval/);
+                    ).toThrow(/must be in \[1, 9999\]/);
                 }
             });
 

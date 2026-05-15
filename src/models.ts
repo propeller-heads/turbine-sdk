@@ -185,25 +185,25 @@ export interface AddSmartOrder {
  * `windowBps` runs from `0` at the order's `startTime` to `10_000` at its `endTime`.
  * Between `points`, `deltaBps` interpolates linearly; outside the curve clamps to
  * `startDeltaBps` / `endDeltaBps`. `deltaBps` is a signed integer in
- * `[-10_000, 10_000)` — negative values mean the order accepts only fills *better*
- * than the mid-price. `windowBps` is unsigned in `(0, 10_000)` (open interval).
+ * `[-10_000, 9_999]` — negative values mean the order accepts only fills *better*
+ * than the mid-price. `windowBps` is unsigned in `[1, 9_999]`.
  *
  * Use {@link import("./spreads").constant} for the flat case.
  */
 export interface SpreadCurve {
-    /** Mid-price delta at `windowBps = 0` (order start). i32, `[-10_000, 10_000)`. */
+    /** Mid-price delta at `windowBps = 0` (order start). i32, `[-10_000, 9_999]`. */
     startDeltaBps: number;
-    /** Mid-price delta at `windowBps = 10_000` (order end). i32, `[-10_000, 10_000)`. */
+    /** Mid-price delta at `windowBps = 10_000` (order end). i32, `[-10_000, 9_999]`. */
     endDeltaBps: number;
-    /** Interior knots, strictly increasing `windowBps`, each `windowBps` in `(0, 10_000)`. */
+    /** Interior knots, strictly increasing `windowBps`, each `windowBps` in `[1, 9_999]`. */
     points: CurvePoint[];
 }
 
 /** A single interior knot of a {@link SpreadCurve}. */
 export interface CurvePoint {
-    /** Position in the order window in basis points. u32, `(0, 10_000)`. */
+    /** Position in the order window in basis points. u32, `[1, 9_999]`. */
     windowBps: number;
-    /** Mid-price delta at this point. i32, `[-10_000, 10_000)`. */
+    /** Mid-price delta at this point. i32, `[-10_000, 9_999]`. */
     deltaBps: number;
 }
 
