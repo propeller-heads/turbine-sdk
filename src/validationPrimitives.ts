@@ -357,7 +357,9 @@ export function validateSignatureHex(value: unknown, fieldName: string): Hex {
     }
 
     return hexValue;
-}// ============================================================================
+} 
+
+// ============================================================================
 // ARRAY VALIDATORS
 // ============================================================================
 /**
@@ -486,4 +488,3 @@ export function validateFields<T>(
 
     return validated as T;
 }
-

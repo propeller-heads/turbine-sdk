@@ -40,9 +40,25 @@ import {
     MAX_SPREAD_CURVE_POINTS,
     NULL_ADDRESS,
 } from "./constants";
-import { validateNumber, validateObject, validateBigInt, validateBoolean, validateAddress, validatePositiveBigInt, validateHex, validateNonNegativeBigInt, validateSignatureHex, validateHash, validateBigIntConvertible, validateString, optional, validateBlockNumber, validateArray, validateFields } from "./validationPrimitives";
+import {
+    validateNumber,
+    validateObject,
+    validateBigInt,
+    validateBoolean,
+    validateAddress,
+    validatePositiveBigInt,
+    validateHex,
+    validateNonNegativeBigInt,
+    validateSignatureHex,
+    validateHash,
+    validateBigIntConvertible,
+    validateString,
+    optional,
+    validateBlockNumber,
+    validateArray,
+    validateFields,
+} from "./validationPrimitives";
 export * from "./validationPrimitives";
-
 
 const WINDOW_BPS_DENOMINATOR = 10000;
 
