@@ -2145,7 +2145,7 @@ describe("Validation Functions", () => {
                     spreads.auto({
                         fastSpreadBps: 500,
                         deltaBps: 50,
-                        yoloBps: 2000,
+                        yoloBps: -2000,
                     })
                 ).toEqual({
                     startDeltaBps: -2000,
@@ -2188,16 +2188,16 @@ describe("Validation Functions", () => {
                 ).toThrow(/deltaBps must be an integer/);
             });
 
-            it("rejects yoloBps <= fastSpreadBps (would break monotonicity)", () => {
+            it("rejects yoloBps >= -fastSpreadBps (would break monotonicity)", () => {
                 expect(() =>
-                    spreads.auto({ fastSpreadBps: 1000, yoloBps: 1000 })
-                ).toThrow(/yoloBps .* > fastSpreadBps/);
+                    spreads.auto({ fastSpreadBps: 1000, yoloBps: -1000 })
+                ).toThrow(/yoloBps .* < -fastSpreadBps/);
             });
 
-            it("accepts yoloBps == fastSpreadBps + 1 (smallest valid yolo)", () => {
+            it("accepts yoloBps == -fastSpreadBps - 1 (smallest valid yolo)", () => {
                 const curve = spreads.auto({
                     fastSpreadBps: 100,
-                    yoloBps: 101,
+                    yoloBps: -101,
                 });
                 expect(curve.startDeltaBps).toBe(-101);
             });
@@ -2223,7 +2223,7 @@ describe("Validation Functions", () => {
                     spreads.auto({
                         fastSpreadBps: 8000,
                         deltaBps: 2500,
-                        yoloBps: 9000,
+                        yoloBps: -9000,
                     })
                 ).toThrow(/exceeds MAX_DELTA_BPS/);
             });
