@@ -24,8 +24,7 @@ export interface AutoSpreadParams {
     /** Opportunity-zone half-width in basis points. Default: `max(1, round(fastSpreadBps * 0.2))`. */
     deltaBps?: number;
     /**
-     * Signed starting delta in basis points; the curve starts at exactly this
-     * value. Default: `-1000`.
+     * Signed starting delta in basis points. Default: `-1000`.
      */
     yoloBps?: number;
 }

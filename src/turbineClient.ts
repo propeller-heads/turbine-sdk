@@ -831,9 +831,6 @@ export class TurbineClient {
         await this.ensureAuthenticated();
 
         const queryParams = new URLSearchParams();
-        // Backend rejects repeated `?hash=X&hash=Y` ("duplicate field hash"); pass
-        // hashes as a single comma-separated `hash=X,Y` value to match the `status`
-        // filter convention.
         if (hashes?.length) queryParams.set("hash", hashes.join(","));
         if (statuses?.length) queryParams.set("status", statuses.join(","));
         if (cursor !== undefined) {
