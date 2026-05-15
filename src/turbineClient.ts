@@ -611,6 +611,18 @@ export class TurbineClient {
                 );
             }
 
+            // Surface partial-accept: backend silently drops orders that fail
+            // per-order validation (e.g. below min-order USD). Without this check
+            // the caller sees a shorter array than they submitted and can't tell
+            // which intent was rejected.
+            if (responseJson.length !== intents.length) {
+                throw new TurbineError(
+                    "UNEXPECTED_ADD_ORDER_RESPONSE",
+                    `addOrders submitted ${intents.length} orders but server returned ${responseJson.length} confirmations. Some orders were rejected; check server logs.`,
+                    { submitted: intents.length, returned: responseJson.length }
+                );
+            }
+
             // Validate each order hash in the response
             return responseJson.map((order: any, index: number) => {
                 validate.validateObject(order, `addOrders response.orders[${index}]`);
@@ -819,7 +831,10 @@ export class TurbineClient {
         await this.ensureAuthenticated();
 
         const queryParams = new URLSearchParams();
-        hashes?.forEach((hash) => queryParams.append("hash", hash));
+        // Backend rejects repeated `?hash=X&hash=Y` ("duplicate field hash"); pass
+        // hashes as a single comma-separated `hash=X,Y` value to match the `status`
+        // filter convention.
+        if (hashes?.length) queryParams.set("hash", hashes.join(","));
         if (statuses?.length) queryParams.set("status", statuses.join(","));
         if (cursor !== undefined) {
             queryParams.set("cursor", cursor);
