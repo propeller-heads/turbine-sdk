@@ -400,6 +400,35 @@ export type OrderStatus =
     | "Invalid";
 
 /**
+ * Resolved spread curve as returned on `OrderDetails`.
+ *
+ * Distinct from the request-side {@link SpreadCurve} (which uses `windowBps`
+ * fractions of the order window). The response form carries absolute wall-clock
+ * `startSecs`/`endSecs` and per-knot `timeSecs`, matching the server-internal
+ * representation that the API serialises directly.
+ */
+export interface ResolvedSpreadCurve {
+    /** Wall-clock unix-seconds at which the curve becomes active (matches `OrderDetails.startTime`). */
+    startSecs: number;
+    /** Wall-clock unix-seconds at which the curve ends (matches `OrderDetails.endTime`). */
+    endSecs: number;
+    /** Mid-price delta at `startSecs`. i32, `[-10_000, 9_999]`. */
+    startDeltaBps: number;
+    /** Mid-price delta at `endSecs`. i32, `[-10_000, 9_999]`. */
+    endDeltaBps: number;
+    /** Interior knots in strictly increasing `timeSecs` order. */
+    points: ResolvedCurvePoint[];
+}
+
+/** A single interior knot of a {@link ResolvedSpreadCurve}. */
+export interface ResolvedCurvePoint {
+    /** Wall-clock unix-seconds of the knot. Strictly within `(startSecs, endSecs)`. */
+    timeSecs: number;
+    /** Mid-price delta at this knot. i32, `[-10_000, 9_999]`. */
+    deltaBps: number;
+}
+
+/**
  * Display details of an order, preserved on `OrderState` even after the order
  * reaches a terminal status. Populated by endpoints that return enriched
  * `OrderState` (notably `GET /api/orders`).
@@ -411,6 +440,8 @@ export interface OrderDetails {
     limitPrice: Price;
     startTime: bigint;
     endTime: bigint;
+    /** Snapshot of the order's resolved spread curve at insertion time. */
+    spreadCurve: ResolvedSpreadCurve;
     createdTimestamp: Date;
 }
 

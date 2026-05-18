@@ -901,6 +901,13 @@ describe("TurbineClient", () => {
                         },
                         startTime: "1713264000",
                         endTime: "1713350400",
+                        spreadCurve: {
+                            startSecs: 1713264000,
+                            endSecs: 1713350400,
+                            startDeltaBps: 50,
+                            endDeltaBps: 250,
+                            points: [{ timeSecs: 1713307200, deltaBps: 150 }],
+                        },
                         createdTimestamp: "2026-04-16T12:00:00",
                     },
                 },
@@ -933,6 +940,13 @@ describe("TurbineClient", () => {
             expect(details!.limitPrice.denominator).toBe(3500n);
             expect(details!.startTime).toBe(1713264000n);
             expect(details!.endTime).toBe(1713350400n);
+            expect(details!.spreadCurve).toEqual({
+                startSecs: 1713264000,
+                endSecs: 1713350400,
+                startDeltaBps: 50,
+                endDeltaBps: 250,
+                points: [{ timeSecs: 1713307200, deltaBps: 150 }],
+            });
             expect(details!.createdTimestamp).toEqual(new Date("2026-04-16T12:00:00Z"));
         });
 
@@ -983,6 +997,13 @@ describe("TurbineClient", () => {
                     limitPrice: { numerator: "1", denominator: "3500" },
                     startTime: "1713264000",
                     endTime: "1713350400",
+                    spreadCurve: {
+                        startSecs: 1713264000,
+                        endSecs: 1713350400,
+                        startDeltaBps: 0,
+                        endDeltaBps: 0,
+                        points: [],
+                    },
                     createdTimestamp: ts,
                 },
             };
