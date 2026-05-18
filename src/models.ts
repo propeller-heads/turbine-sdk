@@ -209,9 +209,6 @@ export interface CurvePoint {
 
 /**
  * A swap order created by a user.
- *
- * Every order — regular and smart — carries a `spreadCurve`. Build with the
- * `spreads.constant` (or other) helper from the `turbine-sdk/spreads` module.
  */
 export interface OrderIntent {
     /** Address of the swapper */
@@ -225,7 +222,14 @@ export interface OrderIntent {
     /** Minimum buy amount, effectively defining limit price. */
     minBuyAmount: bigint;
     /** Piecewise-linear spread curve over the order window. */
-    spreadCurve: SpreadCurve;
+    spreadCurve?: SpreadCurve;
+    /**
+     * Constant spread in basis points, signed `[-10_000, 9_999]`.
+     *
+     * @deprecated Use {@link spreadCurve}. Exactly one of `spreadCurve`
+     * or `midPriceDelta` must be set.
+     */
+    midPriceDelta?: number;
     /**
      * Unix timestamp since when the order is valid.
      * Note: only immediately valid orders are supported for now.

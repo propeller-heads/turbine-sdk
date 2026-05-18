@@ -357,7 +357,7 @@ export function validateSignatureHex(value: unknown, fieldName: string): Hex {
     }
 
     return hexValue;
-} 
+}
 
 // ============================================================================
 // ARRAY VALIDATORS

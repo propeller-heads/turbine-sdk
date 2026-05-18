@@ -40,6 +40,7 @@ import {
     MAX_SPREAD_CURVE_POINTS,
     NULL_ADDRESS,
 } from "./constants";
+import { constant as spreadConstant } from "./spreads";
 import {
     validateNumber,
     validateObject,
@@ -437,7 +438,33 @@ export function validatePrimitiveSignature(
  * @throws TurbineError if validation fails
  */
 export function validateOrderIntent(intent: unknown): OrderIntent {
-    const obj = validateObject(intent, "orderIntent") as Record<string, unknown>;
+    const rawObj = validateObject(intent, "orderIntent") as Record<string, unknown>;
+
+    // Backwards-compat: callers may pass the deprecated `midPriceDelta` instead
+    // of `spreadCurve`. Exactly one must be set; normalize to `spreadCurve`
+    // before the rest of validation so downstream code sees a uniform shape.
+    const hasCurve = rawObj.spreadCurve !== undefined;
+    const hasDelta = rawObj.midPriceDelta !== undefined;
+    if (hasCurve && hasDelta) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "orderIntent: pass `spreadCurve` or `midPriceDelta`, not both",
+            { fieldName: "orderIntent" }
+        );
+    }
+    if (!hasCurve && !hasDelta) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "orderIntent: `spreadCurve` is required (or pass the deprecated `midPriceDelta`)",
+            { fieldName: "orderIntent.spreadCurve" }
+        );
+    }
+    const obj = { ...rawObj };
+    if (hasDelta) {
+        const delta = validateDeltaBps(obj.midPriceDelta, "orderIntent.midPriceDelta");
+        obj.spreadCurve = spreadConstant(delta);
+        delete obj.midPriceDelta;
+    }
 
     // Both `callData` and `callDataTarget` must point at a real target for smart
     // orders, or both unset for regular orders. Reject half-set early — calldata
@@ -465,7 +492,7 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
     }
 
     const validated = validateFields<OrderIntent>(
-        intent,
+        obj,
         {
             owner: validateAddress,
             sellToken: validateAddress,
@@ -490,8 +517,10 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
     // Reject curves whose `windowBps` points truncate to the order start or
     // collide after truncation. Catches the failure modes the backend surfaces
     // as `PointOutsideWindow` / `NonMonotonicPoints` for short-duration orders.
+    // `spreadCurve` is always defined here — XOR normalization above guarantees
+    // it; the optional marker is only for the public input type.
     validateSpreadCurveTruncation(
-        validated.spreadCurve,
+        validated.spreadCurve!,
         validated.endTime - validated.startTime,
         "orderIntent.spreadCurve"
     );
