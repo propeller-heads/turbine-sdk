@@ -819,7 +819,7 @@ export class TurbineClient {
         await this.ensureAuthenticated();
 
         const queryParams = new URLSearchParams();
-        hashes?.forEach((hash) => queryParams.append("hash", hash));
+        if (hashes?.length) queryParams.set("hash", hashes.join(","));
         if (statuses?.length) queryParams.set("status", statuses.join(","));
         if (cursor !== undefined) {
             queryParams.set("cursor", cursor);
@@ -1708,7 +1708,7 @@ export class TurbineClient {
         };
         if (orderState.orderDetails != null) {
             const raw = orderState.orderDetails;
-            const orderDetails: OrderDetails = {
+            result.orderDetails = {
                 sellToken: raw.sellToken,
                 buyToken: raw.buyToken,
                 sellAmount: BigInt(raw.sellAmount),
@@ -1718,7 +1718,6 @@ export class TurbineClient {
                 },
                 startTime: BigInt(raw.startTime),
                 endTime: BigInt(raw.endTime),
-                midPriceDelta: raw.midPriceDelta,
                 // `endsWith("Z") ?` defensive guard in case backend adds Z, so we don't duplicate it
                 createdTimestamp: new Date(
                     raw.createdTimestamp.endsWith("Z")
@@ -1726,7 +1725,6 @@ export class TurbineClient {
                         : raw.createdTimestamp + "Z"
                 ),
             };
-            result.orderDetails = orderDetails;
         }
         return result;
     }

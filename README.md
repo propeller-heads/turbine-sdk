@@ -90,8 +90,11 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
 -   `buyToken`: Address of the token being bought
 -   `sellAmount`: Amount of sell token (in atomic units)
 -   `minBuyAmount`: Minimum amount of buy token to receive (defines the limit price)
--   `midPriceDelta`: Allowed deviation from market mid-price (in basis points)
-    -   For example, 100 basis points = 1% worse than mid-price
+-   `spreadCurve`: Piecewise-linear mid-price-delta curve over the order window. Required on every order.
+    -   `startDeltaBps`, `endDeltaBps`: signed delta in basis points at the order's start and end. Range `[-10_000, 10_000)` — negative values mean the order accepts only fills *better* than the mid-price.
+    -   `points`: interior knots `{windowBps, deltaBps}`, strictly increasing `windowBps`
+    -   `windowBps` is integer in `(0, 10_000)` (open interval) — `5000` means halfway through `[startTime, endTime]`
+    -   Use the `spreads.constant(deltaBps)` helper for the common flat case
 -   `startTime`: Unix timestamp when the order becomes valid
     -   Note: only immediately valid orders are supported for now.
 -   `endTime`: Unix timestamp when the order expires
@@ -116,6 +119,7 @@ Smart orders will be deprecated soon. Market makers are encouraged to submit the
 ```typescript
 import { NULL_ADDRESS, USDC, WETH } from "turbine-sdk/constants";
 import { OrderIntent } from "turbine-sdk/models";
+import * as spreads from "turbine-sdk/spreads";
 import { getRandomSalt } from "turbine-sdk/turbineClient";
 
 // Create an order to sell USDC for WETH
@@ -125,7 +129,7 @@ const order: OrderIntent = {
     buyToken: WETH.address,
     sellAmount: USDC.toOnchainAmount("100"), // Sell 100 USDC
     minBuyAmount: WETH.toOnchainAmount("0.05"), // Buy 0.05 WETH
-    midPriceDelta: 500, // At most 5% worse than market mid-price
+    spreadCurve: spreads.constant(500), // 5% flat spread (at most 5% worse than mid-price)
     startTime: Math.floor(Date.now() / 1000), // Start now
     endTime: Math.floor(Date.now() / 1000) + 3600, // End in 1 hour
     partialFill: true,

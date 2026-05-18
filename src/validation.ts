@@ -11,7 +11,7 @@
  * - Response layer: Validate API responses
  */
 
-import { Address, Hex, isAddress, isHex, hexToBytes, bytesToHex } from "viem";
+import { Address, Hex, hexToBytes, bytesToHex } from "viem";
 import { TurbineError } from "./errorHandling";
 import {
     OrderIntent,
@@ -29,368 +29,39 @@ import {
     TurbineToken,
     TurbineTokenClass,
     Price,
+    SpreadCurve,
+    CurvePoint,
 } from "./models";
+import {
+    MIN_DELTA_BPS,
+    MAX_DELTA_BPS,
+    MIN_WINDOW_BPS,
+    MAX_WINDOW_BPS,
+    MAX_SPREAD_CURVE_POINTS,
+    NULL_ADDRESS,
+} from "./constants";
+import { constant as spreadConstant } from "./spreads";
+import {
+    validateNumber,
+    validateObject,
+    validateBigInt,
+    validateBoolean,
+    validateAddress,
+    validatePositiveBigInt,
+    validateHex,
+    validateNonNegativeBigInt,
+    validateSignatureHex,
+    validateHash,
+    validateBigIntConvertible,
+    validateString,
+    optional,
+    validateBlockNumber,
+    validateArray,
+    validateFields,
+} from "./validationPrimitives";
+export * from "./validationPrimitives";
 
-export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-// ============================================================================
-// PRIMITIVE TYPE VALIDATORS
-// ============================================================================
-
-/**
- * Allows null to pass validation
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @param validator - The validator to use for non-null values
- * @returns The validated value or null if the value is null
- * @throws Whatever the validator throws
- */
-export function optional<Tin, Tout>(
-    validator: (value: Tin, fieldName: string) => Tout,
-    value: Tin | null,
-    fieldName: string
-): Tout | null {
-    if (value === null) return null;
-    return validator(value, fieldName);
-}
-
-/**
- * Validates that a value is a string
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated string
- * @throws TurbineError if validation fails
- */
-export function validateString(value: unknown, fieldName: string): string {
-    if (typeof value !== "string") {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a string, got ${typeof value}`,
-            { fieldName, receivedValue: value, receivedType: typeof value }
-        );
-    }
-    return value;
-}
-
-/**
- * Validates that a value is a boolean
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated boolean
- * @throws TurbineError if validation fails
- */
-export function validateBoolean(value: unknown, fieldName: string): boolean {
-    if (typeof value !== "boolean") {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a boolean, got ${typeof value}`,
-            { fieldName, receivedValue: value, receivedType: typeof value }
-        );
-    }
-    return value;
-}
-
-/**
- * Validates that a value is a number
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated number
- * @throws TurbineError if validation fails
- */
-export function validateNumber(value: unknown, fieldName: string): number {
-    if (typeof value !== "number") {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a number, got ${typeof value}`,
-            { fieldName, receivedValue: value, receivedType: typeof value }
-        );
-    }
-
-    if (isNaN(value)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a valid number, got NaN`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    if (!isFinite(value)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a finite number, got ${value}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return value;
-}
-
-/**
- * Validates that a value is a positive number (> 0)
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated positive number
- * @throws TurbineError if validation fails
- */
-export function validatePositiveNumber(value: unknown, fieldName: string): number {
-    const num = validateNumber(value, fieldName);
-    if (num <= 0) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be positive (> 0), got ${num}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-    return num;
-}
-
-/**
- * Validates a block number from API responses.
- * Accepts both string and number types (APIs often return block numbers as strings).
- * Converts to number and validates it's positive.
- * @param value - The value to validate (can be string or number)
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated positive block number
- * @throws TurbineError if validation fails
- */
-export function validateBlockNumber(value: unknown, fieldName: string): number {
-    let numValue: number;
-
-    if (typeof value === "string") {
-        numValue = Number(value);
-    } else if (typeof value === "number") {
-        numValue = value;
-    } else {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a number or numeric string, got ${typeof value}`,
-            { fieldName, receivedValue: value, receivedType: typeof value }
-        );
-    }
-
-    // Reuse validatePositiveNumber for the > 0 check
-    return validatePositiveNumber(numValue, fieldName);
-}
-
-/**
- * Validates that a value can be converted to BigInt.
- * Useful for API responses that return large numbers as strings.
- * @param value - The value to validate (typically a string or number)
- * @param fieldName - Name of the field being validated (for error messages)
- * @throws TurbineError if validation fails
- */
-export function validateBigIntConvertible(value: unknown, fieldName: string): bigint {
-    try {
-        return BigInt(value as any);
-    } catch (error) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} cannot be converted to BigInt: ${value}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-}
-
-/**
- * Validates that a value is a bigint
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated bigint
- * @throws TurbineError if validation fails
- */
-export function validateBigInt(value: unknown, fieldName: string): bigint {
-    if (typeof value !== "bigint") {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a bigint, got ${typeof value}`,
-            { fieldName, receivedValue: value, receivedType: typeof value }
-        );
-    }
-    return value;
-}
-
-/**
- * Validates that a value is a positive bigint (> 0)
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated positive bigint
- * @throws TurbineError if validation fails
- */
-export function validatePositiveBigInt(value: unknown, fieldName: string): bigint {
-    const bigIntValue = validateBigInt(value, fieldName);
-
-    if (bigIntValue <= 0n) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be positive (> 0), got ${bigIntValue}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return bigIntValue;
-}
-
-/**
- * Validates that a value is a non-negative bigint (>= 0)
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated non-negative bigint
- * @throws TurbineError if validation fails
- */
-export function validateNonNegativeBigInt(value: unknown, fieldName: string): bigint {
-    const bigIntValue = validateBigInt(value, fieldName);
-
-    if (bigIntValue < 0n) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be non-negative (>= 0), got ${bigIntValue}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return bigIntValue;
-}
-
-/**
- * Validates that a value is an object (non-null)
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated object
- * @throws TurbineError if validation fails
- */
-export function validateObject(value: unknown, fieldName: string): object {
-    if (typeof value !== "object" || value === null) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a non-null object, got ${value === null ? "null" : typeof value}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-    return value;
-}
-
-// ============================================================================
-// ETHEREUM-SPECIFIC VALIDATORS
-// ============================================================================
-
-/**
- * Validates that a value is a valid Ethereum address
- * Uses viem's isAddress() for comprehensive validation including EIP-55 checksum
- *
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated address
- * @throws TurbineError if validation fails
- */
-export function validateAddress(value: unknown, fieldName: string): Address {
-    const strValue = validateString(value, fieldName);
-
-    if (!isAddress(strValue)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} is not a valid Ethereum address: ${strValue}. Expected format: 0x followed by 40 hexadecimal characters.`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return strValue as Address;
-}
-
-/**
- * Validates that a value is a valid hex string of any length
- *
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated hex string
- * @throws TurbineError if validation fails
- */
-export function validateHex(value: unknown, fieldName: string): Hex {
-    const strValue = validateString(value, fieldName);
-
-    if (!isHex(strValue)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} is not a valid hex string: ${strValue}. Expected format: 0x followed by hexadecimal characters (0-9, a-f, A-F).`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return strValue as Hex;
-}
-
-/**
- * Validates that a value is a valid 32-byte hash (0x + 64 hex characters)
- * Used for order hashes, intent hashes, transaction hashes, pool IDs, salts
- *
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated hash
- * @throws TurbineError if validation fails
- *
- * @example
- * validateHash('0x' + '1234...', 'orderHash') // Must be exactly 66 characters
- */
-export function validateHash(value: unknown, fieldName: string): Hex {
-    const hexValue = validateHex(value, fieldName);
-
-    if (hexValue.length !== 66) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a 32-byte hash (0x followed by 64 hexadecimal characters), got ${hexValue.length} characters. Received: ${hexValue}`,
-            {
-                fieldName,
-                receivedValue: value,
-                expectedLength: 66,
-                actualLength: hexValue.length,
-            }
-        );
-    }
-
-    return hexValue;
-}
-
-/**
- * Validates that a value is a valid signature (0x + 130 hex characters = 65 bytes)
- * Used for validating raw signature format before conversion
- * Validates via Uint8Array for v value checking (simpler than string manipulation).
- *
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated signature hex
- * @throws TurbineError if validation fails
- */
-export function validateSignatureHex(value: unknown, fieldName: string): Hex {
-    const hexValue = validateHex(value, fieldName);
-
-    // Validate length (must check string length since viem pads odd-length hex)
-    if (hexValue.length !== 132) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a 65-byte signature (0x followed by 130 hexadecimal characters), got ${hexValue.length} characters.`,
-            {
-                fieldName,
-                receivedValue: value,
-                expectedLength: 132,
-                actualLength: hexValue.length,
-            }
-        );
-    }
-
-    // Convert to Uint8Array for v value validation
-    const bytes = hexToBytes(hexValue);
-
-    // Validate v value using array access
-    const v = bytes[64];
-    if (v !== 27 && v !== 28 && v !== 0 && v !== 1) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} has invalid v value: ${v}. Must be 27, 28 (legacy) or 0, 1 (EIP-2098).`,
-            { fieldName, receivedValue: value, vValue: v }
-        );
-    }
-
-    return hexValue;
-}
+const WINDOW_BPS_DENOMINATOR = 10000;
 
 // ============================================================================
 // DOMAIN-SPECIFIC VALIDATORS
@@ -436,43 +107,177 @@ export function validateFee(fee: unknown, fieldName: string): number {
     return feeNum;
 }
 
+/** Validate a `deltaBps` field on a {@link SpreadCurve}. Signed `[-10_000, 9_999]`. */
+function validateDeltaBps(value: unknown, fieldName: string): number {
+    const n = validateNumber(value, fieldName);
+    if (!Number.isInteger(n)) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be an integer (in basis points), got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    if (n < MIN_DELTA_BPS || n > MAX_DELTA_BPS) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be in [${MIN_DELTA_BPS}, ${MAX_DELTA_BPS}], got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    return n;
+}
+
+/** Validate a `windowBps` field on a {@link SpreadCurve} point. Unsigned `[1, 9_999]`. */
+function validateWindowBps(value: unknown, fieldName: string): number {
+    const n = validateNumber(value, fieldName);
+    if (!Number.isInteger(n)) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be an integer (in basis points), got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    if (n < MIN_WINDOW_BPS || n > MAX_WINDOW_BPS) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be in [${MIN_WINDOW_BPS}, ${MAX_WINDOW_BPS}], got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+    return n;
+}
+
 /**
- * Validates a mid-price delta value in basis points
- * - 1 basis point = 0.01%
- * - 500 = 5% (common tolerance)
- * - Range: 0 to 10,000 (0% to 100%)
+ * Validate a {@link SpreadCurve}.
  *
- * @param delta - The mid-price delta to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @returns The validated delta
- * @throws TurbineError if validation fails
- *
- * @example
- * validateMidPriceDelta(500, 'midPriceDelta') // 5% - OK
- * validateMidPriceDelta(15000, 'midPriceDelta') // > 100% - throws
+ * Invariants enforced:
+ * - `startDeltaBps`, `endDeltaBps`, and every `points[i].deltaBps` is an integer
+ *   in `[-10_000, 9_999]`. `points[i].windowBps` is an integer in `[1, 9_999]`.
+ * - `points` is an array (empty allowed) of `{ windowBps, deltaBps }`.
+ * - `points[i].windowBps` is strictly increasing.
  */
-export function validateMidPriceDelta(delta: unknown, fieldName: string): number {
-    const deltaNum = validateNumber(delta, fieldName);
+export function validateSpreadCurve(value: unknown, fieldName: string): SpreadCurve {
+    const obj = validateObject(value, fieldName);
+    const curve = obj as Record<string, unknown>;
 
-    // Delta must be an integer
-    if (!Number.isInteger(deltaNum)) {
+    const startDeltaBps = validateDeltaBps(
+        curve.startDeltaBps,
+        `${fieldName}.startDeltaBps`
+    );
+    const endDeltaBps = validateDeltaBps(curve.endDeltaBps, `${fieldName}.endDeltaBps`);
+
+    if (!Array.isArray(curve.points)) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be an integer (in basis points), got ${deltaNum}`,
-            { fieldName, receivedValue: delta }
+            `${fieldName}.points must be an array`,
+            { fieldName: `${fieldName}.points`, receivedValue: curve.points }
         );
     }
 
-    // Delta range: -10,000 to 10,000 (-100% to 100%)
-    if (deltaNum < -10000 || deltaNum > 10000) {
+    // DoS guard: cap before per-point allocation. Backend enforces a tighter
+    // duration-relative cap; this is a coarse pre-check so a malicious caller cannot
+    // force the SDK to walk a huge array before the wire validator rejects.
+    if (curve.points.length > MAX_SPREAD_CURVE_POINTS) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be between -10000 and 10000 (-100% to 100%), got ${deltaNum}. Example: 500 = 5% (allow 5% worse than mid-price), -10 = -0.1% (earn 0.1% more than mid-price)`,
-            { fieldName, receivedValue: delta }
+            `${fieldName}.points has ${curve.points.length} entries; max is ${MAX_SPREAD_CURVE_POINTS}`,
+            { fieldName: `${fieldName}.points`, receivedValue: curve.points.length }
         );
     }
 
-    return deltaNum;
+    const points: CurvePoint[] = curve.points.map((p, i) => {
+        const pObj = validateObject(p, `${fieldName}.points[${i}]`);
+        const point = pObj as Record<string, unknown>;
+        return {
+            windowBps: validateWindowBps(
+                point.windowBps,
+                `${fieldName}.points[${i}].windowBps`
+            ),
+            deltaBps: validateDeltaBps(
+                point.deltaBps,
+                `${fieldName}.points[${i}].deltaBps`
+            ),
+        };
+    });
+
+    for (let i = 1; i < points.length; i++) {
+        if (points[i].windowBps <= points[i - 1].windowBps) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points must have strictly increasing windowBps; ` +
+                    `got points[${i - 1}].windowBps=${points[i - 1].windowBps} >= ` +
+                    `points[${i}].windowBps=${points[i].windowBps}`,
+                { fieldName, receivedValue: value }
+            );
+        }
+    }
+
+    return { startDeltaBps, endDeltaBps, points };
+}
+
+/**
+ * Cross-validate a {@link SpreadCurve}'s interior `points` against an order's
+ * duration in seconds.
+ *
+ * The backend converts `windowBps` to an absolute time offset via integer
+ * truncation `floor(windowBps * durationSecs / 10_000)`, so for short orders:
+ *
+ * - small `windowBps` values can round to offset `0` and collide with the order
+ *   start (rejected on-server as "PointOutsideWindow"), and
+ * - distinct `windowBps` values can map to the same `time_secs` and trip the
+ *   backend's `NonMonotonicPoints` check.
+ *
+ * The minimum effective resolution is `durationSecs / 10_000` seconds; for an
+ * order shorter than 10_000 seconds you cannot place an interior point at every
+ * possible `windowBps`. This validator surfaces both failure modes with a clear
+ * error before the order is signed and submitted.
+ */
+function validateSpreadCurveTruncation(
+    curve: SpreadCurve,
+    durationSecs: bigint,
+    fieldName: string
+): void {
+    if (curve.points.length === 0) return;
+
+    if (durationSecs <= 0n) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName}: order duration must be positive to host any interior curve points`,
+            { fieldName, receivedValue: durationSecs.toString() }
+        );
+    }
+
+    let prevOffset: bigint | null = null;
+    for (let i = 0; i < curve.points.length; i++) {
+        const point = curve.points[i];
+        const offset =
+            (BigInt(point.windowBps) * durationSecs) / BigInt(WINDOW_BPS_DENOMINATOR);
+        if (offset === 0n) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points[${i}].windowBps=${point.windowBps} truncates to ` +
+                    `time offset 0 against order duration ${durationSecs}s ` +
+                    `(min effective windowBps = ceil(10000 / durationSecs)). ` +
+                    `Increase order duration or drop the point.`,
+                { fieldName, receivedValue: point.windowBps }
+            );
+        }
+        // `offset >= durationSecs` is unreachable: validateSpreadCurve already
+        // bounds `windowBps <= 9999`, so `floor(9999 * d / 10000) < d` for any
+        // positive `d`. The upper boundary is enforced by `validateSpreadCurve`'s
+        // open-interval bps check.
+        if (prevOffset !== null && offset <= prevOffset) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points[${i}].windowBps=${point.windowBps} collides with ` +
+                    `points[${i - 1}] after truncation against order duration ${durationSecs}s ` +
+                    `(both resolve to time offset ${offset}s). ` +
+                    `Min spacing in windowBps = ceil(10000 / durationSecs).`,
+                { fieldName, receivedValue: point.windowBps }
+            );
+        }
+        prevOffset = offset;
+    }
 }
 
 /**
@@ -621,137 +426,6 @@ export function validatePrimitiveSignature(
 }
 
 // ============================================================================
-// ARRAY VALIDATORS
-// ============================================================================
-
-/**
- * Validates an array and its elements
- *
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @param validator - Function to validate each element
- * @returns The validated array
- * @throws TurbineError if validation fails
- */
-export function validateArray<T>(
-    value: unknown,
-    fieldName: string,
-    validator: (item: unknown, index: number) => T
-): T[] {
-    if (!Array.isArray(value)) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be an array, got ${typeof value}`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return value.map((item, index) => {
-        try {
-            return validator(item, index);
-        } catch (error) {
-            if (error instanceof TurbineError) {
-                // Re-throw with index information
-                throw new TurbineError(
-                    error.code,
-                    `${fieldName}[${index}]: ${error.message}`,
-                    error.details
-                );
-            }
-            throw error;
-        }
-    });
-}
-
-/**
- * Validates a non-empty array and its elements
- *
- * @param value - The value to validate
- * @param fieldName - Name of the field being validated (for error messages)
- * @param validator - Function to validate each element
- * @returns The validated non-empty array
- * @throws TurbineError if validation fails
- */
-export function validateNonEmptyArray<T>(
-    value: unknown,
-    fieldName: string,
-    validator: (item: unknown, index: number) => T
-): T[] {
-    const arr = validateArray(value, fieldName, validator);
-
-    if (arr.length === 0) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${fieldName} must be a non-empty array`,
-            { fieldName, receivedValue: value }
-        );
-    }
-
-    return arr;
-}
-
-// ============================================================================
-// OBJECT FIELD VALIDATORS
-// ============================================================================
-
-/**
- * Validates multiple fields of an object using provided validators.
- * This helper reduces boilerplate in complex object validators by:
- * - Checking all required fields exist
- * - Applying validators to each field
- * - Automatically constructing field paths (e.g., "orderIntent.owner")
- *
- * @param obj - The object to validate (already validated as an object)
- * @param fieldValidators - Map of field names to validator functions
- * @param contextName - Context name for error messages (e.g., "orderIntent")
- * @returns Validated object with all fields typed correctly
- * @throws TurbineError if any field is missing or invalid
- *
- * @example
- * const validated = validateFields<OrderIntent>(intent, {
- *     owner: validateAddress,
- *     sellAmount: validatePositiveBigInt,
- *     partialFill: validateBoolean,
- *     endTime: (v, n) => validateTimestamp(v, n, { allowPast: false })
- * }, "orderIntent");
- */
-export function validateFields<T>(
-    obj: unknown,
-    fieldValidators: Record<string, (val: unknown, name: string) => any>,
-    contextName: string
-): T {
-    // First, validate it's an object
-    const validObj = validateObject(obj, contextName);
-
-    // Check all required fields exist
-    const missingFields: string[] = [];
-    for (const field of Object.keys(fieldValidators)) {
-        if (!(field in validObj)) {
-            missingFields.push(field);
-        }
-    }
-
-    if (missingFields.length > 0) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            `${contextName} is missing required field${missingFields.length > 1 ? "s" : ""}: ${missingFields.join(", ")}`,
-            { contextName, missingFields, receivedValue: obj }
-        );
-    }
-
-    // Validate each field
-    const validated: any = {};
-    const objAny = validObj as any;
-
-    for (const [field, validator] of Object.entries(fieldValidators)) {
-        const fieldPath = `${contextName}.${field}`;
-        validated[field] = validator(objAny[field], fieldPath);
-    }
-
-    return validated as T;
-}
-
-// ============================================================================
 // COMPLEX OBJECT VALIDATORS
 // ============================================================================
 
@@ -764,17 +438,71 @@ export function validateFields<T>(
  * @throws TurbineError if validation fails
  */
 export function validateOrderIntent(intent: unknown): OrderIntent {
+    const rawObj = validateObject(intent, "orderIntent") as Record<string, unknown>;
+
+    // Backwards-compat: callers may pass the deprecated `midPriceDelta` instead
+    // of `spreadCurve`. Exactly one must be set; normalize to `spreadCurve`
+    // before the rest of validation so downstream code sees a uniform shape.
+    const hasCurve = rawObj.spreadCurve !== undefined;
+    const hasDelta = rawObj.midPriceDelta !== undefined;
+    if (hasCurve && hasDelta) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "orderIntent: pass `spreadCurve` or `midPriceDelta`, not both",
+            { fieldName: "orderIntent" }
+        );
+    }
+    if (!hasCurve && !hasDelta) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "orderIntent: `spreadCurve` is required (or pass the deprecated `midPriceDelta`)",
+            { fieldName: "orderIntent.spreadCurve" }
+        );
+    }
+    const obj = { ...rawObj };
+    if (hasDelta) {
+        const delta = validateDeltaBps(obj.midPriceDelta, "orderIntent.midPriceDelta");
+        obj.spreadCurve = spreadConstant(delta);
+        delete obj.midPriceDelta;
+    }
+
+    // Both `callData` and `callDataTarget` must point at a real target for smart
+    // orders, or both unset for regular orders. Reject half-set early — calldata
+    // aimed at the null address (or a target with no calldata) would otherwise
+    // produce an unexecutable on-chain transaction.
+    const callDataPresent = typeof obj.callData === "string" && obj.callData !== "0x";
+    const callDataTargetPresent =
+        typeof obj.callDataTarget === "string" && obj.callDataTarget !== NULL_ADDRESS;
+    if (callDataPresent !== callDataTargetPresent) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            "orderIntent: `callData` and `callDataTarget` must both be set for a smart " +
+                "order or both unset for a regular order. Got callData=" +
+                (callDataPresent ? "non-empty" : '"0x"') +
+                ", callDataTarget=" +
+                (callDataTargetPresent ? "non-zero" : "NULL_ADDRESS"),
+            {
+                field: "orderIntent.callData/callDataTarget",
+                receivedValue: {
+                    callData: obj.callData,
+                    callDataTarget: obj.callDataTarget,
+                },
+            }
+        );
+    }
+
     const validated = validateFields<OrderIntent>(
-        intent,
+        obj,
         {
             owner: validateAddress,
             sellToken: validateAddress,
             buyToken: validateAddress,
             sellAmount: validatePositiveBigInt,
             minBuyAmount: validatePositiveBigInt,
-            midPriceDelta: validateMidPriceDelta,
+            spreadCurve: validateSpreadCurve,
             startTime: validateTimestamp,
-            endTime: (v, n) => validateTimestamp(v, n, { allowPast: false }),
+            endTime: (v: unknown, n: string) =>
+                validateTimestamp(v, n, { allowPast: false }),
             partialFill: validateBoolean,
             callData: validateHex,
             callDataTarget: validateAddress,
@@ -783,9 +511,19 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
         "orderIntent"
     );
 
-    // Relationship validation
     validateTimeRange(validated.startTime, validated.endTime);
     validateTokenPair(validated.sellToken, validated.buyToken);
+
+    // Reject curves whose `windowBps` points truncate to the order start or
+    // collide after truncation. Catches the failure modes the backend surfaces
+    // as `PointOutsideWindow` / `NonMonotonicPoints` for short-duration orders.
+    // `spreadCurve` is always defined here — XOR normalization above guarantees
+    // it; the optional marker is only for the public input type.
+    validateSpreadCurveTruncation(
+        validated.spreadCurve!,
+        validated.endTime - validated.startTime,
+        "orderIntent.spreadCurve"
+    );
 
     return validated;
 }
@@ -1301,7 +1039,6 @@ export function validateOrderDetailsResponse(value: unknown): void {
         "limitPrice",
         "startTime",
         "endTime",
-        "midPriceDelta",
         "createdTimestamp",
     ];
 
@@ -1323,7 +1060,6 @@ export function validateOrderDetailsResponse(value: unknown): void {
     validatePrice(detailsAny.limitPrice, "orderDetails.limitPrice");
     validateBigIntConvertible(detailsAny.startTime, "orderDetails.startTime");
     validateBigIntConvertible(detailsAny.endTime, "orderDetails.endTime");
-    validateNumber(detailsAny.midPriceDelta, "orderDetails.midPriceDelta");
     validateString(detailsAny.createdTimestamp, "orderDetails.createdTimestamp");
 }
 

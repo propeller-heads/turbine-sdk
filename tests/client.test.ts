@@ -17,7 +17,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
-import { LiquidityIntentStatus } from "../src/models";
+import { LiquidityIntentStatus, OrderIntent } from "../src/models";
 import { turbineHookABI } from "../src/abi";
 
 // Helper function to mock authentication
@@ -90,6 +90,38 @@ describe("TurbineClient", () => {
 
             expect(orderIds).toEqual(mockOrderIds);
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
+        });
+
+        it("converts legacy midPriceDelta to spreadCurve", async () => {
+            const mockOrderId =
+                "0x1111111111111111111111111111111111111111111111111111111111111111";
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(
+                    new Response(JSON.stringify([{ orderHash: mockOrderId }]), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            const { spreadCurve: _omit, ...rest } = ORDER_INTENT;
+            const legacyIntent = { ...rest, midPriceDelta: 5 } as OrderIntent;
+
+            await withTurbineErrorHandling(() => client.addOrders([legacyIntent]));
+
+            expect(mockCallAPI).toHaveBeenCalledTimes(1);
+            const [payload, endpoint] = mockCallAPI.mock.calls[0] as [any, string];
+            expect(endpoint).toBe("add_orders");
+            expect(payload).toHaveLength(1);
+            expect(payload[0].order.spreadCurve).toEqual({
+                startDeltaBps: 5,
+                endDeltaBps: 5,
+                points: [],
+            });
+            expect(payload[0].order.midPriceDelta).toBeUndefined();
         });
     });
 
@@ -869,7 +901,6 @@ describe("TurbineClient", () => {
                         },
                         startTime: "1713264000",
                         endTime: "1713350400",
-                        midPriceDelta: -50,
                         createdTimestamp: "2026-04-16T12:00:00",
                     },
                 },
@@ -902,7 +933,6 @@ describe("TurbineClient", () => {
             expect(details!.limitPrice.denominator).toBe(3500n);
             expect(details!.startTime).toBe(1713264000n);
             expect(details!.endTime).toBe(1713350400n);
-            expect(details!.midPriceDelta).toBe(-50);
             expect(details!.createdTimestamp).toEqual(new Date("2026-04-16T12:00:00Z"));
         });
 
@@ -953,7 +983,6 @@ describe("TurbineClient", () => {
                     limitPrice: { numerator: "1", denominator: "3500" },
                     startTime: "1713264000",
                     endTime: "1713350400",
-                    midPriceDelta: -50,
                     createdTimestamp: ts,
                 },
             };
@@ -995,7 +1024,7 @@ describe("TurbineClient", () => {
             expect(result.hasMore).toBe(true);
         });
 
-        it("encodes hash filter as repeated query keys", async () => {
+        it("encodes hash filter as a single comma-separated query key", async () => {
             const client = await createMockTurbineClient();
             mockAuthentication(client, ACCOUNT.address);
 
@@ -1016,8 +1045,9 @@ describe("TurbineClient", () => {
 
             const endpoint = getEndpoint(fetchSpy);
             expect(endpoint).toMatch(/^orders\?/);
-            expect(endpoint).toContain(`hash=${HASH_A}`);
-            expect(endpoint).toContain(`hash=${HASH_B}`);
+            // Backend rejects repeated `hash=` keys; SDK joins on comma.
+            expect(endpoint).toContain(`hash=${HASH_A}%2C${HASH_B}`);
+            expect(endpoint.match(/[?&]hash=/g)).toHaveLength(1);
             expect(result.orders).toHaveLength(2);
             expect(result.cursor).toBeNull();
             expect(result.hasMore).toBe(false);

@@ -1,6 +1,7 @@
 import { Address } from "viem";
 import { Token } from "./models";
-export { NULL_ADDRESS } from "./validation";
+
+export const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 export const USDC = new Token("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6, "USDC");
 export const USDT = new Token("0xdAC17F958D2ee523a2206206994597C13D831ec7", 6, "USDT");
@@ -27,3 +28,19 @@ export const ADDR2TOKEN: Map<Address, Token> = new Map([
 ]);
 
 export const SQRT_PRICE_IDENTITY = 79228162514264337593543950336n;
+
+/** Smallest allowed `deltaBps` on a SpreadCurve (inclusive). */
+export const MIN_DELTA_BPS = -10000;
+/** Largest allowed `deltaBps` on a SpreadCurve (inclusive). */
+export const MAX_DELTA_BPS = 9999;
+/** Smallest allowed `windowBps` on a CurvePoint (inclusive). */
+export const MIN_WINDOW_BPS = 1;
+/** Largest allowed `windowBps` on a CurvePoint (inclusive). */
+export const MAX_WINDOW_BPS = 9999;
+/**
+ * Hard cap on `SpreadCurve.points.length`. Backend enforces a tighter bound based
+ * on order duration and block interval; this cap is a DoS guard for the SDK so a
+ * malicious or buggy caller cannot allocate unbounded arrays before the wire
+ * validator runs.
+ */
+export const MAX_SPREAD_CURVE_POINTS = 1024;

@@ -9,7 +9,7 @@ import {
     validateHash,
     validateSignatureHex,
     validateFee,
-    validateMidPriceDelta,
+    validateSpreadCurve,
     validateTimeRange,
     validateTokenPair,
     validateOrderIntent,
@@ -60,6 +60,7 @@ import {
     VALID_TOKEN_PERMISSIONS,
     MOCK_TURBINE_CONFIG,
 } from "./constants";
+import * as spreads from "../src/spreads";
 import { OrderIntent, AddLiquidityIntent, RemoveLiquidityIntent } from "../src/models";
 
 describe("Validation Functions", () => {
@@ -570,47 +571,174 @@ describe("Validation Functions", () => {
             });
         });
 
-        describe("validateMidPriceDelta", () => {
-            it("should validate mid-price delta correctly", () => {
-                // Valid
-                expect(validateMidPriceDelta(0, "midPriceDelta")).toBe(0);
-                expect(validateMidPriceDelta(500, "midPriceDelta")).toBe(500);
-                expect(validateMidPriceDelta(10000, "midPriceDelta")).toBe(10000);
-                expect(validateMidPriceDelta(-10000, "midPriceDelta")).toBe(-10000);
+        describe("validateSpreadCurve", () => {
+            it("accepts a flat curve with no interior points", () => {
+                const curve = {
+                    startDeltaBps: 500,
+                    endDeltaBps: 500,
+                    points: [],
+                };
+                expect(validateSpreadCurve(curve, "spreadCurve")).toEqual(curve);
+            });
 
-                // Invalid: non-integer
-                expect(() => validateMidPriceDelta(500.5, "midPriceDelta")).toThrow(
-                    TurbineError
-                );
-                expect(() => validateMidPriceDelta(500.5, "midPriceDelta")).toThrow(
-                    /must be an integer/
-                );
+            it("accepts a curve with strictly increasing interior points", () => {
+                const curve = {
+                    startDeltaBps: 100,
+                    endDeltaBps: 500,
+                    points: [
+                        { windowBps: 2500, deltaBps: 200 },
+                        { windowBps: 5000, deltaBps: 300 },
+                        { windowBps: 7500, deltaBps: 400 },
+                    ],
+                };
+                expect(validateSpreadCurve(curve, "spreadCurve")).toEqual(curve);
+            });
 
-                // Invalid: less than min
-                expect(() => validateMidPriceDelta(-10001, "midPriceDelta")).toThrow(
-                    TurbineError
-                );
-                expect(() => validateMidPriceDelta(-10001, "midPriceDelta")).toThrow(
-                    /must be between -10000 and 10000/
-                );
-
-                // Invalid: exceeds max
-                expect(() => validateMidPriceDelta(10001, "midPriceDelta")).toThrow(
-                    TurbineError
-                );
-                expect(() => validateMidPriceDelta(10001, "midPriceDelta")).toThrow(
-                    /must be between -10000 and 10000/
-                );
-
-                // Check error details
-                try {
-                    validateMidPriceDelta(-10001, "testField");
-                    fail("Should have thrown");
-                } catch (error) {
-                    expect(error).toBeInstanceOf(TurbineError);
-                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
-                    expect((error as TurbineError).details.fieldName).toBe("testField");
+            it("rejects deltaBps outside [-10000, 10000)", () => {
+                for (const bad of [-10001, 10000, 10001]) {
+                    expect(() =>
+                        validateSpreadCurve(
+                            { startDeltaBps: bad, endDeltaBps: 500, points: [] },
+                            "spreadCurve"
+                        )
+                    ).toThrow(TurbineError);
+                    expect(() =>
+                        validateSpreadCurve(
+                            { startDeltaBps: 500, endDeltaBps: bad, points: [] },
+                            "spreadCurve"
+                        )
+                    ).toThrow(TurbineError);
+                    expect(() =>
+                        validateSpreadCurve(
+                            {
+                                startDeltaBps: 500,
+                                endDeltaBps: 500,
+                                points: [{ windowBps: 5000, deltaBps: bad }],
+                            },
+                            "spreadCurve"
+                        )
+                    ).toThrow(TurbineError);
                 }
+            });
+
+            it("accepts zero and negative deltaBps", () => {
+                expect(() =>
+                    validateSpreadCurve(
+                        { startDeltaBps: 0, endDeltaBps: 500, points: [] },
+                        "spreadCurve"
+                    )
+                ).not.toThrow();
+                expect(() =>
+                    validateSpreadCurve(
+                        { startDeltaBps: -10000, endDeltaBps: -500, points: [] },
+                        "spreadCurve"
+                    )
+                ).not.toThrow();
+                expect(() =>
+                    validateSpreadCurve(
+                        {
+                            startDeltaBps: -1000,
+                            endDeltaBps: 1000,
+                            points: [{ windowBps: 5000, deltaBps: 0 }],
+                        },
+                        "spreadCurve"
+                    )
+                ).not.toThrow();
+            });
+
+            it("rejects windowBps outside [1, 9999]", () => {
+                for (const bad of [0, 10000, -1, 10001]) {
+                    expect(() =>
+                        validateSpreadCurve(
+                            {
+                                startDeltaBps: 500,
+                                endDeltaBps: 500,
+                                points: [{ windowBps: bad, deltaBps: 500 }],
+                            },
+                            "spreadCurve"
+                        )
+                    ).toThrow(/must be in \[1, 9999\]/);
+                }
+            });
+
+            it("rejects non-integer bps values", () => {
+                expect(() =>
+                    validateSpreadCurve(
+                        { startDeltaBps: 500.5, endDeltaBps: 500, points: [] },
+                        "spreadCurve"
+                    )
+                ).toThrow(/must be an integer/);
+            });
+
+            it("rejects non-monotonic interior points", () => {
+                expect(() =>
+                    validateSpreadCurve(
+                        {
+                            startDeltaBps: 100,
+                            endDeltaBps: 500,
+                            points: [
+                                { windowBps: 5000, deltaBps: 200 },
+                                { windowBps: 2500, deltaBps: 300 },
+                            ],
+                        },
+                        "spreadCurve"
+                    )
+                ).toThrow(/strictly increasing windowBps/);
+            });
+
+            it("rejects duplicate windowBps", () => {
+                expect(() =>
+                    validateSpreadCurve(
+                        {
+                            startDeltaBps: 100,
+                            endDeltaBps: 500,
+                            points: [
+                                { windowBps: 5000, deltaBps: 200 },
+                                { windowBps: 5000, deltaBps: 300 },
+                            ],
+                        },
+                        "spreadCurve"
+                    )
+                ).toThrow(/strictly increasing windowBps/);
+            });
+
+            it("rejects non-array points", () => {
+                expect(() =>
+                    validateSpreadCurve(
+                        { startDeltaBps: 500, endDeltaBps: 500, points: "nope" },
+                        "spreadCurve"
+                    )
+                ).toThrow(/points must be an array/);
+            });
+
+            it("rejects more than MAX_SPREAD_CURVE_POINTS points (DoS guard)", () => {
+                const tooMany = Array.from({ length: 1025 }, (_, i) => ({
+                    windowBps: i + 1,
+                    deltaBps: 500,
+                }));
+                expect(() =>
+                    validateSpreadCurve(
+                        { startDeltaBps: 500, endDeltaBps: 500, points: tooMany },
+                        "spreadCurve"
+                    )
+                ).toThrow(/max is 1024/);
+            });
+
+            it("accepts exactly MAX_SPREAD_CURVE_POINTS points (boundary)", () => {
+                const justEnough = Array.from({ length: 1024 }, (_, i) => ({
+                    windowBps: i + 1,
+                    deltaBps: 500,
+                }));
+                expect(() =>
+                    validateSpreadCurve(
+                        {
+                            startDeltaBps: 500,
+                            endDeltaBps: 500,
+                            points: justEnough,
+                        },
+                        "spreadCurve"
+                    )
+                ).not.toThrow();
             });
         });
 
@@ -1101,7 +1229,7 @@ describe("Validation Functions", () => {
                     buyToken: WETH.address,
                     sellAmount: 1000000n,
                     minBuyAmount: 950000n,
-                    midPriceDelta: 500,
+                    spreadCurve: spreads.constant(500),
                     startTime: BigInt(Math.floor(Date.now() / 1000)),
                     endTime: BigInt(Math.floor(Date.now() / 1000) + 3600),
                     partialFill: true,
@@ -1155,6 +1283,265 @@ describe("Validation Functions", () => {
                 expect(() => validateOrderIntent(invalidTimeRange)).toThrow(
                     /endTime must be greater than startTime/
                 );
+
+                // Missing both spreadCurve and midPriceDelta is rejected.
+                const missingCurve = createValid();
+                delete (missingCurve as any).spreadCurve;
+                expect(() => validateOrderIntent(missingCurve)).toThrow(
+                    /`spreadCurve` is required/
+                );
+            });
+
+            it("rejects curves whose windowBps truncate to order boundaries (short duration)", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                // 100s order: min effective windowBps step = ceil(10000/100) = 100.
+                // windowBps=50 → offset = 50*100/10000 = 0 → boundary collision.
+                const intent: OrderIntent = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    spreadCurve: {
+                        startDeltaBps: 100,
+                        endDeltaBps: 500,
+                        points: [{ windowBps: 50, deltaBps: 200 }],
+                    },
+                    startTime: now,
+                    endTime: now + 100n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+                expect(() => validateOrderIntent(intent)).toThrow(
+                    /truncates to time offset 0/
+                );
+            });
+
+            it("rejects curves where distinct windowBps collide after truncation", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                // 100s order: windowBps 250 and 300 both → floor(250*100/10000)=2 and
+                // floor(300*100/10000)=3, so try a tighter case. windowBps 250 → 2, 299 → 2.
+                const intent: OrderIntent = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    spreadCurve: {
+                        startDeltaBps: 100,
+                        endDeltaBps: 500,
+                        points: [
+                            { windowBps: 250, deltaBps: 200 },
+                            { windowBps: 299, deltaBps: 300 },
+                        ],
+                    },
+                    startTime: now,
+                    endTime: now + 100n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+                expect(() => validateOrderIntent(intent)).toThrow(
+                    /collides with points\[0\] after truncation/
+                );
+            });
+
+            it("accepts short-duration curves whose windowBps spacing matches the resolution", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                // 100s order: min spacing = 100 windowBps per second. Use 1000, 5000, 9000.
+                const intent: OrderIntent = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    spreadCurve: {
+                        startDeltaBps: 100,
+                        endDeltaBps: 500,
+                        points: [
+                            { windowBps: 1000, deltaBps: 200 },
+                            { windowBps: 5000, deltaBps: 300 },
+                            { windowBps: 9000, deltaBps: 400 },
+                        ],
+                    },
+                    startTime: now,
+                    endTime: now + 100n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+                expect(() => validateOrderIntent(intent)).not.toThrow();
+            });
+
+            it("accepts a regular order with a negative deltaBps curve", () => {
+                // Regression guard: the [-10_000, 10_000) signed domain must not
+                // get re-narrowed to non-negative by a future change.
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const intent: OrderIntent = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    spreadCurve: {
+                        startDeltaBps: -1000,
+                        endDeltaBps: 1000,
+                        points: [{ windowBps: 5000, deltaBps: 0 }],
+                    },
+                    startTime: now,
+                    endTime: now + 3600n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+                expect(() => validateOrderIntent(intent)).not.toThrow();
+            });
+
+            it("accepts smart orders carrying a spreadCurve", () => {
+                const smart: OrderIntent = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    spreadCurve: spreads.constant(500),
+                    startTime: BigInt(Math.floor(Date.now() / 1000)),
+                    endTime: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                    partialFill: true,
+                    callData: "0x12345678" as Hex,
+                    callDataTarget: WETH.address,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+
+                expect(() => validateOrderIntent(smart)).not.toThrow();
+            });
+
+            it("accepts deprecated midPriceDelta and converts to a flat spreadCurve", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const legacy: any = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    midPriceDelta: 500,
+                    startTime: now,
+                    endTime: now + 3600n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+
+                const validated = validateOrderIntent(legacy);
+                expect(validated.spreadCurve).toEqual(spreads.constant(500));
+                expect((validated as any).midPriceDelta).toBeUndefined();
+            });
+
+            it("accepts negative midPriceDelta", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const validated = validateOrderIntent({
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    midPriceDelta: -1000,
+                    startTime: now,
+                    endTime: now + 3600n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                } as any);
+                expect(validated.spreadCurve).toEqual(spreads.constant(-1000));
+            });
+
+            it("rejects both spreadCurve and midPriceDelta set", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                expect(() =>
+                    validateOrderIntent({
+                        owner: ACCOUNT.address,
+                        sellToken: USDC.address,
+                        buyToken: WETH.address,
+                        sellAmount: 1000000n,
+                        minBuyAmount: 950000n,
+                        spreadCurve: spreads.constant(500),
+                        midPriceDelta: 500,
+                        startTime: now,
+                        endTime: now + 3600n,
+                        partialFill: true,
+                        callData: "0x" as Hex,
+                        callDataTarget: NULL_ADDRESS,
+                        salt: ("0x" + "1".repeat(64)) as Hex,
+                    } as any)
+                ).toThrow(/pass `spreadCurve` or `midPriceDelta`, not both/);
+            });
+
+            it("rejects non-integer / out-of-range midPriceDelta", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const base: any = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    startTime: now,
+                    endTime: now + 3600n,
+                    partialFill: true,
+                    callData: "0x" as Hex,
+                    callDataTarget: NULL_ADDRESS,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+
+                expect(() =>
+                    validateOrderIntent({ ...base, midPriceDelta: 1.5 })
+                ).toThrow(/must be an integer/);
+                expect(() =>
+                    validateOrderIntent({ ...base, midPriceDelta: 10000 })
+                ).toThrow(/must be in \[-10000, 9999\]/);
+                expect(() =>
+                    validateOrderIntent({ ...base, midPriceDelta: -10001 })
+                ).toThrow(/must be in \[-10000, 9999\]/);
+            });
+
+            it("rejects half-set callData/callDataTarget", () => {
+                const now = BigInt(Math.floor(Date.now() / 1000));
+                const base = {
+                    owner: ACCOUNT.address,
+                    sellToken: USDC.address,
+                    buyToken: WETH.address,
+                    sellAmount: 1000000n,
+                    minBuyAmount: 950000n,
+                    spreadCurve: spreads.constant(500),
+                    startTime: now,
+                    endTime: now + 3600n,
+                    partialFill: true,
+                    salt: ("0x" + "1".repeat(64)) as Hex,
+                };
+
+                // callData set, callDataTarget null
+                expect(() =>
+                    validateOrderIntent({
+                        ...base,
+                        callData: "0x12345678" as Hex,
+                        callDataTarget: NULL_ADDRESS,
+                    })
+                ).toThrow(/both be set for a smart order or both unset/);
+
+                // callDataTarget set, callData "0x"
+                expect(() =>
+                    validateOrderIntent({
+                        ...base,
+                        callData: "0x" as Hex,
+                        callDataTarget: WETH.address,
+                    })
+                ).toThrow(/both be set for a smart order or both unset/);
             });
         });
 
@@ -1816,6 +2203,118 @@ describe("Validation Functions", () => {
                 expect(() => validateOrderStateResponse(invalidExecution)).toThrow(
                     TurbineError
                 );
+            });
+        });
+
+        describe("spreads.constant", () => {
+            it("returns a flat curve with start == end and no interior points", () => {
+                expect(spreads.constant(500)).toEqual({
+                    startDeltaBps: 500,
+                    endDeltaBps: 500,
+                    points: [],
+                });
+            });
+        });
+
+        describe("spreads.auto", () => {
+            it("emits the four-knot zone-width PWL from the design doc", () => {
+                // Defaults: yolo=-1000, delta=round(100*0.2)=20.
+                expect(spreads.auto({ fastSpreadBps: 100 })).toEqual({
+                    startDeltaBps: -1000,
+                    endDeltaBps: 120,
+                    points: [
+                        { windowBps: 1000, deltaBps: -100 },
+                        { windowBps: 5000, deltaBps: 80 },
+                    ],
+                });
+            });
+
+            it("honours custom deltaBps and yoloBps", () => {
+                expect(
+                    spreads.auto({
+                        fastSpreadBps: 500,
+                        deltaBps: 50,
+                        yoloBps: -2000,
+                    })
+                ).toEqual({
+                    startDeltaBps: -2000,
+                    endDeltaBps: 550,
+                    points: [
+                        { windowBps: 1000, deltaBps: -500 },
+                        { windowBps: 5000, deltaBps: 450 },
+                    ],
+                });
+            });
+
+            it("produces a valid SpreadCurve that passes validateSpreadCurve", () => {
+                expect(() =>
+                    validateSpreadCurve(spreads.auto({ fastSpreadBps: 100 }), "auto")
+                ).not.toThrow();
+            });
+
+            it("produces a strictly increasing curve", () => {
+                const curve = spreads.auto({ fastSpreadBps: 500 });
+                let prev = curve.startDeltaBps;
+                for (const p of curve.points) {
+                    expect(p.deltaBps).toBeGreaterThan(prev);
+                    prev = p.deltaBps;
+                }
+                expect(curve.endDeltaBps).toBeGreaterThan(prev);
+            });
+
+            it("rejects non-positive fastSpreadBps", () => {
+                expect(() => spreads.auto({ fastSpreadBps: 0 })).toThrow(
+                    /fastSpreadBps must be in/
+                );
+                expect(() => spreads.auto({ fastSpreadBps: -10 })).toThrow(
+                    /fastSpreadBps must be in/
+                );
+            });
+
+            it("rejects non-integer deltaBps", () => {
+                expect(() =>
+                    spreads.auto({ fastSpreadBps: 100, deltaBps: 5.5 })
+                ).toThrow(/deltaBps must be an integer/);
+            });
+
+            it("rejects yoloBps >= -fastSpreadBps (would break monotonicity)", () => {
+                expect(() =>
+                    spreads.auto({ fastSpreadBps: 1000, yoloBps: -1000 })
+                ).toThrow(/yoloBps .* < -fastSpreadBps/);
+            });
+
+            it("accepts yoloBps == -fastSpreadBps - 1 (smallest valid yolo)", () => {
+                const curve = spreads.auto({
+                    fastSpreadBps: 100,
+                    yoloBps: -101,
+                });
+                expect(curve.startDeltaBps).toBe(-101);
+            });
+
+            it("rejects deltaBps >= 2 * fastSpreadBps (would break monotonicity)", () => {
+                expect(() =>
+                    spreads.auto({ fastSpreadBps: 100, deltaBps: 200 })
+                ).toThrow(/deltaBps .* < 2 \* fastSpreadBps/);
+            });
+
+            it("accepts deltaBps == 2*fastSpreadBps - 1 (largest valid delta)", () => {
+                const curve = spreads.auto({
+                    fastSpreadBps: 100,
+                    deltaBps: 199,
+                });
+                // Zone-2 knot lands at fast - delta = 100 - 199 = -99.
+                expect(curve.points[1]).toEqual({ windowBps: 5000, deltaBps: -99 });
+                expect(curve.endDeltaBps).toBe(299);
+            });
+
+            it("rejects parameters that push fastSpreadBps + deltaBps above MAX_DELTA_BPS", () => {
+                expect(() =>
+                    spreads.auto({
+                        fastSpreadBps: 8000,
+                        deltaBps: 2500,
+                        yoloBps: -9000,
+                    })
+                ).toThrow(/exceeds MAX_DELTA_BPS/);
             });
         });
 
