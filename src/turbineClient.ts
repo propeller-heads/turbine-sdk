@@ -1708,6 +1708,7 @@ export class TurbineClient {
         };
         if (orderState.orderDetails != null) {
             const raw = orderState.orderDetails;
+            const rawCurve = raw.spreadCurve;
             result.orderDetails = {
                 sellToken: raw.sellToken,
                 buyToken: raw.buyToken,
@@ -1718,6 +1719,16 @@ export class TurbineClient {
                 },
                 startTime: BigInt(raw.startTime),
                 endTime: BigInt(raw.endTime),
+                spreadCurve: {
+                    startSecs: Number(rawCurve.startSecs),
+                    endSecs: Number(rawCurve.endSecs),
+                    startDeltaBps: Number(rawCurve.startDeltaBps),
+                    endDeltaBps: Number(rawCurve.endDeltaBps),
+                    points: (rawCurve.points ?? []).map((p: any) => ({
+                        timeSecs: Number(p.timeSecs),
+                        deltaBps: Number(p.deltaBps),
+                    })),
+                },
                 // `endsWith("Z") ?` defensive guard in case backend adds Z, so we don't duplicate it
                 createdTimestamp: new Date(
                     raw.createdTimestamp.endsWith("Z")
