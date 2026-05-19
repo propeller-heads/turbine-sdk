@@ -1,6 +1,6 @@
 {
     "name": "turbine-sdk",
-    "version": "0.25.0",
+    "version": "0.26.0",
     "description": "Submit orders to Turbine",
     "main": "./src/index.ts",
     "scripts": {
