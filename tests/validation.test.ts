@@ -2289,15 +2289,15 @@ describe("Validation Functions", () => {
             });
 
             it("rejects negative feeBps", () => {
-                expect(() =>
-                    spreads.auto({ fastSpreadBps: 100, feeBps: -1 })
-                ).toThrow(/feeBps must be in/);
+                expect(() => spreads.auto({ fastSpreadBps: 100, feeBps: -1 })).toThrow(
+                    /feeBps must be in/
+                );
             });
 
             it("rejects non-integer feeBps", () => {
-                expect(() =>
-                    spreads.auto({ fastSpreadBps: 100, feeBps: 5.5 })
-                ).toThrow(/feeBps must be an integer/);
+                expect(() => spreads.auto({ fastSpreadBps: 100, feeBps: 5.5 })).toThrow(
+                    /feeBps must be an integer/
+                );
             });
 
             it("rejects yoloBps >= second knot (would break monotonicity)", () => {
