@@ -32,14 +32,14 @@ export interface AutoSpreadParams {
 /**
  * Four-knot piecewise-linear "auto" spread curve.
  *
- * Anchors (`s = fastSpreadBps`, `f = feeBps`):
+ * Anchors (`g = fastSpreadBps + feeBps`):
  *
- * | windowBps | deltaBps              |
- * |-----------|-----------------------|
- * | 0         | `yoloBps`             |
- * | 1000      | `round(-(s + f) / 2)` |
- * | 7500      | `s`                   |
- * | 10000     | `round(1.5 * s)`      |
+ * | windowBps | deltaBps          |
+ * |-----------|-------------------|
+ * | 0         | `yoloBps`         |
+ * | 1000      | `round(-g / 2)`   |
+ * | 7500      | `g`               |
+ * | 10000     | `2 * g`           |
  *
  * Rejects parameters that would break monotonicity (`yoloBps` not strictly below
  * the second knot) or push the endpoint above `MAX_DELTA_BPS`.
@@ -51,11 +51,12 @@ export function auto(params: AutoSpreadParams): SpreadCurve {
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(feeBps, "feeBps", 0, MAX_DELTA_BPS);
 
-    const yoloBps = params.yoloBps ?? -(fastSpreadBps + feeBps) * 3;
+    const grossBps = fastSpreadBps + feeBps;
+    const yoloBps = params.yoloBps ?? -grossBps * 3;
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
 
-    const halfBps = Math.round(-(fastSpreadBps + feeBps) / 2);
-    const endBps = Math.round(1.5 * fastSpreadBps);
+    const halfBps = Math.round(-grossBps / 2) || 0;
+    const endBps = 2 * grossBps;
 
     if (yoloBps >= halfBps) {
         throw new Error(
@@ -64,7 +65,7 @@ export function auto(params: AutoSpreadParams): SpreadCurve {
     }
     if (endBps > MAX_DELTA_BPS) {
         throw new Error(
-            `round(1.5 * fastSpreadBps) = ${endBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
+            `2 * (fastSpreadBps + feeBps) = ${endBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
         );
     }
 
@@ -73,7 +74,7 @@ export function auto(params: AutoSpreadParams): SpreadCurve {
         endDeltaBps: endBps,
         points: [
             { windowBps: 1000, deltaBps: halfBps },
-            { windowBps: 7500, deltaBps: fastSpreadBps },
+            { windowBps: 7500, deltaBps: grossBps },
         ],
     };
 }

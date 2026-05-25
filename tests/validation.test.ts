@@ -2218,20 +2218,19 @@ describe("Validation Functions", () => {
 
         describe("spreads.auto", () => {
             it("emits the four-knot PWL with deltas as multiples of fastSpread+fee", () => {
-                // fast=100, fee=10 → yolo=-(110)*3=-330, half=round(-55)=-55,
-                // mid=100, end=round(150)=150.
+                // gross=110 → yolo=-330, half=round(-55)=-55, mid=110, end=2*110=220.
                 expect(spreads.auto({ fastSpreadBps: 100, feeBps: 10 })).toEqual({
                     startDeltaBps: -330,
-                    endDeltaBps: 150,
+                    endDeltaBps: 220,
                     points: [
                         { windowBps: 1000, deltaBps: -55 },
-                        { windowBps: 7500, deltaBps: 100 },
+                        { windowBps: 7500, deltaBps: 110 },
                     ],
                 });
             });
 
             it("handles the degenerate fast=1, fee=0 case", () => {
-                // half = round(-0.5) = 0; end = round(1.5) = 2.
+                // half = round(-0.5) = 0; end = 2*1 = 2.
                 // yolo default = -3. Must be < second knot (0).
                 expect(spreads.auto({ fastSpreadBps: 1, feeBps: 0 })).toEqual({
                     startDeltaBps: -3,
@@ -2252,10 +2251,10 @@ describe("Validation Functions", () => {
                     })
                 ).toEqual({
                     startDeltaBps: -2000,
-                    endDeltaBps: 750,
+                    endDeltaBps: 1100,
                     points: [
                         { windowBps: 1000, deltaBps: -275 },
-                        { windowBps: 7500, deltaBps: 500 },
+                        { windowBps: 7500, deltaBps: 550 },
                     ],
                 });
             });
@@ -2317,7 +2316,7 @@ describe("Validation Functions", () => {
                 expect(curve.startDeltaBps).toBe(-56);
             });
 
-            it("rejects parameters that push round(1.5*fastSpreadBps) above MAX_DELTA_BPS", () => {
+            it("rejects parameters that push 2*(fastSpreadBps+feeBps) above MAX_DELTA_BPS", () => {
                 expect(() =>
                     spreads.auto({
                         fastSpreadBps: 8000,
