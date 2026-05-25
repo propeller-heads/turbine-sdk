@@ -21,10 +21,10 @@ export function constant(deltaBps: number): SpreadCurve {
 export interface AutoSpreadParams {
     /** Average market spread for the pair, in basis points. */
     fastSpreadBps: number;
-    /** Opportunity-zone half-width in basis points. Default: `max(1, round(fastSpreadBps * 0.2))`. */
-    deltaBps?: number;
+    /** Per-order fee in basis points. */
+    feeBps: number;
     /**
-     * Signed starting delta in basis points. Default: `-1000`.
+     * Signed starting delta in basis points. Default: `-(fastSpreadBps + feeBps) * 3`.
      */
     yoloBps?: number;
 }
@@ -32,49 +32,48 @@ export interface AutoSpreadParams {
 /**
  * Four-knot piecewise-linear "auto" spread curve.
  *
- * Anchors:
+ * Anchors (`s = fastSpreadBps`, `f = feeBps`):
  *
- * | windowBps | deltaBps                |
- * |-----------|-------------------------|
- * | 0         | `yoloBps`               |
- * | 1000      | `-fastSpreadBps`        |
- * | 5000      | `fastSpreadBps - delta` |
- * | 10000     | `fastSpreadBps + delta` |
+ * | windowBps | deltaBps              |
+ * |-----------|-----------------------|
+ * | 0         | `yoloBps`             |
+ * | 1000      | `round(-(s + f) / 2)` |
+ * | 7500      | `s`                   |
+ * | 10000     | `round(1.5 * s)`      |
  *
- * Rejects parameters that would break monotonicity (`yoloBps ≥ -fastSpreadBps`,
- * `deltaBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
+ * Rejects parameters that would break monotonicity (`yoloBps` not strictly below
+ * the second knot) or push the endpoint above `MAX_DELTA_BPS`.
  */
 export function auto(params: AutoSpreadParams): SpreadCurve {
     const fastSpreadBps = params.fastSpreadBps;
-    const deltaBps = params.deltaBps ?? Math.max(1, Math.round(fastSpreadBps * 0.2));
-    const yoloBps = params.yoloBps ?? -1000;
+    const feeBps = params.feeBps;
 
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
-    validateIntInDomain(deltaBps, "deltaBps", 1, MAX_DELTA_BPS);
+    validateIntInDomain(feeBps, "feeBps", 0, MAX_DELTA_BPS);
+
+    const yoloBps = params.yoloBps ?? -(fastSpreadBps + feeBps) * 3;
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
 
-    if (yoloBps >= -fastSpreadBps) {
+    const halfBps = Math.round(-(fastSpreadBps + feeBps) / 2);
+    const endBps = Math.round(1.5 * fastSpreadBps);
+
+    if (yoloBps >= halfBps) {
         throw new Error(
-            `auto-spread requires yoloBps (${yoloBps}) < -fastSpreadBps (${-fastSpreadBps})`
+            `auto-spread requires yoloBps (${yoloBps}) < second knot (${halfBps})`
         );
     }
-    if (deltaBps >= 2 * fastSpreadBps) {
+    if (endBps > MAX_DELTA_BPS) {
         throw new Error(
-            `auto-spread requires deltaBps (${deltaBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
-        );
-    }
-    if (fastSpreadBps + deltaBps > MAX_DELTA_BPS) {
-        throw new Error(
-            `fastSpreadBps + deltaBps = ${fastSpreadBps + deltaBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
+            `round(1.5 * fastSpreadBps) = ${endBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
         );
     }
 
     return {
         startDeltaBps: yoloBps,
-        endDeltaBps: fastSpreadBps + deltaBps,
+        endDeltaBps: endBps,
         points: [
-            { windowBps: 1000, deltaBps: -fastSpreadBps },
-            { windowBps: 5000, deltaBps: fastSpreadBps - deltaBps },
+            { windowBps: 1000, deltaBps: halfBps },
+            { windowBps: 7500, deltaBps: fastSpreadBps },
         ],
     };
 }
