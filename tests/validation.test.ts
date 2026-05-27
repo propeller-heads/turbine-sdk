@@ -2047,6 +2047,43 @@ describe("Validation Functions", () => {
                 expect(() => validateTurbineConfig(invalidBoolean)).toThrow(
                     TurbineError
                 );
+
+                // Optional minTradeSizeUsdc: absent is valid (backwards compat)
+                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG)).not.toThrow();
+
+                // Optional minTradeSizeUsdc: decimal string converted to bigint
+                const withMinTradeSize = {
+                    ...MOCK_TURBINE_CONFIG,
+                    minTradeSizeUsdc: "10000000",
+                };
+                expect(validateTurbineConfig(withMinTradeSize).minTradeSizeUsdc).toBe(
+                    10000000n
+                );
+
+                // Optional minTradeSizeUsdc: non-numeric string rejected
+                const invalidMinTradeSize = {
+                    ...MOCK_TURBINE_CONFIG,
+                    minTradeSizeUsdc: "not-a-number",
+                };
+                expect(() => validateTurbineConfig(invalidMinTradeSize)).toThrow(
+                    TurbineError
+                );
+
+                // Optional minTradeSizeUsdc: zero rejected (min trade size must be > 0)
+                expect(() =>
+                    validateTurbineConfig({
+                        ...MOCK_TURBINE_CONFIG,
+                        minTradeSizeUsdc: "0",
+                    })
+                ).toThrow(TurbineError);
+
+                // Optional minTradeSizeUsdc: negative rejected
+                expect(() =>
+                    validateTurbineConfig({
+                        ...MOCK_TURBINE_CONFIG,
+                        minTradeSizeUsdc: "-1",
+                    })
+                ).toThrow(TurbineError);
             });
         });
     });

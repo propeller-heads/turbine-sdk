@@ -898,7 +898,7 @@ export function validateTurbineToken(token: unknown, fieldName: string): Turbine
 }
 
 export function validateTurbineConfig(config: unknown): TurbineConfig {
-    return validateFields<TurbineConfig>(
+    const validated = validateFields<TurbineConfig>(
         config,
         {
             turbineSettlerAddress: validateAddress,
@@ -915,6 +915,20 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
         },
         "TurbineConfig"
     );
+
+    const minTradeSizeUsdc = (config as Record<string, unknown>).minTradeSizeUsdc;
+    if (minTradeSizeUsdc !== undefined && minTradeSizeUsdc !== null) {
+        const asBigInt = validateBigIntConvertible(
+            minTradeSizeUsdc,
+            "TurbineConfig.minTradeSizeUsdc"
+        );
+        validated.minTradeSizeUsdc = validatePositiveBigInt(
+            asBigInt,
+            "TurbineConfig.minTradeSizeUsdc"
+        );
+    }
+
+    return validated;
 }
 
 // ============================================================================

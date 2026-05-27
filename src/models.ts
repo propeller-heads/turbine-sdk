@@ -19,6 +19,12 @@ export interface TurbineConfig {
     siweDomain: string;
     siweUri: string;
     tokens: TurbineToken[];
+    /**
+     * Minimum trade size in native USDC atomic units (6 decimals), e.g.
+     * 10000000n = 10 USDC. Optional: absent when talking to an API version
+     * that predates this field.
+     */
+    minTradeSizeUsdc?: bigint;
 }
 
 export class Token {
