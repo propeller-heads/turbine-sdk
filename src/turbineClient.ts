@@ -1919,9 +1919,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         }
         const config = await response.json();
 
-        validate.validateTurbineConfig(config);
-
-        return config;
+        return validate.validateTurbineConfig(config);
     } catch (error: any) {
         console.log(error);
         throw new TurbineError(
