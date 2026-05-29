@@ -39,7 +39,7 @@ export function auto(params: AutoSpreadParams): SpreadCurve {
 
 /**
  * Curve suitable for fast market orders.
- * 
+ *
  * It starts at -fastSpread to have a chance for better price.
  * It quickly reaches fastSpread at 10% of the order window.
  * It then slowly widens the spread to reach fastSpread + fee at 80% of the order window.
@@ -58,7 +58,10 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
         startDeltaBps: -fastSpreadBps,
         points: [
             { windowBps: 1000, deltaBps: fastSpreadBps },
-            { windowBps: 8000, deltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps + feeBps) },
+            {
+                windowBps: 8000,
+                deltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps + feeBps),
+            },
         ],
         endDeltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps * 2 + feeBps),
     } as SpreadCurve;
@@ -79,11 +82,18 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
  * Rejects parameters that would break monotonicity (`yoloBps ≥ -fastSpreadBps`,
  * `deltaBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
  */
-export function maximizing(fastSpreadBps: number, bufferBps?: number, yoloBps?: number): SpreadCurve {
-    bufferBps ??= Math.min(MAX_DELTA_BPS-fastSpreadBps, Math.max(1, Math.round(fastSpreadBps * 0.2)));
-    yoloBps ??= Math.min(-fastSpreadBps-1, -1000);
+export function maximizing(
+    fastSpreadBps: number,
+    bufferBps?: number,
+    yoloBps?: number
+): SpreadCurve {
+    bufferBps ??= Math.min(
+        MAX_DELTA_BPS - fastSpreadBps,
+        Math.max(1, Math.round(fastSpreadBps * 0.2))
+    );
+    yoloBps ??= Math.min(-fastSpreadBps - 1, -1000);
 
-    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS-1);
+    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS - 1);
     validateIntInDomain(bufferBps, "bufferBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
 

@@ -11,14 +11,15 @@ import { validateSpreadCurve } from "../src/validation";
 
 const WINDOW_END_BPS = 10_000;
 
-function curveKnots(curve: SpreadCurve): Array<{ windowBps: number; deltaBps: number }> {
+function curveKnots(
+    curve: SpreadCurve
+): Array<{ windowBps: number; deltaBps: number }> {
     return [
         { windowBps: 0, deltaBps: curve.startDeltaBps },
         ...curve.points,
         { windowBps: WINDOW_END_BPS, deltaBps: curve.endDeltaBps },
     ];
 }
-
 
 function assertCurveWithinBounds(curve: SpreadCurve): void {
     expect(Number.isInteger(curve.startDeltaBps)).toBe(true);
@@ -82,15 +83,20 @@ describe("spreads", () => {
             [1, 0],
             [100, 10],
             [MAX_DELTA_BPS, 10],
-        ])("fastSpreadBps=%i feeBps=%i stays within bounds", (fastSpreadBps, feeBps) => {
-            const curve = spreads.fast(fastSpreadBps, feeBps);
-            expect(curve.startDeltaBps).toBe(-fastSpreadBps);
-            assertCurveWithinBounds(curve);
-            assertStrictlyIncreasingWindowBps(curve);
-        });
+        ])(
+            "fastSpreadBps=%i feeBps=%i stays within bounds",
+            (fastSpreadBps, feeBps) => {
+                const curve = spreads.fast(fastSpreadBps, feeBps);
+                expect(curve.startDeltaBps).toBe(-fastSpreadBps);
+                assertCurveWithinBounds(curve);
+                assertStrictlyIncreasingWindowBps(curve);
+            }
+        );
 
         it("passes validateSpreadCurve", () => {
-            expect(() => validateSpreadCurve(spreads.fast(100, 10), "fast")).not.toThrow();
+            expect(() =>
+                validateSpreadCurve(spreads.fast(100, 10), "fast")
+            ).not.toThrow();
         });
 
         it("rejects invalid parameters", () => {
@@ -99,7 +105,9 @@ describe("spreads", () => {
             expect(() => spreads.fast(MAX_DELTA_BPS + 1, 10)).toThrow(
                 /fastSpreadBps must be in/
             );
-            expect(() => spreads.fast(10.5, 10)).toThrow(/fastSpreadBps must be an integer/);
+            expect(() => spreads.fast(10.5, 10)).toThrow(
+                /fastSpreadBps must be an integer/
+            );
             expect(() => spreads.fast(10, 1.5)).toThrow(/feeBps must be an integer/);
             expect(() => spreads.fast(100, -1)).toThrow(/feeBps must be in/);
         });
@@ -136,7 +144,7 @@ describe("spreads", () => {
             });
         });
 
-        it.each([1, 100, MAX_DELTA_BPS-1])(
+        it.each([1, 100, MAX_DELTA_BPS - 1])(
             "fastSpreadBps=%i with defaults stays within bounds",
             (fastSpreadBps) => {
                 const curve = spreads.maximizing(fastSpreadBps);
@@ -164,12 +172,18 @@ describe("spreads", () => {
         it("rejects invalid parameters", () => {
             expect(() => spreads.maximizing(0)).toThrow(/fastSpreadBps must be in/);
             expect(() => spreads.maximizing(-10)).toThrow(/fastSpreadBps must be in/);
-            expect(() => spreads.maximizing(MAX_DELTA_BPS)).toThrow(/fastSpreadBps must be in/);
-            expect(() => spreads.maximizing(100, 5.5)).toThrow(/bufferBps must be an integer/);
+            expect(() => spreads.maximizing(MAX_DELTA_BPS)).toThrow(
+                /fastSpreadBps must be in/
+            );
+            expect(() => spreads.maximizing(100, 5.5)).toThrow(
+                /bufferBps must be an integer/
+            );
             expect(() => spreads.maximizing(1000, 50, -1000)).toThrow(
                 /yoloBps .* < -fastSpreadBps/
             );
-            expect(() => spreads.maximizing(1000, undefined, -999)).toThrow(/yoloBps .* < -fastSpreadBps/);
+            expect(() => spreads.maximizing(1000, undefined, -999)).toThrow(
+                /yoloBps .* < -fastSpreadBps/
+            );
             expect(() => spreads.maximizing(100, 200)).toThrow(
                 /bufferBps .* < 2 \* fastSpreadBps/
             );
@@ -199,7 +213,9 @@ describe("spreads", () => {
             expect(spreads.auto({ fastSpreadBps: 100, durationSecs: 301 })).toEqual(
                 spreads.maximizing(100)
             );
-            expect(spreads.auto({ fastSpreadBps: 100 })).toEqual(spreads.maximizing(100));
+            expect(spreads.auto({ fastSpreadBps: 100 })).toEqual(
+                spreads.maximizing(100)
+            );
         });
 
         it("passes custom feeBps to fast for short orders", () => {
