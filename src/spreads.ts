@@ -58,9 +58,9 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
         startDeltaBps: -fastSpreadBps,
         points: [
             { windowBps: 1000, deltaBps: fastSpreadBps },
-            { windowBps: 8000, deltaBps: fastSpreadBps + feeBps },
+            { windowBps: 8000, deltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps + feeBps) },
         ],
-        endDeltaBps: fastSpreadBps * 2 + feeBps,
+        endDeltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps * 2 + feeBps),
     } as SpreadCurve;
 }
 
@@ -79,37 +79,37 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
  * Rejects parameters that would break monotonicity (`yoloBps ≥ -fastSpreadBps`,
  * `deltaBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
  */
-export function maximizing(fastSpreadBps: number, deltaBps?: number, yoloBps?: number): SpreadCurve {
-    deltaBps ??= Math.max(1, Math.round(fastSpreadBps * 0.2));
-    yoloBps ??= -1000;
+export function maximizing(fastSpreadBps: number, bufferBps?: number, yoloBps?: number): SpreadCurve {
+    bufferBps ??= Math.min(MAX_DELTA_BPS-fastSpreadBps, Math.max(1, Math.round(fastSpreadBps * 0.2)));
+    yoloBps ??= Math.min(-fastSpreadBps-1, -1000);
 
-    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
-    validateIntInDomain(deltaBps, "deltaBps", 1, MAX_DELTA_BPS);
+    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS-1);
+    validateIntInDomain(bufferBps, "bufferBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
 
     if (yoloBps >= -fastSpreadBps) {
         throw new Error(
-            `auto-spread requires yoloBps (${yoloBps}) < -fastSpreadBps (${-fastSpreadBps})`
+            `maximizing spread requires yoloBps (${yoloBps}) < -fastSpreadBps (${-fastSpreadBps})`
         );
     }
-    if (deltaBps >= 2 * fastSpreadBps) {
+    if (bufferBps >= 2 * fastSpreadBps) {
         throw new Error(
-            `auto-spread requires deltaBps (${deltaBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
+            `maximizing spread requires bufferBps (${bufferBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
         );
     }
-    if (fastSpreadBps + deltaBps > MAX_DELTA_BPS) {
+    if (fastSpreadBps + bufferBps > MAX_DELTA_BPS) {
         throw new Error(
-            `fastSpreadBps + deltaBps = ${fastSpreadBps + deltaBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
+            `fastSpreadBps + bufferBps = ${fastSpreadBps + bufferBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
         );
     }
 
     return {
         startDeltaBps: yoloBps,
-        endDeltaBps: fastSpreadBps + deltaBps,
         points: [
             { windowBps: 1000, deltaBps: -fastSpreadBps },
-            { windowBps: 5000, deltaBps: fastSpreadBps - deltaBps },
+            { windowBps: 5000, deltaBps: fastSpreadBps - bufferBps },
         ],
+        endDeltaBps: fastSpreadBps + bufferBps,
     };
 }
 
