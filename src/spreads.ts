@@ -29,11 +29,11 @@ export interface AutoSpreadParams {
 
 export function auto(params: AutoSpreadParams): SpreadCurve {
     const durationSecs = params.durationSecs ?? 600;
+    const feeBps = params.feeBps ?? 10;
     if (durationSecs <= 300) {
-        const feeBps = params.feeBps ?? 10;
         return fast(params.fastSpreadBps, feeBps);
     } else {
-        return maximizing(params.fastSpreadBps);
+        return maximizing(params.fastSpreadBps, undefined, undefined, feeBps);
     }
 }
 
@@ -72,23 +72,29 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
  *
  * Anchors:
  *
- * | windowBps | deltaBps                |
- * |-----------|-------------------------|
- * | 0         | `yoloBps`               |
- * | 1000      | `-fastSpreadBps`        |
- * | 5000      | `fastSpreadBps - delta` |
- * | 10000     | `fastSpreadBps + delta` |
+ * | windowBps | deltaBps                          |
+ * |-----------|-----------------------------------|
+ * | 0         | `yoloBps`                         |
+ * | 1000      | `-fastSpreadBps`                  |
+ * | 5000      | `fastSpreadBps - bufferBps`       |
+ * | 10000     | `fastSpreadBps + bufferBps + feeBps` |
+ *
+ * `bufferBps` is a multiple of the raw market spread; `feeBps` is the raw fee,
+ * added as a flat offset to the guaranteeing endpoint only (never multiplied),
+ * so the order still fills net of fees. `fastSpreadBps` must therefore be the
+ * market spread *excluding* the fee.
  *
  * Rejects parameters that would break monotonicity (`yoloBps ≥ -fastSpreadBps`,
- * `deltaBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
+ * `bufferBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
  */
 export function maximizing(
     fastSpreadBps: number,
     bufferBps?: number,
-    yoloBps?: number
+    yoloBps?: number,
+    feeBps: number = 0
 ): SpreadCurve {
     bufferBps ??= Math.min(
-        MAX_DELTA_BPS - fastSpreadBps,
+        MAX_DELTA_BPS - fastSpreadBps - feeBps,
         Math.max(1, Math.round(fastSpreadBps * 0.2))
     );
     yoloBps ??= Math.min(-fastSpreadBps - 1, -1000);
@@ -96,6 +102,7 @@ export function maximizing(
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS - 1);
     validateIntInDomain(bufferBps, "bufferBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
+    validateIntInDomain(feeBps, "feeBps", 0, Number.POSITIVE_INFINITY);
 
     if (yoloBps >= -fastSpreadBps) {
         throw new Error(
@@ -107,9 +114,10 @@ export function maximizing(
             `maximizing spread requires bufferBps (${bufferBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
         );
     }
-    if (fastSpreadBps + bufferBps > MAX_DELTA_BPS) {
+    const endDeltaBps = fastSpreadBps + bufferBps + feeBps;
+    if (endDeltaBps > MAX_DELTA_BPS) {
         throw new Error(
-            `fastSpreadBps + bufferBps = ${fastSpreadBps + bufferBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
+            `fastSpreadBps + bufferBps + feeBps = ${endDeltaBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
         );
     }
 
@@ -119,7 +127,7 @@ export function maximizing(
             { windowBps: 1000, deltaBps: -fastSpreadBps },
             { windowBps: 5000, deltaBps: fastSpreadBps - bufferBps },
         ],
-        endDeltaBps: fastSpreadBps + bufferBps,
+        endDeltaBps,
     };
 }
 

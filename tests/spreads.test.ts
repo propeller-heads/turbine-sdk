@@ -133,6 +133,34 @@ describe("spreads", () => {
             });
         });
 
+        it("offsets the endpoint by the raw fee without scaling the buffer", () => {
+            // buffer = max(1, round(100 * 0.2)) = 20 (raw spread only).
+            // endpoint = 100 + 20 + 13 (raw fee, flat offset) = 133.
+            expect(spreads.maximizing(100, undefined, undefined, 13)).toEqual({
+                startDeltaBps: -1000,
+                endDeltaBps: 133,
+                points: [
+                    { windowBps: 1000, deltaBps: -100 },
+                    { windowBps: 5000, deltaBps: 80 },
+                ],
+            });
+        });
+
+        it("rejects a non-integer or negative feeBps", () => {
+            expect(() => spreads.maximizing(100, undefined, undefined, 1.5)).toThrow(
+                /feeBps must be an integer/
+            );
+            expect(() => spreads.maximizing(100, undefined, undefined, -1)).toThrow(
+                /feeBps must be in/
+            );
+        });
+
+        it("counts the fee against MAX_DELTA_BPS at the endpoint", () => {
+            expect(() =>
+                spreads.maximizing(9000, 998, undefined, 2)
+            ).toThrow(/exceeds MAX_DELTA_BPS/);
+        });
+
         it("honours custom deltaBps and yoloBps", () => {
             expect(spreads.maximizing(500, 50, -2000)).toEqual({
                 startDeltaBps: -2000,
@@ -209,12 +237,12 @@ describe("spreads", () => {
             );
         });
 
-        it("delegates to maximizing for durationSecs > 300", () => {
+        it("delegates to maximizing for durationSecs > 300, offsetting by the default fee", () => {
             expect(spreads.auto({ fastSpreadBps: 100, durationSecs: 301 })).toEqual(
-                spreads.maximizing(100)
+                spreads.maximizing(100, undefined, undefined, 10)
             );
             expect(spreads.auto({ fastSpreadBps: 100 })).toEqual(
-                spreads.maximizing(100)
+                spreads.maximizing(100, undefined, undefined, 10)
             );
         });
 
@@ -224,8 +252,16 @@ describe("spreads", () => {
             ).toEqual(spreads.fast(100, 25));
         });
 
+        it("passes custom feeBps to maximizing for long orders", () => {
+            expect(
+                spreads.auto({ fastSpreadBps: 100, durationSecs: 3600, feeBps: 25 })
+            ).toEqual(spreads.maximizing(100, undefined, undefined, 25));
+        });
+
         it("uses default duration 600 and fee 10", () => {
-            expect(spreads.auto({ fastSpreadBps: 50 })).toEqual(spreads.maximizing(50));
+            expect(spreads.auto({ fastSpreadBps: 50 })).toEqual(
+                spreads.maximizing(50, undefined, undefined, 10)
+            );
             expect(spreads.auto({ fastSpreadBps: 50, durationSecs: 120 })).toEqual(
                 spreads.fast(50, 10)
             );
