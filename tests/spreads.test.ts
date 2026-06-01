@@ -230,9 +230,9 @@ describe("spreads", () => {
             expect(() => spreads.maximizing(100, DEFAULT_FEE_BPS, 5.5)).toThrow(
                 /bufferBps must be an integer/
             );
-            expect(() =>
-                spreads.maximizing(1000, DEFAULT_FEE_BPS, 50, -1000)
-            ).toThrow(/yoloBps .* < -fastSpreadBps/);
+            expect(() => spreads.maximizing(1000, DEFAULT_FEE_BPS, 50, -1000)).toThrow(
+                /yoloBps .* < -fastSpreadBps/
+            );
             expect(() =>
                 spreads.maximizing(1000, DEFAULT_FEE_BPS, undefined, -999)
             ).toThrow(/yoloBps .* < -fastSpreadBps/);
