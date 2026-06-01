@@ -53,8 +53,8 @@ export interface SpreadCurveMetadata {
 
 export function auto(params: AutoSpreadParams): AutoSpreadResult {
     const durationSecs = params.durationSecs ?? 600;
+    const feeBps = params.feeBps ?? 10;
     if (durationSecs <= 300) {
-        const feeBps = params.feeBps ?? 10;
         const { curve, metadata } = fast(params.fastSpreadBps, feeBps);
         return {
             curve,
@@ -62,7 +62,7 @@ export function auto(params: AutoSpreadParams): AutoSpreadResult {
             metadata,
         };
     } else {
-        const { curve, metadata } = maximizing(params.fastSpreadBps);
+        const { curve, metadata } = maximizing(params.fastSpreadBps, feeBps);
         return {
             curve,
             strategy: "maximizing",
@@ -125,20 +125,20 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadResult {
  * |-----------|-------------------------|
  * | 0         | `yoloBps`               |
  * | 1000      | `-fastSpreadBps`        |
- * | 5000      | `fastSpreadBps - delta` |
- * | 10000     | `fastSpreadBps + delta` |
+ * | 5000      | `fastSpreadBps + feeBps - bufferBps` |
+ * | 10000     | `fastSpreadBps + feeBps + bufferBps` |
  *
  * Rejects parameters that would break monotonicity (`yoloBps ≥ -fastSpreadBps`,
  * `deltaBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
  */
 export function maximizing(
     fastSpreadBps: number,
+    feeBps: number,
     bufferBps?: number,
     yoloBps?: number
 ): SpreadResult {
-    // TODO: add feeBps
     bufferBps ??= Math.min(
-        MAX_DELTA_BPS - fastSpreadBps,
+        MAX_DELTA_BPS - fastSpreadBps - feeBps,
         Math.max(1, Math.round(fastSpreadBps * 0.2))
     );
     yoloBps ??= Math.min(-fastSpreadBps - 1, -1000);
@@ -157,9 +157,9 @@ export function maximizing(
             `maximizing spread requires bufferBps (${bufferBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
         );
     }
-    if (fastSpreadBps + bufferBps > MAX_DELTA_BPS) {
+    if (fastSpreadBps + feeBps + bufferBps > MAX_DELTA_BPS) {
         throw new Error(
-            `fastSpreadBps + bufferBps = ${fastSpreadBps + bufferBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
+            `fastSpreadBps + feeBps + bufferBps = ${fastSpreadBps + feeBps + bufferBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
         );
     }
 
@@ -167,21 +167,23 @@ export function maximizing(
         startDeltaBps: yoloBps,
         points: [
             { windowBps: 1000, deltaBps: -fastSpreadBps },
-            { windowBps: 5000, deltaBps: fastSpreadBps - bufferBps },
+            { windowBps: 5000, deltaBps: fastSpreadBps + feeBps - bufferBps },
         ],
-        endDeltaBps: fastSpreadBps + bufferBps,
+        endDeltaBps: fastSpreadBps + feeBps + bufferBps,
     };
     return {
         curve,
         metadata: {
+            // "Realistic" is 75% of the order window in this case. That's when the curve
+            // crosses the fast spread + fee line.
             realisticSpreadComponents: {
                 fastSpreadBps,
-                feeBps: 0,
+                feeBps,
                 bufferBps: 0,
             },
             maxSpreadComponents: {
                 fastSpreadBps,
-                feeBps: 0,
+                feeBps,
                 bufferBps,
             },
         },
