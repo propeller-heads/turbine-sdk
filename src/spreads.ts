@@ -27,13 +27,47 @@ export interface AutoSpreadParams {
     feeBps?: number;
 }
 
-export function auto(params: AutoSpreadParams): SpreadCurve {
+export interface AutoSpreadResult {
+    curve: SpreadCurve;
+    strategy: "fast" | "maximizing";
+    metadata: SpreadCurveMetadata;
+}
+
+export interface SpreadResult {
+    curve: SpreadCurve;
+    metadata: SpreadCurveMetadata;
+}
+
+export interface SpreadCurveMetadata {
+    realisticSpreadComponents: {
+        fastSpreadBps: number;
+        feeBps: number;
+        bufferBps: number;
+    };
+    maxSpreadComponents: {
+        fastSpreadBps: number;
+        feeBps: number;
+        bufferBps: number;
+    };
+}
+
+export function auto(params: AutoSpreadParams): AutoSpreadResult {
     const durationSecs = params.durationSecs ?? 600;
     if (durationSecs <= 300) {
         const feeBps = params.feeBps ?? 10;
-        return fast(params.fastSpreadBps, feeBps);
+        const { curve, metadata } = fast(params.fastSpreadBps, feeBps);
+        return {
+            curve,
+            strategy: "fast",
+            metadata,
+        };
     } else {
-        return maximizing(params.fastSpreadBps);
+        const { curve, metadata } = maximizing(params.fastSpreadBps);
+        return {
+            curve,
+            strategy: "maximizing",
+            metadata,
+        };
     }
 }
 
@@ -49,12 +83,12 @@ export function auto(params: AutoSpreadParams): SpreadCurve {
  *
  * @param fastSpreadBps - The fast spread in basis points.
  * @param feeBps - The fee in basis points.
- * @returns The spread curve.
+ * @returns The spread curve and metadata.
  */
-export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
+export function fast(fastSpreadBps: number, feeBps: number): SpreadResult {
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(feeBps, "feeBps", 0, Number.POSITIVE_INFINITY);
-    return {
+    const curve: SpreadCurve = {
         startDeltaBps: -fastSpreadBps,
         points: [
             { windowBps: 1000, deltaBps: fastSpreadBps },
@@ -65,6 +99,21 @@ export function fast(fastSpreadBps: number, feeBps: number): SpreadCurve {
         ],
         endDeltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps * 2 + feeBps),
     } as SpreadCurve;
+    return {
+        curve,
+        metadata: {
+            realisticSpreadComponents: {
+                fastSpreadBps,
+                feeBps,
+                bufferBps: 0,
+            },
+            maxSpreadComponents: {
+                fastSpreadBps,
+                feeBps,
+                bufferBps: fastSpreadBps,
+            },
+        },
+    };
 }
 
 /**
@@ -86,7 +135,8 @@ export function maximizing(
     fastSpreadBps: number,
     bufferBps?: number,
     yoloBps?: number
-): SpreadCurve {
+): SpreadResult {
+    // TODO: add feeBps
     bufferBps ??= Math.min(
         MAX_DELTA_BPS - fastSpreadBps,
         Math.max(1, Math.round(fastSpreadBps * 0.2))
@@ -113,13 +163,28 @@ export function maximizing(
         );
     }
 
-    return {
+    const curve: SpreadCurve = {
         startDeltaBps: yoloBps,
         points: [
             { windowBps: 1000, deltaBps: -fastSpreadBps },
             { windowBps: 5000, deltaBps: fastSpreadBps - bufferBps },
         ],
         endDeltaBps: fastSpreadBps + bufferBps,
+    };
+    return {
+        curve,
+        metadata: {
+            realisticSpreadComponents: {
+                fastSpreadBps,
+                feeBps: 0,
+                bufferBps: 0,
+            },
+            maxSpreadComponents: {
+                fastSpreadBps,
+                feeBps: 0,
+                bufferBps,
+            },
+        },
     };
 }
 
