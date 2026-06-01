@@ -21,10 +21,10 @@ export function constant(deltaBps: number): SpreadCurve {
 export interface AutoSpreadParams {
     /** Average market spread for the pair, in basis points. */
     fastSpreadBps: number;
-    /** Duration of the order in seconds. Default: `600` (10 minutes). */
-    durationSecs?: number;
-    /** Fee in basis points. Default: `10`. */
-    feeBps?: number;
+    /** Duration of the order in seconds */
+    durationSecs: number;
+    /** Fee in basis points */
+    feeBps: number;
 }
 
 export interface AutoSpreadResult {
@@ -52,17 +52,15 @@ export interface SpreadCurveMetadata {
 }
 
 export function auto(params: AutoSpreadParams): AutoSpreadResult {
-    const durationSecs = params.durationSecs ?? 600;
-    const feeBps = params.feeBps ?? 10;
-    if (durationSecs <= 300) {
-        const { curve, metadata } = fast(params.fastSpreadBps, feeBps);
+    if (params.durationSecs <= 300) {
+        const { curve, metadata } = fast(params.fastSpreadBps, params.feeBps);
         return {
             curve,
             strategy: "fast",
             metadata,
         };
     } else {
-        const { curve, metadata } = maximizing(params.fastSpreadBps, feeBps);
+        const { curve, metadata } = maximizing(params.fastSpreadBps, params.feeBps);
         return {
             curve,
             strategy: "maximizing",
