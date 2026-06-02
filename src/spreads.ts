@@ -21,16 +21,101 @@ export function constant(deltaBps: number): SpreadCurve {
 export interface AutoSpreadParams {
     /** Average market spread for the pair, in basis points. */
     fastSpreadBps: number;
-    /** Opportunity-zone half-width in basis points. Default: `max(1, round(fastSpreadBps * 0.2))`. */
-    deltaBps?: number;
-    /**
-     * Signed starting delta in basis points. Default: `-1000`.
-     */
-    yoloBps?: number;
+    /** Duration of the order in seconds */
+    durationSecs: number;
+    /** Fee in basis points */
+    feeBps: number;
+}
+
+export interface AutoSpreadResult {
+    curve: SpreadCurve;
+    strategy: "fast" | "maximizing";
+    metadata: SpreadCurveMetadata;
+}
+
+export interface SpreadResult {
+    curve: SpreadCurve;
+    metadata: SpreadCurveMetadata;
+}
+
+export interface SpreadCurveMetadata {
+    realisticSpreadComponents: {
+        fastSpreadBps: number;
+        feeBps: number;
+        bufferBps: number;
+    };
+    maxSpreadComponents: {
+        fastSpreadBps: number;
+        feeBps: number;
+        bufferBps: number;
+    };
+}
+
+export function auto(params: AutoSpreadParams): AutoSpreadResult {
+    if (params.durationSecs <= 300) {
+        const { curve, metadata } = fast(params.fastSpreadBps, params.feeBps);
+        return {
+            curve,
+            strategy: "fast",
+            metadata,
+        };
+    } else {
+        const { curve, metadata } = maximizing(params.fastSpreadBps, params.feeBps);
+        return {
+            curve,
+            strategy: "maximizing",
+            metadata,
+        };
+    }
 }
 
 /**
- * Four-knot piecewise-linear "auto" spread curve.
+ * Curve suitable for fast market orders.
+ *
+ * It starts at -fastSpread to have a chance for better price.
+ * It quickly reaches fastSpread at 10% of the order window.
+ * It then slowly widens the spread to reach fastSpread + fee at 80% of the order window.
+ * This should already ensure filling at the fast spread even with fees taken into account.
+ * After 80% of the order window, the spread goes even wider to reach fastSpread * 2 + fee
+ * at the end of the order window, to guarantee filling.
+ *
+ * @param fastSpreadBps - The fast spread in basis points.
+ * @param feeBps - The fee in basis points.
+ * @returns The spread curve and metadata.
+ */
+export function fast(fastSpreadBps: number, feeBps: number): SpreadResult {
+    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
+    validateIntInDomain(feeBps, "feeBps", 0, Number.POSITIVE_INFINITY);
+    const curve: SpreadCurve = {
+        startDeltaBps: -fastSpreadBps,
+        points: [
+            { windowBps: 1000, deltaBps: fastSpreadBps },
+            {
+                windowBps: 8000,
+                deltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps + feeBps),
+            },
+        ],
+        endDeltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps * 2 + feeBps),
+    } as SpreadCurve;
+    return {
+        curve,
+        metadata: {
+            realisticSpreadComponents: {
+                fastSpreadBps,
+                feeBps,
+                bufferBps: 0,
+            },
+            maxSpreadComponents: {
+                fastSpreadBps,
+                feeBps,
+                bufferBps: fastSpreadBps,
+            },
+        },
+    };
+}
+
+/**
+ * Four-knot piecewise-linear spread curve.
  *
  * Anchors:
  *
@@ -38,44 +123,68 @@ export interface AutoSpreadParams {
  * |-----------|-------------------------|
  * | 0         | `yoloBps`               |
  * | 1000      | `-fastSpreadBps`        |
- * | 5000      | `fastSpreadBps - delta` |
- * | 10000     | `fastSpreadBps + delta` |
+ * | 5000      | `fastSpreadBps + feeBps - bufferBps` |
+ * | 10000     | `fastSpreadBps + feeBps + bufferBps` |
  *
  * Rejects parameters that would break monotonicity (`yoloBps ≥ -fastSpreadBps`,
  * `deltaBps ≥ 2 * fastSpreadBps`) or push the endpoint above `MAX_DELTA_BPS`.
  */
-export function auto(params: AutoSpreadParams): SpreadCurve {
-    const fastSpreadBps = params.fastSpreadBps;
-    const deltaBps = params.deltaBps ?? Math.max(1, Math.round(fastSpreadBps * 0.2));
-    const yoloBps = params.yoloBps ?? -1000;
+export function maximizing(
+    fastSpreadBps: number,
+    feeBps: number,
+    bufferBps?: number,
+    yoloBps?: number
+): SpreadResult {
+    bufferBps ??= Math.min(
+        MAX_DELTA_BPS - fastSpreadBps - feeBps,
+        Math.max(1, Math.round(fastSpreadBps * 0.2))
+    );
+    yoloBps ??= Math.min(-fastSpreadBps - 1, -1000);
 
-    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
-    validateIntInDomain(deltaBps, "deltaBps", 1, MAX_DELTA_BPS);
+    validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS - 1);
+    validateIntInDomain(bufferBps, "bufferBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
 
     if (yoloBps >= -fastSpreadBps) {
         throw new Error(
-            `auto-spread requires yoloBps (${yoloBps}) < -fastSpreadBps (${-fastSpreadBps})`
+            `maximizing spread requires yoloBps (${yoloBps}) < -fastSpreadBps (${-fastSpreadBps})`
         );
     }
-    if (deltaBps >= 2 * fastSpreadBps) {
+    if (bufferBps >= 2 * fastSpreadBps) {
         throw new Error(
-            `auto-spread requires deltaBps (${deltaBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
+            `maximizing spread requires bufferBps (${bufferBps}) < 2 * fastSpreadBps (${2 * fastSpreadBps})`
         );
     }
-    if (fastSpreadBps + deltaBps > MAX_DELTA_BPS) {
+    if (fastSpreadBps + feeBps + bufferBps > MAX_DELTA_BPS) {
         throw new Error(
-            `fastSpreadBps + deltaBps = ${fastSpreadBps + deltaBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
+            `fastSpreadBps + feeBps + bufferBps = ${fastSpreadBps + feeBps + bufferBps} exceeds MAX_DELTA_BPS=${MAX_DELTA_BPS}`
         );
     }
 
-    return {
+    const curve: SpreadCurve = {
         startDeltaBps: yoloBps,
-        endDeltaBps: fastSpreadBps + deltaBps,
         points: [
             { windowBps: 1000, deltaBps: -fastSpreadBps },
-            { windowBps: 5000, deltaBps: fastSpreadBps - deltaBps },
+            { windowBps: 5000, deltaBps: fastSpreadBps + feeBps - bufferBps },
         ],
+        endDeltaBps: fastSpreadBps + feeBps + bufferBps,
+    };
+    return {
+        curve,
+        metadata: {
+            // "Realistic" is 75% of the order window in this case. That's when the curve
+            // crosses the fast spread + fee line.
+            realisticSpreadComponents: {
+                fastSpreadBps,
+                feeBps,
+                bufferBps: 0,
+            },
+            maxSpreadComponents: {
+                fastSpreadBps,
+                feeBps,
+                bufferBps,
+            },
+        },
     };
 }
 
