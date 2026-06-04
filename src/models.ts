@@ -403,7 +403,9 @@ export type OrderStatus =
     | "Expired"
     | "Canceled"
     | "PendingCancellation"
-    | "Invalid";
+    | "Invalid"
+    // Order was invalidated because it was signed against an incompatible (older) Turbine version.
+    | "Incompatible";
 
 /**
  * Resolved spread curve as returned on `OrderDetails`.
