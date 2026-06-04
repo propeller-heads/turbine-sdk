@@ -144,7 +144,7 @@ export function maximizing(
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS - 1);
     validateIntInDomain(bufferBps, "bufferBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(yoloBps, "yoloBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
-    validateIntInDomain(feeBps, "feeBps", 0, Number.POSITIVE_INFINITY)
+    validateIntInDomain(feeBps, "feeBps", 0, Number.POSITIVE_INFINITY);
 
     if (yoloBps >= -fastSpreadBps) {
         throw new Error(
