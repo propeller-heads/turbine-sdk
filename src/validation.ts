@@ -15,6 +15,7 @@ import { Address, Hex, hexToBytes, bytesToHex } from "viem";
 import { TurbineError } from "./errorHandling";
 import {
     OrderIntent,
+    OrderAnnotations,
     AddLiquidityIntent,
     RemoveLiquidityIntent,
     RemoveLiquidityIntentOnchain,
@@ -526,6 +527,45 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
     );
 
     return validated;
+}
+
+/**
+ * Validates optional order annotations.
+ *
+ * Annotations are informational only; unknown keys are ignored to match the
+ * lenient server contract. The single recognized field, `spreadAtSubmissionHbp`,
+ * must be a non-negative integer (hundredths of a basis point) when present.
+ *
+ * @param annotations - The annotations object to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @returns The validated annotations
+ * @throws TurbineError if validation fails
+ */
+export function validateAnnotations(
+    annotations: unknown,
+    fieldName: string
+): OrderAnnotations {
+    const obj = validateObject(annotations, fieldName) as Record<string, unknown>;
+
+    const result: OrderAnnotations = {};
+    if (obj.spreadAtSubmissionHbp !== undefined) {
+        const spread = validateNumber(
+            obj.spreadAtSubmissionHbp,
+            `${fieldName}.spreadAtSubmissionHbp`
+        );
+        if (!Number.isInteger(spread) || spread < 0) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.spreadAtSubmissionHbp must be a non-negative integer, got ${spread}`,
+                {
+                    fieldName: `${fieldName}.spreadAtSubmissionHbp`,
+                    receivedValue: spread,
+                }
+            );
+        }
+        result.spreadAtSubmissionHbp = spread;
+    }
+    return result;
 }
 
 /**
