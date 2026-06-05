@@ -56,6 +56,64 @@ describe("TurbineClient", () => {
             expect(orderId).toBe(mockOrderId);
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
         });
+
+        it("includes annotations in the payload when provided", async () => {
+            const mockOrderId =
+                "0x1111111111111111111111111111111111111111111111111111111111111111";
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(
+                    new Response(JSON.stringify({ orderHash: mockOrderId }), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            await withTurbineErrorHandling(() =>
+                client.addOrder(ORDER_INTENT, { spreadAtSubmissionHbp: 2500 })
+            );
+
+            const [payload, endpoint] = mockCallAPI.mock.calls[0] as [any, string];
+            expect(endpoint).toBe("add_order");
+            expect(payload.annotations).toEqual({ spreadAtSubmissionHbp: 2500 });
+        });
+
+        it("omits annotations from the payload when not provided", async () => {
+            const mockOrderId =
+                "0x1111111111111111111111111111111111111111111111111111111111111111";
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(
+                    new Response(JSON.stringify({ orderHash: mockOrderId }), {
+                        status: 200,
+                        statusText: "OK",
+                    })
+                );
+
+            await withTurbineErrorHandling(() => client.addOrder(ORDER_INTENT));
+
+            const [payload] = mockCallAPI.mock.calls[0] as [any, string];
+            expect(payload.annotations).toBeUndefined();
+        });
+
+        it("rejects a negative spreadAtSubmissionHbp without calling the API", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+            const mockCallAPI = jest.spyOn(client as any, "callApiEndpoint");
+
+            await expect(
+                withTurbineErrorHandling(() =>
+                    client.addOrder(ORDER_INTENT, { spreadAtSubmissionHbp: -1 })
+                )
+            ).rejects.toMatchObject({ code: "INPUT_VALIDATION_ERROR" });
+            expect(mockCallAPI).not.toHaveBeenCalled();
+        });
     });
 
     describe("addOrders", () => {
@@ -122,6 +180,55 @@ describe("TurbineClient", () => {
                 points: [],
             });
             expect(payload[0].order.midPriceDelta).toBeUndefined();
+        });
+
+        it("attaches per-order annotations aligned by index", async () => {
+            const mockOrderIds = [
+                "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "0x2222222222222222222222222222222222222222222222222222222222222222",
+            ];
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+
+            const mockCallAPI = jest
+                .spyOn(client as any, "callApiEndpoint")
+                .mockResolvedValue(
+                    new Response(
+                        JSON.stringify([
+                            { orderHash: mockOrderIds[0] },
+                            { orderHash: mockOrderIds[1] },
+                        ]),
+                        { status: 200, statusText: "OK" }
+                    )
+                );
+
+            await withTurbineErrorHandling(() =>
+                client.addOrders(
+                    [ORDER_INTENT, ORDER_INTENT],
+                    [{ spreadAtSubmissionHbp: 100 }, { spreadAtSubmissionHbp: 200 }]
+                )
+            );
+
+            const [payload, endpoint] = mockCallAPI.mock.calls[0] as [any, string];
+            expect(endpoint).toBe("add_orders");
+            expect(payload[0].annotations).toEqual({ spreadAtSubmissionHbp: 100 });
+            expect(payload[1].annotations).toEqual({ spreadAtSubmissionHbp: 200 });
+        });
+
+        it("rejects an annotations array whose length differs from intents", async () => {
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+            const mockCallAPI = jest.spyOn(client as any, "callApiEndpoint");
+
+            await expect(
+                withTurbineErrorHandling(() =>
+                    client.addOrders(
+                        [ORDER_INTENT, ORDER_INTENT],
+                        [{ spreadAtSubmissionHbp: 100 }]
+                    )
+                )
+            ).rejects.toMatchObject({ code: "INPUT_VALIDATION_ERROR" });
+            expect(mockCallAPI).not.toHaveBeenCalled();
         });
     });
 
@@ -948,6 +1055,52 @@ describe("TurbineClient", () => {
                 points: [{ timeSecs: 1713307200, deltaBps: 150 }],
             });
             expect(details!.createdTimestamp).toEqual(new Date("2026-04-16T12:00:00Z"));
+            // No annotations in the response → annotations stays undefined.
+            expect(details!.annotations).toBeUndefined();
+        });
+
+        it("parses annotations onto orderDetails when present", async () => {
+            const mockOrderStates = [
+                {
+                    hash: "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+                    status: "Active",
+                    execution: [],
+                    orderDetails: {
+                        sellToken: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                        buyToken: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+                        sellAmount: "1000000",
+                        limitPrice: { numerator: "1", denominator: "3500" },
+                        startTime: "1713264000",
+                        endTime: "1713350400",
+                        spreadCurve: {
+                            startSecs: 1713264000,
+                            endSecs: 1713350400,
+                            startDeltaBps: 0,
+                            endDeltaBps: 0,
+                            points: [],
+                        },
+                        createdTimestamp: "2026-04-16T12:00:00",
+                        annotations: { spreadAtSubmissionHbp: 2500 },
+                    },
+                },
+            ];
+
+            const client = await createMockTurbineClient();
+            mockAuthentication(client, ACCOUNT.address);
+            jest.spyOn(client as any, "callApiEndpoint").mockResolvedValue(
+                new Response(JSON.stringify(mockOrderStates), {
+                    status: 200,
+                    statusText: "OK",
+                })
+            );
+
+            const result = await client.getOrderStates([
+                "0xdf41611e3a8931e1aa13c7a26367ff38e4cefafd2d1cf92492b0128c956a80ce",
+            ]);
+
+            expect(result[0].orderDetails!.annotations).toEqual({
+                spreadAtSubmissionHbp: 2500,
+            });
         });
 
         it("should leave orderDetails undefined when absent from response", async () => {
