@@ -18,6 +18,7 @@ export type {
     OrderState,
     OrderStatus,
     OrderDetails,
+    OrderAnnotations,
     GetOrdersOptions,
     GetOrdersResponse,
     TurbineConfig,
