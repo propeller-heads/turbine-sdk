@@ -171,11 +171,28 @@ export interface SignedPermitBatch {
 }
 
 /**
+ * Optional, informational metadata attached to an order at submission time.
+ *
+ * Annotations are not part of the signed order and do not affect matching,
+ * pricing, or settlement. They are stored alongside the order and returned on
+ * {@link OrderDetails}.
+ */
+export interface OrderAnnotations {
+    /**
+     * Spread of the quote the order was created from, in hundredths of a basis
+     * point (10_000 = 1%). Matches the `ammSpreadHbp` returned by `/api/quote`.
+     */
+    spreadAtSubmissionHbp?: number;
+}
+
+/**
  * Full struct to be sent to Turbine API to submit an order
  */
 export interface AddOrder {
     order: OrderIntent;
     signedPermit: SignedPermit;
+    /** Optional informational metadata stored with the order. */
+    annotations?: OrderAnnotations;
 }
 
 /**
@@ -183,6 +200,8 @@ export interface AddOrder {
  */
 export interface AddSmartOrder {
     order: OrderIntent;
+    /** Optional informational metadata stored with the order. */
+    annotations?: OrderAnnotations;
 }
 
 /**
@@ -451,6 +470,11 @@ export interface OrderDetails {
     /** Snapshot of the order's resolved spread curve at insertion time. */
     spreadCurve: ResolvedSpreadCurve;
     createdTimestamp: Date;
+    /**
+     * Informational metadata supplied at submission. Absent on orders submitted
+     * without annotations or returned by backends predating the field.
+     */
+    annotations?: OrderAnnotations;
 }
 
 /**

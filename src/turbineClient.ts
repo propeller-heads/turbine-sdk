@@ -37,6 +37,7 @@ import {
     GetOrdersResponse,
     LiquidityIntentStatus,
     LiquidityIntentState,
+    OrderAnnotations,
     OrderDetails,
     OrderIntent,
     OrderSettledAmount,
@@ -524,10 +525,17 @@ export class TurbineClient {
     /**
      * Add an order to the Turbine API.
      * @param intent An `OrderIntent` object containing the details of the trade to be executed
+     * @param annotations Optional informational metadata to store with the order
      * @returns A Promise that resolves to a string containing the submitted order hash.
      */
-    async addOrder(intent: OrderIntent): Promise<string> {
+    async addOrder(
+        intent: OrderIntent,
+        annotations?: OrderAnnotations
+    ): Promise<string> {
         intent = validate.validateOrderIntent(intent);
+        if (annotations !== undefined) {
+            annotations = validate.validateAnnotations(annotations, "annotations");
+        }
 
         const address = await this.ensureAuthenticated();
         if (getAddress(address) !== getAddress(intent.owner)) {
@@ -538,7 +546,7 @@ export class TurbineClient {
         }
 
         try {
-            const payload = await this.createAddOrderData(intent);
+            const payload = await this.createAddOrderData(intent, annotations);
             const response = await this.callApiEndpoint(payload, "add_order");
 
             if (!response.ok) {
@@ -570,15 +578,36 @@ export class TurbineClient {
     /**
      * Add an array of orders to the Turbine API.
      * @param intents An array of `OrderIntent` objects containing the details of the trades to be executed
+     * @param annotations Optional informational metadata, one entry per intent
+     * (aligned by index). When provided its length must equal `intents.length`.
      * @returns A Promise that resolves to an array of strings containing the submitted order hashes.
      */
-    async addOrders(intents: OrderIntent[]): Promise<string[]> {
+    async addOrders(
+        intents: OrderIntent[],
+        annotations?: OrderAnnotations[]
+    ): Promise<string[]> {
         // Validate array is non-empty and validate each intent
         intents = validate.validateNonEmptyArray(
             intents,
             "addOrders intents",
             (intent, _) => validate.validateOrderIntent(intent)
         );
+
+        if (annotations !== undefined) {
+            if (annotations.length !== intents.length) {
+                throw new TurbineError(
+                    "INPUT_VALIDATION_ERROR",
+                    `addOrders annotations: length ${annotations.length} must match intents length ${intents.length}`,
+                    { fieldName: "addOrders annotations" }
+                );
+            }
+            annotations = annotations.map((annotation, index) =>
+                validate.validateAnnotations(
+                    annotation,
+                    `addOrders annotations[${index}]`
+                )
+            );
+        }
 
         const address = await this.ensureAuthenticated();
         if (
@@ -592,7 +621,9 @@ export class TurbineClient {
 
         try {
             const payloads = await Promise.all(
-                intents.map((intent) => this.createAddOrderData(intent))
+                intents.map((intent, index) =>
+                    this.createAddOrderData(intent, annotations?.[index])
+                )
             );
             const response = await this.callApiEndpoint(payloads, "add_orders");
 
@@ -1331,15 +1362,18 @@ export class TurbineClient {
      * Create add order data with Permit2 signature for non-smart orders.
      * Smart orders skip permit data as they handle their own token transfers.
      * @param intent The order intent to create data for
+     * @param annotations Optional informational metadata to store with the order
      * @returns A Promise that resolves to AddOrder or AddSmartOrder payload
      */
     private async createAddOrderData(
-        intent: OrderIntent
+        intent: OrderIntent,
+        annotations?: OrderAnnotations
     ): Promise<AddOrder | AddSmartOrder> {
         // Skip permit data for smart orders
         if (this.is_smart_order(intent)) {
             return {
                 order: intent,
+                ...(annotations !== undefined && { annotations }),
             };
         }
 
@@ -1356,6 +1390,7 @@ export class TurbineClient {
                 signature: convertSignature(permitSignature),
                 permit: permit,
             },
+            ...(annotations !== undefined && { annotations }),
         };
     }
 
@@ -1736,6 +1771,14 @@ export class TurbineClient {
                         : raw.createdTimestamp + "Z"
                 ),
             };
+            if (raw.annotations != null) {
+                result.orderDetails.annotations = {
+                    spreadAtSubmissionHbp:
+                        raw.annotations.spreadAtSubmissionHbp != null
+                            ? Number(raw.annotations.spreadAtSubmissionHbp)
+                            : undefined,
+                };
+            }
         }
         return result;
     }
