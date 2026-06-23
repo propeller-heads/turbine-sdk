@@ -298,3 +298,7 @@ This repository contains example scripts that demonstrate common actions on Turb
 The scripts are located in the `scripts` directory.
 
 See the [scripts README](scripts/README.md) for more details.
+
+## License
+
+The Turbine SDK is licensed under the [Business Source License 1.1](LICENSE).

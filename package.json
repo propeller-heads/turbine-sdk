@@ -2,6 +2,7 @@
     "name": "turbine-sdk",
     "version": "0.27.0",
     "description": "Submit orders to Turbine",
+    "license": "BUSL-1.1",
     "main": "./src/index.ts",
     "scripts": {
         "build": "tsc",
