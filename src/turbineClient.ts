@@ -1824,6 +1824,22 @@ export class TurbineClient {
 }
 
 /**
+ * Raw `PoolInfo` struct returned by the Turbine Hook's `getRegisteredPoolsSlice`,
+ * mirroring the on-chain struct. Applied explicitly because `readContract` infers
+ * `unknown` for this call in some consumer setups (viem version skew).
+ */
+interface RegisteredPoolInfo {
+    poolId: Hex;
+    token0: Address;
+    token1: Address;
+    fee: number;
+    lpToken: Address;
+    reserve0: bigint;
+    reserve1: bigint;
+    liquidity: bigint;
+}
+
+/**
  * Get the registered pools from the Turbine Hook contract. Returns every
  * registered pool without filtering — callers that need to restrict the
  * result to a token allowlist (e.g. `TurbineClient.getPools`) should apply
@@ -1837,26 +1853,30 @@ export async function getPools(
     hookAddress: Address
 ): Promise<TurbinePool[]> {
     try {
-        const numberOfPools = await publicClient.readContract({
-            address: hookAddress,
-            abi: turbineHookABI,
-            functionName: "getNumberOfRegisteredPools",
-        });
-
-        validate.validateBigInt(numberOfPools, "numberOfPools");
+        // `readContract` infers `unknown` for these calls in some consumer setups (viem
+        // version skew), so the on-chain types are recovered explicitly: the validated bigint
+        // count, and the PoolInfo[] returned by getRegisteredPoolsSlice.
+        const numberOfPools = validate.validateBigInt(
+            await publicClient.readContract({
+                address: hookAddress,
+                abi: turbineHookABI,
+                functionName: "getNumberOfRegisteredPools",
+            }),
+            "numberOfPools"
+        );
 
         // Fetch pools in batches of up to 1000 at a time
         const BATCH_SIZE = 1000n;
-        const poolsData: any[] = [];
+        const poolsData: RegisteredPoolInfo[] = [];
         for (let start = 0n; start < numberOfPools; start += BATCH_SIZE) {
             const end =
                 start + BATCH_SIZE > numberOfPools ? numberOfPools : start + BATCH_SIZE;
-            const batch = await publicClient.readContract({
+            const batch = (await publicClient.readContract({
                 address: hookAddress,
                 abi: turbineHookABI,
                 functionName: "getRegisteredPoolsSlice",
                 args: [start, end],
-            });
+            })) as RegisteredPoolInfo[];
             poolsData.push(...batch);
         }
 
@@ -1866,7 +1886,7 @@ export async function getPools(
         });
 
         return poolsData.map(
-            (poolData: any) =>
+            (poolData) =>
                 ({
                     metadata: {
                         token0: getAddress(poolData.token0),
