@@ -3,10 +3,14 @@ import { Address, getAddress, Hex } from "viem";
 import { USDC, WBTC, WETH } from "../src/constants";
 import {
     checkStatus,
+    fetchConfig,
     getPools,
     getUserPositions,
     TurbineClient,
 } from "../src/turbineClient";
+import { validateResponseSize } from "../src/utils";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -786,7 +790,10 @@ describe("TurbineClient", () => {
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/status"));
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining("/status"),
+                expect.objectContaining({ redirect: "error" })
+            );
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -810,7 +817,10 @@ describe("TurbineClient", () => {
             );
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(`${turbineApiUrl}/status`);
+            expect(mockFetch).toHaveBeenCalledWith(
+                `${turbineApiUrl}/status`,
+                expect.objectContaining({ redirect: "error" })
+            );
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -828,7 +838,10 @@ describe("TurbineClient", () => {
                 "Turbine is currently unavailable. Try again later."
             );
 
-            expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/status"));
+            expect(mockFetch).toHaveBeenCalledWith(
+                expect.stringContaining("/status"),
+                expect.objectContaining({ redirect: "error" })
+            );
 
             // Restore the mock
             jest.restoreAllMocks();
@@ -907,10 +920,63 @@ describe("TurbineClient", () => {
             const result = await withTurbineErrorHandling(() => client.checkStatus());
 
             expect(result).toBe(true);
-            expect(mockFetch).toHaveBeenCalledWith(`${customApiUrl}/status`);
+            expect(mockFetch).toHaveBeenCalledWith(
+                `${customApiUrl}/status`,
+                expect.objectContaining({ redirect: "error" })
+            );
 
             // Restore the mock
             jest.restoreAllMocks();
+        });
+    });
+
+    describe("bootstrap network safety controls", () => {
+        // Spins up a loopback server that 302-redirects bootstrap endpoints to a
+        // host that buildApiUrl() would reject directly. With redirect blocking in
+        // place, the bootstrap helpers must throw rather than follow the redirect.
+        let server: Server;
+        let baseUrl: string;
+
+        beforeEach(async () => {
+            server = createServer((req, res) => {
+                if (req.url === "/api/status" || req.url === "/api/config") {
+                    res.statusCode = 302;
+                    res.setHeader("Location", "http://127.0.0.2/internal");
+                    res.end();
+                    return;
+                }
+                res.statusCode = 404;
+                res.end("not found");
+            });
+            await new Promise<void>((resolve, reject) => {
+                server.once("error", reject);
+                server.listen(0, "127.0.0.1", resolve);
+            });
+            const port = (server.address() as AddressInfo).port;
+            baseUrl = `http://127.0.0.1:${port}/api`;
+        });
+
+        afterEach(async () => {
+            await new Promise<void>((resolve, reject) => {
+                server.close((error) => (error ? reject(error) : resolve()));
+            });
+        });
+
+        it("checkStatus rejects a redirected bootstrap response instead of following it", async () => {
+            await expect(checkStatus(baseUrl)).rejects.toMatchObject({
+                code: "SERVICE_UNAVAILABLE",
+            });
+        });
+
+        it("fetchConfig rejects a redirected bootstrap response instead of following it", async () => {
+            const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+            try {
+                await expect(fetchConfig(baseUrl)).rejects.toMatchObject({
+                    code: "CONFIG_FETCH_FAILED",
+                });
+            } finally {
+                consoleSpy.mockRestore();
+            }
         });
     });
 
@@ -1884,7 +1950,6 @@ describe("TurbineClient", () => {
 
     describe("validateResponseSize", () => {
         it("should reject response with Content-Length exceeding limit", async () => {
-            const client = await createMockTurbineClient();
             const maxSize = 100; // 100 bytes
 
             // Create mock response with Content-Length header exceeding limit
@@ -1896,7 +1961,7 @@ describe("TurbineClient", () => {
             });
 
             await expect(
-                (client as any).validateResponseSize(mockResponse, maxSize)
+                validateResponseSize(mockResponse, maxSize)
             ).rejects.toMatchObject({
                 code: "SDK_ERROR",
                 message: expect.stringContaining(
@@ -1906,7 +1971,6 @@ describe("TurbineClient", () => {
         });
 
         it("should accept response with Content-Length within limit", async () => {
-            const client = await createMockTurbineClient();
             const maxSize = 200; // 200 bytes
 
             const body = "small response";
@@ -1917,10 +1981,7 @@ describe("TurbineClient", () => {
                 }),
             });
 
-            const validatedResponse = await (client as any).validateResponseSize(
-                mockResponse,
-                maxSize
-            );
+            const validatedResponse = await validateResponseSize(mockResponse, maxSize);
 
             expect(validatedResponse).toBeDefined();
             const text = await validatedResponse.text();
@@ -1928,7 +1989,6 @@ describe("TurbineClient", () => {
         });
 
         it("should reject single chunk exceeding limit", async () => {
-            const client = await createMockTurbineClient();
             const maxSize = 100; // 100 bytes
 
             // Create a large chunk (exceeds maxSize in a single chunk)
@@ -1949,7 +2009,7 @@ describe("TurbineClient", () => {
             });
 
             await expect(
-                (client as any).validateResponseSize(mockResponse, maxSize)
+                validateResponseSize(mockResponse, maxSize)
             ).rejects.toMatchObject({
                 code: "SDK_ERROR",
                 message: expect.stringContaining(
@@ -1959,7 +2019,6 @@ describe("TurbineClient", () => {
         });
 
         it("should reject accumulated chunks exceeding limit", async () => {
-            const client = await createMockTurbineClient();
             const maxSize = 100; // 100 bytes
 
             // Create multiple small chunks that together exceed the limit
@@ -1985,7 +2044,7 @@ describe("TurbineClient", () => {
             });
 
             await expect(
-                (client as any).validateResponseSize(mockResponse, maxSize)
+                validateResponseSize(mockResponse, maxSize)
             ).rejects.toMatchObject({
                 code: "SDK_ERROR",
                 message: expect.stringContaining(
@@ -1995,7 +2054,6 @@ describe("TurbineClient", () => {
         });
 
         it("should accept valid response with multiple chunks within limit", async () => {
-            const client = await createMockTurbineClient();
             const maxSize = 200; // 200 bytes
 
             // Create multiple small chunks within the limit
@@ -2020,10 +2078,7 @@ describe("TurbineClient", () => {
                 headers: new Headers(),
             });
 
-            const validatedResponse = await (client as any).validateResponseSize(
-                mockResponse,
-                maxSize
-            );
+            const validatedResponse = await validateResponseSize(mockResponse, maxSize);
 
             expect(validatedResponse).toBeDefined();
             const arrayBuffer = await validatedResponse.arrayBuffer();
@@ -2031,7 +2086,6 @@ describe("TurbineClient", () => {
         });
 
         it("should handle response with no body", async () => {
-            const client = await createMockTurbineClient();
             const maxSize = 100;
 
             // Create response with null body
@@ -2040,10 +2094,7 @@ describe("TurbineClient", () => {
                 headers: new Headers(),
             });
 
-            const validatedResponse = await (client as any).validateResponseSize(
-                mockResponse,
-                maxSize
-            );
+            const validatedResponse = await validateResponseSize(mockResponse, maxSize);
 
             expect(validatedResponse).toBeDefined();
             expect(validatedResponse.body).toBeNull();

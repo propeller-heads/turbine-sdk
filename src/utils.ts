@@ -1,5 +1,7 @@
 import { TurbineError } from "./errorHandling";
 
+export const MAX_RESPONSE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 /**
  * Constructs a URL by joining a base URL with an endpoint path.
  * Handles normalization and validation:
@@ -53,4 +55,81 @@ export function buildApiUrl(baseUrl: string, endpoint: string): string {
     }
 
     return url.toString();
+}
+
+/**
+ * Reads response body with size limit to prevent memory exhaustion attacks.
+ * Streams the response chunk-by-chunk, checking size BEFORE accumulating each chunk.
+ *
+ * @param response - The fetch Response object
+ * @param maxSize - Maximum allowed size in bytes (default: 10 MB)
+ * @returns Response with validated body
+ * @throws TurbineError if response exceeds size limit
+ */
+export async function validateResponseSize(
+    response: Response,
+    maxSize: number = MAX_RESPONSE_SIZE_BYTES
+): Promise<Response> {
+    const contentLength = response.headers.get("content-length");
+
+    // Early optimization: check Content-Length header if present
+    // Note: This is not relied upon for security as headers can be missing or incorrect
+    if (contentLength) {
+        const size = parseInt(contentLength, 10);
+        if (size > maxSize) {
+            throw new TurbineError(
+                "SDK_ERROR",
+                `Response size (${size} bytes) exceeds maximum allowed size (${maxSize} bytes)`
+            );
+        }
+    }
+
+    // Stream and validate response body chunk-by-chunk
+    if (!response.body) {
+        return response;
+    }
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // SECURITY: Check individual chunk size FIRST
+            // Runtime-provided chunks could be arbitrarily large, and we must not
+            // accumulate them into memory if they exceed our safety threshold
+            if (value.length > maxSize) {
+                await reader.cancel();
+                throw new TurbineError(
+                    "SDK_ERROR",
+                    `Single response chunk (${value.length} bytes) exceeds maximum size (${maxSize} bytes)`
+                );
+            }
+
+            // Check total accumulated size BEFORE adding this chunk
+            if (totalSize + value.length > maxSize) {
+                await reader.cancel();
+                throw new TurbineError(
+                    "SDK_ERROR",
+                    `Response size exceeds maximum allowed size (${maxSize} bytes)`
+                );
+            }
+
+            chunks.push(value);
+            totalSize += value.length;
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    // Create a new Response from the validated chunks
+    const blob = new Blob(chunks);
+    return new Response(blob, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+    });
 }
