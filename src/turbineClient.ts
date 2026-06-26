@@ -400,14 +400,15 @@ export class TurbineClient {
                     `Response size (${size} bytes) exceeds maximum allowed size (${maxSize} bytes)`
                 );
             }
+            return response;
         }
 
         // Stream and validate response body chunk-by-chunk
         if (!response.body) {
             return response;
         }
-
-        const reader = response.body.getReader();
+        const clone = response.clone();
+        const reader = clone.body!.getReader();
         const chunks: Uint8Array[] = [];
         let totalSize = 0;
 
@@ -443,13 +444,7 @@ export class TurbineClient {
             reader.releaseLock();
         }
 
-        // Create a new Response from the validated chunks
-        const blob = new Blob(chunks);
-        return new Response(blob, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: response.headers,
-        });
+        return response;
     }
 
     /**
