@@ -29,7 +29,7 @@ import { Hex } from "viem";
 import prompts from "prompts";
 import * as fs from "fs";
 import * as path from "path";
-import { createKeystore } from "./utils/keystore";
+import { createKeystore, verifyKeystore } from "./utils/keystore";
 
 async function main() {
     console.log("🔐 Create Encrypted Keystore");
@@ -129,6 +129,7 @@ async function main() {
 
     try {
         await createKeystore(privateKey as Hex, password, outputPath);
+        verifyKeystore(outputPath, password, privateKey as Hex);
 
         console.log("\n✅ SUCCESS! Keystore created successfully.");
         console.log("\n📋 Important next steps:");

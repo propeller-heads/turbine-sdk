@@ -250,6 +250,52 @@ export async function createKeystore(
 }
 
 /**
+ * Read a keystore from disk and verify it can be decrypted.
+ * @throws If the file cannot be read, parsed, or decrypted
+ */
+export function verifyKeystore(
+    keystorePath: string,
+    password: string,
+    expectedPrivateKey: Hex
+): void {
+    let keystoreJson: string;
+    try {
+        keystoreJson = fs.readFileSync(keystorePath, "utf8");
+    } catch {
+        throw new Error(
+            `Keystore verification failed: could not read file at ${keystorePath}`
+        );
+    }
+
+    let keystoreObj: any;
+    try {
+        keystoreObj = JSON.parse(keystoreJson);
+    } catch {
+        throw new Error("Keystore verification failed: file is not valid JSON");
+    }
+
+    if (keystoreObj.version !== 3) {
+        throw new Error("Keystore verification failed: unsupported keystore format");
+    }
+
+    let decryptedPrivateKey: Hex | undefined;
+    try {
+        const key = Keystore.toKey(keystoreObj, { password });
+        decryptedPrivateKey = Keystore.decrypt(keystoreObj, key) as Hex;
+    } catch {
+        throw new Error(
+            "Keystore verification failed: could not decrypt written file"
+        );
+    }
+
+    if (!decryptedPrivateKey || decryptedPrivateKey.toLowerCase() !== expectedPrivateKey.toLowerCase()) {
+        throw new Error(
+            "Keystore verification failed: decrypted key does not match"
+        );
+    }
+}
+
+/**
  * Helper to get account from env var or keystore
  * This is the pattern scripts should use for backward compatibility
  */
