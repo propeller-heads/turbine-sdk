@@ -12,10 +12,10 @@
  *   ts-node scripts/create-keystore.ts
  *
  * The script will interactively prompt for:
- *   1. Private key (masked input)
- *   2. Password (masked input, min 12 characters)
- *   3. Password confirmation
- *   4. Keystore filename
+ *   1. Keystore filename
+ *   2. Private key (masked input)
+ *   3. Password (masked input, min 12 characters)
+ *   4. Password confirmation
  *
  * Security Notes:
  *   - Private key input is masked and never logged
@@ -27,6 +27,7 @@
 
 import { Hex } from "viem";
 import prompts from "prompts";
+import * as fs from "fs";
 import * as path from "path";
 import { createKeystore } from "./utils/keystore";
 
@@ -34,8 +35,34 @@ async function main() {
     console.log("🔐 Create Encrypted Keystore");
     console.log("════════════════════════════\n");
 
-    // Step 1: Get private key
-    console.log("Step 1: Enter your private key");
+    // Step 1: Get keystore name
+    console.log("Step 1: Choose a filename for your keystore\n");
+
+    const defaultName = "default.json";
+    const nameResponse = await prompts({
+        type: "text",
+        name: "filename",
+        message: "📁 Keystore filename:",
+        initial: defaultName,
+    });
+
+    if (!nameResponse.filename) {
+        console.log("\n❌ Operation cancelled");
+        process.exit(1);
+    }
+
+    const filename = nameResponse.filename.trim() || defaultName;
+    const finalFilename = filename.endsWith(".json") ? filename : `${filename}.json`;
+    const outputPath = path.resolve(process.cwd(), "scripts/.keystores", finalFilename);
+
+    if (fs.existsSync(outputPath)) {
+        console.error(`\n❌ Keystore already exists: ${outputPath}`);
+        console.error("Choose a different filename or delete the existing file first.");
+        process.exit(1);
+    }
+
+    // Step 2: Get private key
+    console.log("\nStep 2: Enter your private key");
     console.log("(Input will be masked for security)\n");
 
     const keyResponse = await prompts({
@@ -57,8 +84,8 @@ async function main() {
 
     const privateKey = keyResponse.privateKey;
 
-    // Step 2: Get password
-    console.log("\nStep 2: Choose a strong password");
+    // Step 3: Get password
+    console.log("\nStep 3: Choose a strong password");
     console.log("(Minimum 12 characters recommended)\n");
 
     let password: string;
@@ -95,29 +122,6 @@ async function main() {
             console.log("\n❌ Passwords do not match. Please try again.\n");
         }
     }
-
-    // Step 3: Get keystore name
-    console.log("\nStep 3: Choose a filename for your keystore\n");
-
-    const defaultName = "default.json";
-    const nameResponse = await prompts({
-        type: "text",
-        name: "filename",
-        message: "📁 Keystore filename:",
-        initial: defaultName,
-    });
-
-    if (!nameResponse.filename) {
-        console.log("\n❌ Operation cancelled");
-        process.exit(1);
-    }
-
-    const filename = nameResponse.filename.trim() || defaultName;
-
-    // Ensure .json extension
-    const finalFilename = filename.endsWith(".json") ? filename : `${filename}.json`;
-
-    const outputPath = path.resolve(process.cwd(), "scripts/.keystores", finalFilename);
 
     // Step 4: Create keystore
     console.log("\n🔄 Creating encrypted keystore...");
