@@ -237,13 +237,16 @@ export async function createKeystore(
         fs.mkdirSync(dir, { recursive: true });
     }
 
-    // Write keystore file
-    fs.writeFileSync(outputPath, keystoreJson, "utf8");
-
-    // Set file permissions to 0600 (owner read/write only) on Unix systems
-    if (process.platform !== "win32") {
-        fs.chmodSync(outputPath, 0o600);
-    }
+    // Write keystore file with restrictive permissions at creation time.
+    // mode 0o600 makes it owner-only readable/writable, and
+    // flag "wx" fails rather than overwriting an existing keystore.
+    fs.writeFileSync(
+        outputPath,
+        keystoreJson,
+        process.platform !== "win32"
+            ? { encoding: "utf8", mode: 0o600, flag: "wx" }
+            : { encoding: "utf8", flag: "wx" }
+    );
 
     console.log(`✅ Keystore created: ${outputPath}`);
     console.log(`📍 Address: ${address}`);
