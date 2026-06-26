@@ -118,4 +118,53 @@ describe("buildApiUrl", () => {
             );
         });
     });
+
+    describe("Base containment enforcement", () => {
+        const base = "https://api.turbine.example/api";
+
+        test("rejects path traversal that escapes the base path", () => {
+            expect(() => buildApiUrl(base, "../admin")).toThrow(TurbineError);
+        });
+
+        test("rejects absolute URL endpoints (cross-origin)", () => {
+            expect(() =>
+                buildApiUrl(base, "https://attacker.example/collect")
+            ).toThrow(TurbineError);
+        });
+
+        test("rejects protocol-relative endpoints", () => {
+            expect(() =>
+                buildApiUrl(base, "///attacker.example/collect")
+            ).toThrow(TurbineError);
+        });
+
+        test("rejects sibling paths sharing a prefix of the base", () => {
+            // "/apifoo" must not satisfy containment of base path "/api/"
+            expect(() => buildApiUrl(base, "../apifoo")).toThrow(TurbineError);
+        });
+
+        test("error message names the offending endpoint", () => {
+            try {
+                buildApiUrl(base, "https://attacker.example/collect");
+                fail("Should have thrown an error");
+            } catch (error) {
+                expect(error).toBeInstanceOf(TurbineError);
+                if (error instanceof TurbineError) {
+                    expect(error.message).toContain("outside the configured API base");
+                }
+            }
+        });
+
+        test("allows legitimate endpoints within the base", () => {
+            expect(buildApiUrl(base, "config")).toBe(
+                "https://api.turbine.example/api/config"
+            );
+            expect(buildApiUrl(base, "/config")).toBe(
+                "https://api.turbine.example/api/config"
+            );
+            expect(buildApiUrl(base, "orders?hash=a,b")).toBe(
+                "https://api.turbine.example/api/orders?hash=a,b"
+            );
+        });
+    });
 });
