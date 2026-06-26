@@ -12,7 +12,6 @@ import { TurbineError } from "./errorHandling";
  * @returns The validated value or null if the value is null
  * @throws Whatever the validator throws
  */
-
 export function optional<Tin, Tout>(
     validator: (value: Tin, fieldName: string) => Tout,
     value: Tin | null,
@@ -21,6 +20,7 @@ export function optional<Tin, Tout>(
     if (value === null) return null;
     return validator(value, fieldName);
 }
+
 /**
  * Validates that a value is a string
  * @param value - The value to validate
@@ -28,7 +28,6 @@ export function optional<Tin, Tout>(
  * @returns The validated string
  * @throws TurbineError if validation fails
  */
-
 export function validateString(value: unknown, fieldName: string): string {
     if (typeof value !== "string") {
         throw new TurbineError(
@@ -39,6 +38,28 @@ export function validateString(value: unknown, fieldName: string): string {
     }
     return value;
 }
+
+/**
+ * Validates that a value is a string that can be parsed as a URL
+ * @param value - The value to validate
+ * @param fieldName - Name of the field being validated (for error messages)
+ * @returns The validated string
+ * @throws TurbineError if validation fails
+ */
+export function validateUrlString(value: unknown, fieldName: string): string {
+    let stringValue = validateString(value, fieldName);
+    try {
+        new URL(stringValue);
+    } catch {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be a valid URL, got "${stringValue}"`,
+            { fieldName, receivedValue: stringValue }
+        );
+    }
+    return stringValue;
+}
+
 /**
  * Validates that a value is a boolean
  * @param value - The value to validate
@@ -46,7 +67,6 @@ export function validateString(value: unknown, fieldName: string): string {
  * @returns The validated boolean
  * @throws TurbineError if validation fails
  */
-
 export function validateBoolean(value: unknown, fieldName: string): boolean {
     if (typeof value !== "boolean") {
         throw new TurbineError(

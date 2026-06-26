@@ -1,6 +1,6 @@
 import { createPublicClient, createWalletClient, Hex, http, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
 import {
     AddLiquidityIntent,
@@ -92,8 +92,8 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
     lpRouterAddress: "0x3456789012345678901234567890123456789012" as Address,
     poolManagerAddress: "0x4567890123456789012345678901234567890123" as Address,
     submitSettlements: true,
-    siweDomain: "test.propellerheads.xyz",
-    siweUri: "https://test-turbine.propellerheads.xyz/api",
+    siweDomain: "https://test.propellerheads.xyz",
+    siweUri: TURBINE_API_URL,
     tokens: [
         {
             address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address,
@@ -114,6 +114,8 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
 export async function createMockTurbineClient(
     customApiUrl?: string
 ): Promise<TurbineClient> {
+    const apiUrl = customApiUrl || TURBINE_API_URL;
+
     // Mock the status check and config fetch
     jest.spyOn(global, "fetch").mockImplementation(
         async (url: string | URL | Request) => {
@@ -124,10 +126,13 @@ export async function createMockTurbineClient(
             }
 
             if (urlString.includes("/config")) {
-                return new Response(JSON.stringify(MOCK_TURBINE_CONFIG), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                });
+                return new Response(
+                    JSON.stringify({ ...MOCK_TURBINE_CONFIG, siweUri: apiUrl }),
+                    {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }
+                );
             }
 
             throw new Error(`Unmocked fetch URL: ${urlString}`);

@@ -2021,21 +2021,25 @@ describe("Validation Functions", () => {
         });
 
         describe("validateTurbineConfig", () => {
+            const API_URL = MOCK_TURBINE_CONFIG.siweUri;
+
             it("should validate turbine config correctly", () => {
                 // Valid config
-                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG)).not.toThrow();
+                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)).not.toThrow();
 
                 // Missing field
                 const missingField = { ...MOCK_TURBINE_CONFIG };
                 delete (missingField as any).turbineSettlerAddress;
-                expect(() => validateTurbineConfig(missingField)).toThrow(TurbineError);
+                expect(() => validateTurbineConfig(missingField, API_URL)).toThrow(
+                    TurbineError
+                );
 
                 // Invalid address
                 const invalidAddress = {
                     ...MOCK_TURBINE_CONFIG,
                     turbineSettlerAddress: "invalid",
                 };
-                expect(() => validateTurbineConfig(invalidAddress)).toThrow(
+                expect(() => validateTurbineConfig(invalidAddress, API_URL)).toThrow(
                     TurbineError
                 );
 
@@ -2044,45 +2048,59 @@ describe("Validation Functions", () => {
                     ...MOCK_TURBINE_CONFIG,
                     submitSettlements: "true",
                 };
-                expect(() => validateTurbineConfig(invalidBoolean)).toThrow(
+                expect(() => validateTurbineConfig(invalidBoolean, API_URL)).toThrow(
                     TurbineError
                 );
 
+                // Invalid siweUri (not a URL)
+                const invalidSiweUri = { ...MOCK_TURBINE_CONFIG, siweUri: "not a url" };
+                expect(() => validateTurbineConfig(invalidSiweUri, API_URL)).toThrow(
+                    TurbineError
+                );
+
+                // siweUri not matching the configured API URL
+                expect(() =>
+                    validateTurbineConfig(
+                        MOCK_TURBINE_CONFIG,
+                        "https://different-api.example.com"
+                    )
+                ).toThrow(TurbineError);
+
                 // Optional minTradeSizeUsdc: absent is valid (backwards compat)
-                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG)).not.toThrow();
+                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)).not.toThrow();
 
                 // Optional minTradeSizeUsdc: decimal string converted to bigint
                 const withMinTradeSize = {
                     ...MOCK_TURBINE_CONFIG,
                     minTradeSizeUsdc: "10000000",
                 };
-                expect(validateTurbineConfig(withMinTradeSize).minTradeSizeUsdc).toBe(
-                    10000000n
-                );
+                expect(
+                    validateTurbineConfig(withMinTradeSize, API_URL).minTradeSizeUsdc
+                ).toBe(10000000n);
 
                 // Optional minTradeSizeUsdc: non-numeric string rejected
                 const invalidMinTradeSize = {
                     ...MOCK_TURBINE_CONFIG,
                     minTradeSizeUsdc: "not-a-number",
                 };
-                expect(() => validateTurbineConfig(invalidMinTradeSize)).toThrow(
-                    TurbineError
-                );
+                expect(() =>
+                    validateTurbineConfig(invalidMinTradeSize, API_URL)
+                ).toThrow(TurbineError);
 
                 // Optional minTradeSizeUsdc: zero rejected (min trade size must be > 0)
                 expect(() =>
-                    validateTurbineConfig({
-                        ...MOCK_TURBINE_CONFIG,
-                        minTradeSizeUsdc: "0",
-                    })
+                    validateTurbineConfig(
+                        { ...MOCK_TURBINE_CONFIG, minTradeSizeUsdc: "0" },
+                        API_URL
+                    )
                 ).toThrow(TurbineError);
 
                 // Optional minTradeSizeUsdc: negative rejected
                 expect(() =>
-                    validateTurbineConfig({
-                        ...MOCK_TURBINE_CONFIG,
-                        minTradeSizeUsdc: "-1",
-                    })
+                    validateTurbineConfig(
+                        { ...MOCK_TURBINE_CONFIG, minTradeSizeUsdc: "-1" },
+                        API_URL
+                    )
                 ).toThrow(TurbineError);
             });
         });

@@ -59,6 +59,7 @@ import {
     validateBlockNumber,
     validateArray,
     validateFields,
+    validateUrlString,
 } from "./validationPrimitives";
 export * from "./validationPrimitives";
 
@@ -937,7 +938,10 @@ export function validateTurbineToken(token: unknown, fieldName: string): Turbine
     );
 }
 
-export function validateTurbineConfig(config: unknown): TurbineConfig {
+export function validateTurbineConfig(
+    config: unknown,
+    turbineApiUrl: string
+): TurbineConfig {
     const validated = validateFields<TurbineConfig>(
         config,
         {
@@ -947,7 +951,7 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
             poolManagerAddress: validateAddress,
             submitSettlements: validateBoolean,
             siweDomain: validateString,
-            siweUri: validateString,
+            siweUri: validateUrlString,
             tokens: (value: unknown, name: string) =>
                 validateArray(value, name, (item, index) =>
                     validateTurbineToken(item, `${name}[${index}]`)
@@ -955,6 +959,18 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
         },
         "TurbineConfig"
     );
+
+    if (validated.siweUri !== turbineApiUrl) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `TurbineConfig.siweUri received from the server should be the same as the Turbine API URL configured in the client; got "${validated.siweUri}" but expected "${turbineApiUrl}"`,
+            {
+                fieldName: "TurbineConfig.siweUri",
+                receivedValue: validated.siweUri,
+                expectedValue: turbineApiUrl,
+            }
+        );
+    }
 
     const minTradeSizeUsdc = (config as Record<string, unknown>).minTradeSizeUsdc;
     if (minTradeSizeUsdc !== undefined && minTradeSizeUsdc !== null) {

@@ -79,7 +79,7 @@ export class TurbineClient {
     ) {
         this.walletClient = walletClient;
         this.publicClient = publicClient;
-        this.turbineApiUrl = turbineApiUrl;
+        this.turbineApiUrl = validate.validateUrlString(turbineApiUrl, "turbineApiUrl");
         this.config = config;
         this.cookieJar = new TurbineCookieJar();
     }
@@ -1971,7 +1971,7 @@ export async function fetchConfig(turbineApiUrl: string): Promise<TurbineConfig>
         }
         const config = await response.json();
 
-        return validate.validateTurbineConfig(config);
+        return validate.validateTurbineConfig(config, turbineApiUrl);
     } catch (error: any) {
         console.log(error);
         throw new TurbineError(
