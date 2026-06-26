@@ -834,6 +834,35 @@ export function validateAddLiquidityPayload(payload: unknown): void {
 
     validateAddLiquidityIntent(payloadAny.addLiquidity);
     validateSignedBatchSignatureTransfer(payloadAny.permitTokens);
+
+    // Bind the batch permit to the intent: exactly [token0, token1] / [token0Amount, token1Amount].
+    const { token0, token1, token0Amount, token1Amount } = payloadAny.addLiquidity;
+    const permitted = payloadAny.permitTokens.permit.permitted;
+    const expected = [
+        { token: token0, amount: token0Amount },
+        { token: token1, amount: token1Amount },
+    ];
+
+    if (permitted.length !== expected.length) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `addLiquidityPayload.permitTokens.permit.permitted must have exactly 2 entries, got ${permitted.length}`,
+            { expectedLength: 2, actualLength: permitted.length }
+        );
+    }
+
+    permitted.forEach((p: TokenPermissions, i: number) => {
+        if (
+            p.token.toLowerCase() !== expected[i].token.toLowerCase() ||
+            p.amount !== expected[i].amount
+        ) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `addLiquidityPayload.permitTokens.permit.permitted[${i}] must match addLiquidity ${i === 0 ? "token0/token0Amount" : "token1/token1Amount"}`,
+                { index: i, expected: expected[i], actual: p }
+            );
+        }
+    });
 }
 
 // ============================================================================

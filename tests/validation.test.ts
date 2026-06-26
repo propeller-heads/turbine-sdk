@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { Address, Hex } from "viem";
 import { TurbineError } from "../src/errorHandling";
-import { NULL_ADDRESS, USDC, WETH } from "../src/constants";
+import { NULL_ADDRESS, USDC, WBTC, WETH } from "../src/constants";
 import {
     validateNumber,
     validatePositiveBigInt,
@@ -1880,7 +1880,20 @@ describe("Validation Functions", () => {
                         exact: true,
                         salt: ("0x" + "1".repeat(64)) as Hex,
                     },
-                    permitTokens: VALID_SIGNED_BATCH_SIGNATURE_TRANSFER,
+                    permitTokens: {
+                        signature: VALID_PRIMITIVE_SIGNATURE,
+                        permit: {
+                            permitted: [
+                                { token: USDC.address as Address, amount: 1000000n },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                            nonce: 0n,
+                            deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                        },
+                    },
                 };
 
                 // Valid payload
@@ -1948,6 +1961,77 @@ describe("Validation Functions", () => {
                         singleSidedPayload.permitTokens
                     )
                 ).not.toThrow();
+            });
+
+            it("should reject permit arrays not bound to the intent tokens", () => {
+                const basePayload = {
+                    addLiquidity: {
+                        owner: ACCOUNT.address,
+                        token0: USDC.address,
+                        token1: WETH.address,
+                        fee: 3000,
+                        token0Amount: 1000000n,
+                        token1Amount: 1000000000000000000n,
+                        exact: true,
+                        salt: ("0x" + "1".repeat(64)) as Hex,
+                    },
+                    permitTokens: {
+                        signature: VALID_PRIMITIVE_SIGNATURE,
+                        permit: {
+                            permitted: [
+                                { token: USDC.address as Address, amount: 1000000n },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                            nonce: 0n,
+                            deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                        },
+                    },
+                };
+
+                // Baseline: tokens match token0/token1 in order
+                expect(() => validateAddLiquidityPayload(basePayload)).not.toThrow();
+
+                // Extra (unbounded) permitted entries beyond the two intent tokens
+                const oversized = {
+                    ...basePayload,
+                    permitTokens: {
+                        ...basePayload.permitTokens,
+                        permit: {
+                            ...basePayload.permitTokens.permit,
+                            permitted: [
+                                ...basePayload.permitTokens.permit.permitted,
+                                { token: WBTC.address as Address, amount: 1n },
+                            ],
+                        },
+                    },
+                };
+                expect(() => validateAddLiquidityPayload(oversized)).toThrow(
+                    TurbineError
+                );
+
+                // Permitted token that is not one of the intent tokens
+                const mismatched = {
+                    ...basePayload,
+                    permitTokens: {
+                        ...basePayload.permitTokens,
+                        permit: {
+                            ...basePayload.permitTokens.permit,
+                            permitted: [
+                                { token: WBTC.address as Address, amount: 1n },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                        },
+                    },
+                };
+                expect(() => validateAddLiquidityPayload(mismatched)).toThrow(
+                    TurbineError
+                );
             });
         });
     });

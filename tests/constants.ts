@@ -175,27 +175,23 @@ export async function createMockTurbineClient(
             "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111b" as Hex, // Added 1b at end for valid v value (v=27)
     });
 
+    // Liquidity permits are signed for the exact intent amounts, so mirror the
+    // real helper and echo back the requested tokens/amounts as the permitted set.
     jest.spyOn(
         await import("../src/permit2SignatureTransfer"),
         "getSignedBatchSignatureTransfer"
-    ).mockResolvedValue({
+    ).mockImplementation(async ({ tokens, amounts }) => ({
         permit: {
-            permitted: [
-                {
-                    token: USDC.address as Address,
-                    amount: BigInt("1000000000000000000000000000000"),
-                },
-                {
-                    token: WETH.address as Address,
-                    amount: BigInt("1000000000000000000000000000000"),
-                },
-            ],
+            permitted: tokens.map((token, i) => ({
+                token,
+                amount: amounts[i],
+            })),
             nonce: 0n,
             deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
         },
         permitSignature:
             "0x222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222221c" as Hex, // Added 1c at end for valid v value (v=28)
-    });
+    }));
 
     // Mock the getSignedAllowance function to prevent real blockchain calls
     jest.spyOn(await import("../src/permit2"), "getSignedAllowance").mockResolvedValue({
