@@ -1,5 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { buildApiUrl } from "../src/utils";
+import { buildApiUrl, validateResponseSize } from "../src/utils";
 import { TurbineError } from "../src/errorHandling";
 
 describe("buildApiUrl", () => {
@@ -127,15 +127,15 @@ describe("buildApiUrl", () => {
         });
 
         test("rejects absolute URL endpoints (cross-origin)", () => {
-            expect(() =>
-                buildApiUrl(base, "https://attacker.example/collect")
-            ).toThrow(TurbineError);
+            expect(() => buildApiUrl(base, "https://attacker.example/collect")).toThrow(
+                TurbineError
+            );
         });
 
         test("rejects protocol-relative endpoints", () => {
-            expect(() =>
-                buildApiUrl(base, "///attacker.example/collect")
-            ).toThrow(TurbineError);
+            expect(() => buildApiUrl(base, "///attacker.example/collect")).toThrow(
+                TurbineError
+            );
         });
 
         test("rejects sibling paths sharing a prefix of the base", () => {
@@ -166,5 +166,158 @@ describe("buildApiUrl", () => {
                 "https://api.turbine.example/api/orders?hash=a,b"
             );
         });
+    });
+});
+
+describe("validateResponseSize", () => {
+    test("should reject response with Content-Length exceeding limit", async () => {
+        const maxSize = 100; // 100 bytes
+
+        // Create mock response with Content-Length header exceeding limit
+        const mockResponse = new Response("OK", {
+            status: 200,
+            headers: new Headers({
+                "content-length": "200", // Exceeds 100 byte limit
+            }),
+        });
+
+        await expect(validateResponseSize(mockResponse, maxSize)).rejects.toMatchObject(
+            {
+                code: "SDK_ERROR",
+                message: expect.stringContaining(
+                    "Response size (200 bytes) exceeds maximum allowed size (100 bytes)"
+                ),
+            }
+        );
+    });
+
+    test("should accept response with Content-Length within limit", async () => {
+        const maxSize = 200; // 200 bytes
+
+        const body = "small response";
+        const mockResponse = new Response(body, {
+            status: 200,
+            headers: new Headers({
+                "content-length": body.length.toString(),
+            }),
+        });
+
+        const validatedResponse = await validateResponseSize(mockResponse, maxSize);
+
+        expect(validatedResponse).toBeDefined();
+        const text = await validatedResponse.text();
+        expect(text).toBe(body);
+    });
+
+    test("should reject single chunk exceeding limit", async () => {
+        const maxSize = 100; // 100 bytes
+
+        // Create a large chunk (exceeds maxSize in a single chunk)
+        const largeChunk = new Uint8Array(150); // 150 bytes in one chunk
+        largeChunk.fill(65); // Fill with 'A'
+
+        // Create a ReadableStream that emits one large chunk
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(largeChunk);
+                controller.close();
+            },
+        });
+
+        const mockResponse = new Response(stream, {
+            status: 200,
+            headers: new Headers(),
+        });
+
+        await expect(validateResponseSize(mockResponse, maxSize)).rejects.toMatchObject(
+            {
+                code: "SDK_ERROR",
+                message: expect.stringContaining(
+                    "Single response chunk (150 bytes) exceeds maximum size (100 bytes)"
+                ),
+            }
+        );
+    });
+
+    test("should reject accumulated chunks exceeding limit", async () => {
+        const maxSize = 100; // 100 bytes
+
+        // Create multiple small chunks that together exceed the limit
+        const chunk1 = new Uint8Array(60); // 60 bytes
+        const chunk2 = new Uint8Array(50); // 50 bytes
+        // Total: 110 bytes (exceeds 100 byte limit)
+
+        chunk1.fill(65); // Fill with 'A'
+        chunk2.fill(66); // Fill with 'B'
+
+        // Create a ReadableStream that emits multiple chunks
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(chunk1);
+                controller.enqueue(chunk2);
+                controller.close();
+            },
+        });
+
+        const mockResponse = new Response(stream, {
+            status: 200,
+            headers: new Headers(),
+        });
+
+        await expect(validateResponseSize(mockResponse, maxSize)).rejects.toMatchObject(
+            {
+                code: "SDK_ERROR",
+                message: expect.stringContaining(
+                    "Response size exceeds maximum allowed size (100 bytes)"
+                ),
+            }
+        );
+    });
+
+    test("should accept valid response with multiple chunks within limit", async () => {
+        const maxSize = 200; // 200 bytes
+
+        // Create multiple small chunks within the limit
+        const chunk1 = new Uint8Array(50); // 50 bytes
+        const chunk2 = new Uint8Array(50); // 50 bytes
+        // Total: 100 bytes (within 200 byte limit)
+
+        chunk1.fill(65); // Fill with 'A'
+        chunk2.fill(66); // Fill with 'B'
+
+        // Create a ReadableStream that emits multiple chunks
+        const stream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(chunk1);
+                controller.enqueue(chunk2);
+                controller.close();
+            },
+        });
+
+        const mockResponse = new Response(stream, {
+            status: 200,
+            headers: new Headers(),
+        });
+
+        const validatedResponse = await validateResponseSize(mockResponse, maxSize);
+
+        expect(validatedResponse).toBeDefined();
+        const arrayBuffer = await validatedResponse.arrayBuffer();
+        expect(arrayBuffer.byteLength).toBe(100);
+    });
+
+    test("should handle response with no body", async () => {
+        const maxSize = 100;
+
+        // Create response with null body
+        const mockResponse = new Response(null, {
+            status: 204, // No Content
+            headers: new Headers(),
+        });
+
+        const validatedResponse = await validateResponseSize(mockResponse, maxSize);
+
+        expect(validatedResponse).toBeDefined();
+        expect(validatedResponse.body).toBeNull();
     });
 });
