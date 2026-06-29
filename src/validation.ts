@@ -1029,7 +1029,7 @@ export function validateTurbineConfig(
  * @throws TurbineError if validation fails
  */
 export function validatePrice(value: unknown, fieldName: string): Price {
-    return validateFields<Price>(
+    const price = validateFields<Price>(
         value,
         {
             numerator: validateBigIntConvertible,
@@ -1037,6 +1037,16 @@ export function validatePrice(value: unknown, fieldName: string): Price {
         },
         fieldName
     );
+
+    if (price.denominator === 0n) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName}.denominator must be non-zero, got 0`,
+            { fieldName: `${fieldName}.denominator`, receivedValue: price.denominator }
+        );
+    }
+
+    return price;
 }
 
 /**
