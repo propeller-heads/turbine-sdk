@@ -63,11 +63,13 @@ Scripts will fall back to `PRIVATE_KEY` environment variable if no keystore is f
 Optional environment variables for all scripts:
 
 ```bash
-# Optional: Turbine API URL (defaults to http://0.0.0.0:8080/api)
-export TURBINE_API_URL="https://your-turbine-api.com/api"
-
 # Optional: RPC URL for Ethereum mainnet (uses default if not set)
+# It's recommended to set this to your RPC endpoint, as the default one
+# might be unreliable.
 export RPC_URL="https://your-rpc-endpoint.com"
+
+# Optional: Turbine API URL (defaults to https://api.turbine.exchange/api)
+export TURBINE_API_URL="https://your-turbine-api.com/api"
 ```
 
 ## Available scripts
@@ -76,15 +78,17 @@ export RPC_URL="https://your-rpc-endpoint.com"
 
 **Command:** `yarn submit-orders`
 
-Submits two market orders to Turbine: sells 50 USDC for WETH and 0.02 WETH for USDC. Both orders have a 5% mid-price delta and are valid for 5 minutes.
+**Important:** Set the sell amounts in the script code before running.
+
+Submits two orders to Turbine: one selling USDC for WETH, and the other one selling WETH for USDC. Both orders accept 0.5% spread and are valid for 5 minutes.
 
 ### Add Liquidity
 
 **Command:** `yarn add-liquidity`
 
-**Interactive:** Yes (prompts for confirmation)
+**Interactive:** Yes (prompts to select a pool, enter token amounts, and confirm)
 
-Adds 10 USDC and 0.004 WETH (≈ $10) to the USDC/WETH pool with 0.3% fee. Prints the liquidity addition details and intent hash.
+Adds liquidity to a pool through the Turbine API. Prompts you to select one of the registered pools and enter the amount of each token to add. Prints the liquidity addition details and intent hash.
 
 ### Remove Liquidity
 

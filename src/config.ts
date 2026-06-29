@@ -3,7 +3,7 @@ import { getAddress } from "viem";
 export const CHAIN_ID = 1;
 
 export const TURBINE_API_URL =
-    process.env.TURBINE_API_URL || "http://127.0.0.1:8080/api";
+    process.env.TURBINE_API_URL || "https://api.turbine.exchange/api";
 
 export const RPC_URL = process.env.RPC_URL; // leave unset to use default for Mainnet
 

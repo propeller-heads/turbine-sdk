@@ -59,7 +59,7 @@ async function main() {
             buyToken: token1.address,
             sellAmount: maxToken0Amount,
             minBuyAmount: (maxToken1Amount * 75n) / 100n, // 75% of maxToken1Amount
-            spreadCurve: spreads.constant(500), // 5% flat spread
+            spreadCurve: spreads.constant(50), // 0.5% flat spread
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,
@@ -74,7 +74,7 @@ async function main() {
             buyToken: token0.address,
             sellAmount: maxToken1Amount,
             minBuyAmount: (maxToken0Amount * 75n) / 100n, // 75% of maxToken0Amount
-            spreadCurve: spreads.constant(500), // 5% flat spread
+            spreadCurve: spreads.constant(50), // 0.5% flat spread
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,

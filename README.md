@@ -1,7 +1,10 @@
 # Turbine SDK
 
-Turbine is a protocol that lets users swap tokens without revealing their intention to do so.  
-Read the docs at https://docs.propellerheads.xyz/turbine.
+Turbine is a private orderbook built for large and long-running orders to settle peer-to-peer.
+
+Orders and LP on Turbine follow the market and settle only when the spread is low. Turbine can settle small and large trades at low, zero, and even negative spreads.
+
+Read the docs at https://docs.turbine.exchange.
 
 This SDK helps you interact with Turbine.
 
@@ -23,9 +26,11 @@ This SDK helps you interact with Turbine.
 
 Make sure you have [Node.js](https://nodejs.org/en/download/package-manager) and [Yarn](https://yarnpkg.com/getting-started/install) installed.
 
-Install dependencies with:
+Clone the repo and install the dependencies with:
 
 ```bash
+git clone https://github.com/propeller-heads/turbine-sdk.git
+cd turbine-sdk
 yarn
 ```
 
@@ -34,12 +39,6 @@ yarn
 The main entry point is the `TurbineClient` class.
 
 Here's how to instantiate it. This example requires a private key and an RPC URL.
-
-> [!Note]
-> The available API URLs are:
->
-> -   `dev` environment: <https://dev-api.turbine.exchange/api>
-> -   `staging` environment in a TEE on DStack: <https://staging-api.turbine.exchange/api>
 
 ```typescript
 import { TurbineClient } from "turbine-sdk";
@@ -60,8 +59,6 @@ const publicClient = createPublicClient({
 });
 
 // Create Turbine client.
-// It uses the URL from TURBINE_API_URL environment variable by default.
-// You can also manually specify the URL as a third argument.
 const turbineClient = await TurbineClient.create(walletClient, publicClient);
 ```
 
@@ -76,7 +73,7 @@ const turbineClient = await TurbineClient.create(walletClient, publicClient);
 > When placing orders, SDK automatically adds necessary Permit2 approvals. If you're using a `walletClient` with a private key, these approvals are signed automatically without asking for confirmation.
 
 > [!Note]
-> For the alpha version Turbine has a limit of 60 active orders per `owner`.
+> For the Beta version, Turbine has a limit of 60 active orders per `owner`.
 
 > [!TIP]
 > You can also submit orders using our frontend: <https://app.turbine.exchange/>
@@ -99,28 +96,27 @@ Orders in Turbine are represented by the `OrderIntent` interface. They contain t
     -   Note: only immediately valid orders are supported for now.
 -   `endTime`: Unix timestamp when the order expires
 -   `partialFill`: Boolean flag allowing partial fills of the order.
-    -   Note: only partially fillable orders are supported for now.
+    -   Note: only partially fillable orders are supported for now. This must be `true`.
 -   `callData`: Optional call data for smart orders, allowing custom routing (see #smart-orders below)
 -   `callDataTarget`: Target address for the call data
 -   `salt`: Random value to ensure order uniqueness
 
 #### Smart Orders
 
+> [!WARNING]
+> Smart orders will be deprecated soon. Market makers are encouraged to submit their quotes as regular orders.
+
 Smart orders allow using a third party smart contract to route the order.
 
 Smart orders are executed by calling a function encoded in `callData` on the `callDataTarget` contract.
 
-Smart orders were intented to be used by market makers. If you are a market maker and want to use Turbine with your own router contract, please reach out to Propeller Heads.
-
-Smart orders will be deprecated soon. Market makers are encouraged to submit their quotes as regular orders.
+Smart orders are intented to be used by market makers. Submitting them to Turbine is permissioned. If you are a market maker and want to use Turbine with your own router contract, please reach out to Propeller Heads.
 
 #### Creating an Order
 
 ```typescript
 import { NULL_ADDRESS, USDC, WETH } from "turbine-sdk/constants";
-import { OrderIntent } from "turbine-sdk/models";
-import * as spreads from "turbine-sdk/spreads";
-import { getRandomSalt } from "turbine-sdk/turbineClient";
+import { OrderIntent, spreads, getRandomSalt} from "turbine-sdk";
 
 // Create an order to sell USDC for WETH
 const order: OrderIntent = {
@@ -154,16 +150,13 @@ Expect Turbine to execute your order after some time (if it can be executed at c
 const orderHashes = await turbineClient.addOrders([order1, order2, order3]);
 ```
 
-### Checking order state
+### Checking Order state
 
 ```typescript
-const orderStates = await turbineClient.getOrderStates([
-    orderHash1,
-    orderHash2,
-    orderHash3,
-]);
-console.log(orderStates);
+const orderStates = await turbineClient.getOrders({statuses: ["Active"]});
 ```
+
+Check the documentation of `getOrders` method for the details.
 
 ### Cancelling an Order
 
@@ -183,8 +176,7 @@ Please note that order cancellation is subject to speedbump (see Turbine docs). 
 #### Creating an intent to add liquidity
 
 ```typescript
-import { AddLiquidityIntent } from "turbine-sdk/models";
-import { getRandomSalt } from "turbine-sdk/turbineClient";
+import { AddLiquidityIntent, getRandomSalt } from "turbine-sdk";
 import { USDC, WETH } from "turbine-sdk/constants";
 
 // Create an intent to provide 3000 USDC and 1 WETH
