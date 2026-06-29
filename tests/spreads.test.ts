@@ -134,6 +134,24 @@ describe("spreads", () => {
                 expect(deltas[i]).toBeGreaterThanOrEqual(deltas[i - 1]);
             }
         });
+
+        it("keeps metadata consistent with the clamped curve at the bound", () => {
+            const { curve, metadata } = spreads.fast(MAX_DELTA_BPS, 1);
+
+            const knot8000 = curve.points.find((p) => p.windowBps === 8000)!;
+            const realistic = metadata.realisticSpreadComponents;
+            const max = metadata.maxSpreadComponents;
+
+            // Realistic decomposition matches the 8000 knot; max matches the endpoint.
+            expect(
+                realistic.fastSpreadBps + realistic.feeBps + realistic.bufferBps
+            ).toBe(knot8000.deltaBps);
+            expect(max.fastSpreadBps + max.feeBps + max.bufferBps).toBe(
+                curve.endDeltaBps
+            );
+            expect(curve.endDeltaBps).toBeLessThanOrEqual(MAX_DELTA_BPS);
+            assertCurveWithinBounds(curve);
+        });
     });
 
     describe("maximizing", () => {

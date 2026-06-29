@@ -87,29 +87,36 @@ export function auto(params: AutoSpreadParams): AutoSpreadResult {
 export function fast(fastSpreadBps: number, feeBps: number): SpreadResult {
     validateIntInDomain(fastSpreadBps, "fastSpreadBps", 1, MAX_DELTA_BPS);
     validateIntInDomain(feeBps, "feeBps", 0, Number.POSITIVE_INFINITY);
+
+    // Cap the "fee" and "buffer" components of the spread if the resulting spread would exceed MAX_DELTA_BPS.
+    const effectiveFeeBps = Math.min(feeBps, MAX_DELTA_BPS - fastSpreadBps);
+    const bufferBps = Math.min(
+        fastSpreadBps,
+        MAX_DELTA_BPS - fastSpreadBps - effectiveFeeBps
+    );
     const curve: SpreadCurve = {
         startDeltaBps: -fastSpreadBps,
         points: [
             { windowBps: 1000, deltaBps: fastSpreadBps },
             {
                 windowBps: 8000,
-                deltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps + feeBps),
+                deltaBps: fastSpreadBps + effectiveFeeBps, // i.e. fastSpreadBps + feeBps, but capped to MAX_DELTA_BPS
             },
         ],
-        endDeltaBps: Math.min(MAX_DELTA_BPS, fastSpreadBps * 2 + feeBps),
+        endDeltaBps: fastSpreadBps + effectiveFeeBps + bufferBps, // i.e. fastSpreadBps * 2 + feeBps, but capped to MAX_DELTA_BPS
     } as SpreadCurve;
     return {
         curve,
         metadata: {
             realisticSpreadComponents: {
                 fastSpreadBps,
-                feeBps,
+                feeBps: effectiveFeeBps,
                 bufferBps: 0,
             },
             maxSpreadComponents: {
                 fastSpreadBps,
-                feeBps,
-                bufferBps: fastSpreadBps,
+                feeBps: effectiveFeeBps,
+                bufferBps,
             },
         },
     };
