@@ -3,7 +3,7 @@
 import { createPublicClient, createWalletClient, http, Hex } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
-import { AddLiquidityIntent } from "../src/models";
+import { AddLiquidityIntent, Token } from "../src/models";
 import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
 import {
@@ -13,6 +13,36 @@ import {
     getTokenDisplay,
 } from "./utils/pools";
 import prompts from "prompts";
+
+/**
+ * Parse a human-readable amount the same way the on-chain converter does, so
+ * prompt validation cannot accept inputs that `Token.toOnchainAmount`
+ * (viem `parseUnits`) later rejects or silently rounds. Rejects scientific
+ * notation, hex, `Infinity`, negatives, and excess fractional precision.
+ */
+function parseTokenAmount(value: string, token: Token): bigint {
+    const amount = value.trim();
+    if (!amount) {
+        throw new Error("Amount is required");
+    }
+    if (!/^(?:\d+\.?\d*|\.\d+)$/.test(amount)) {
+        throw new Error("Must be a valid non-negative decimal amount");
+    }
+    const fractional = amount.includes(".") ? amount.split(".")[1] : "";
+    if (fractional.length > token.decimals) {
+        throw new Error(`Must have at most ${token.decimals} decimal places`);
+    }
+    return token.toOnchainAmount(amount);
+}
+
+function validateTokenAmount(value: string, token: Token): true | string {
+    try {
+        parseTokenAmount(value, token);
+        return true;
+    } catch (error) {
+        return error instanceof Error ? error.message : "Invalid amount";
+    }
+}
 
 async function main() {
     console.log("🚀 Starting Turbine liquidity addition script...\n");
@@ -50,23 +80,13 @@ async function main() {
             type: "text",
             name: "token0Amount",
             message: `Amount of ${token0Display} to add:`,
-            validate: (value: string) => {
-                if (!value.trim()) return "Amount is required";
-                const num = Number(value);
-                if (isNaN(num) || num < 0) return "Must be a valid non-negative number";
-                return true;
-            },
+            validate: (value: string) => validateTokenAmount(value, token0),
         },
         {
             type: "text",
             name: "token1Amount",
             message: `Amount of ${token1Display} to add:`,
-            validate: (value: string) => {
-                if (!value.trim()) return "Amount is required";
-                const num = Number(value);
-                if (isNaN(num) || num < 0) return "Must be a valid non-negative number";
-                return true;
-            },
+            validate: (value: string) => validateTokenAmount(value, token1),
         },
     ]);
 
@@ -80,20 +100,16 @@ async function main() {
     const token1AmountStr: string = response.token1Amount.trim();
 
     // Convert to on-chain amounts
-    // If we have known Token objects, use their decimals; otherwise fall back to raw bigint input
     let maxToken0Amount: bigint;
     let maxToken1Amount: bigint;
 
-    if (token0) {
-        maxToken0Amount = token0.toOnchainAmount(token0AmountStr);
-    } else {
-        maxToken0Amount = BigInt(token0AmountStr);
-    }
-
-    if (token1) {
-        maxToken1Amount = token1.toOnchainAmount(token1AmountStr);
-    } else {
-        maxToken1Amount = BigInt(token1AmountStr);
+    try {
+        maxToken0Amount = parseTokenAmount(token0AmountStr, token0);
+        maxToken1Amount = parseTokenAmount(token1AmountStr, token1);
+    } catch (error) {
+        console.error("\n❌ Invalid amount:");
+        console.error(error);
+        process.exit(1);
     }
 
     // Create the TurbineClient for submitting the intent
