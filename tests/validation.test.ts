@@ -1,7 +1,13 @@
 import { describe, expect, it } from "@jest/globals";
 import { Address, Hex } from "viem";
 import { TurbineError } from "../src/errorHandling";
-import { NULL_ADDRESS, USDC, WBTC, WETH } from "../src/constants";
+import {
+    MAX_SPREAD_CURVE_POINTS,
+    NULL_ADDRESS,
+    USDC,
+    WBTC,
+    WETH,
+} from "../src/constants";
 import {
     validateNumber,
     validatePositiveBigInt,
@@ -40,6 +46,7 @@ import {
     validateOrderExecutionResponse,
     validatePrice,
     validateOrderStateResponse,
+    validateOrderDetailsResponse,
     validateLiquidityIntentStateResponse,
     hexToSignature,
     parseSignatureBytes,
@@ -2408,6 +2415,113 @@ describe("Validation Functions", () => {
                 const invalidExecution = { ...validState, execution: "not-array" };
                 expect(() => validateOrderStateResponse(invalidExecution)).toThrow(
                     TurbineError
+                );
+            });
+        });
+
+        describe("validateOrderDetailsResponse", () => {
+            const validDetails = {
+                sellToken: VALID_ADDRESS,
+                buyToken: USDC.address,
+                sellAmount: "1000000",
+                limitPrice: { numerator: "1", denominator: "3500" },
+                startTime: "1713264000",
+                endTime: "1713350400",
+                spreadCurve: {
+                    startSecs: 1713264000,
+                    endSecs: 1713350400,
+                    startDeltaBps: 50,
+                    endDeltaBps: 250,
+                    points: [{ timeSecs: 1713307200, deltaBps: 150 }],
+                },
+                createdTimestamp: "2026-04-16T12:00:00",
+            };
+
+            it("accepts a well-formed orderDetails with resolved spreadCurve", () => {
+                expect(() => validateOrderDetailsResponse(validDetails)).not.toThrow();
+            });
+
+            it("accepts an empty points array", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, points: [] },
+                    })
+                ).not.toThrow();
+            });
+
+            it("rejects orderDetails missing spreadCurve", () => {
+                const missing = { ...validDetails };
+                delete (missing as any).spreadCurve;
+                expect(() => validateOrderDetailsResponse(missing)).toThrow(
+                    /missing required field: spreadCurve/
+                );
+            });
+
+            it("rejects a spreadCurve missing a required field", () => {
+                const { startSecs: _omit, ...partialCurve } = validDetails.spreadCurve;
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: partialCurve,
+                    })
+                ).toThrow(/orderDetails\.spreadCurve is missing required field: startSecs/);
+            });
+
+            it("rejects a non-array points field", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, points: 5 },
+                    })
+                ).toThrow(/orderDetails\.spreadCurve\.points must be an array/);
+            });
+
+            it("rejects a points array over the cap", () => {
+                const tooMany = Array.from(
+                    { length: MAX_SPREAD_CURVE_POINTS + 1 },
+                    (_, i) => ({ timeSecs: i + 1, deltaBps: 1 })
+                );
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, points: tooMany },
+                    })
+                ).toThrow(/points has \d+ entries; max is/);
+            });
+
+            it("rejects an out-of-range startDeltaBps", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, startDeltaBps: 50000 },
+                    })
+                ).toThrow(/orderDetails\.spreadCurve\.startDeltaBps must be in/);
+            });
+
+            it("rejects an out-of-range deltaBps inside a point", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: {
+                            ...validDetails.spreadCurve,
+                            points: [{ timeSecs: 1713307200, deltaBps: -20000 }],
+                        },
+                    })
+                ).toThrow(/orderDetails\.spreadCurve\.points\[0\]\.deltaBps must be in/);
+            });
+
+            it("rejects a point missing deltaBps", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: {
+                            ...validDetails.spreadCurve,
+                            points: [{ timeSecs: 1713307200 }],
+                        },
+                    })
+                ).toThrow(
+                    /orderDetails\.spreadCurve\.points\[0\] must have timeSecs and deltaBps/
                 );
             });
         });
