@@ -168,8 +168,36 @@ export function validateBlockNumber(value: unknown, fieldName: string): number {
  */
 
 export function validateBigIntConvertible(value: unknown, fieldName: string): bigint {
+    if (typeof value === "bigint") {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        if (value.trim() === "") {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName} must be a non-empty numeric string, got empty or whitespace-only string`,
+                { fieldName, receivedValue: value, receivedType: typeof value }
+            );
+        }
+    } else if (typeof value === "number") {
+        if (!Number.isInteger(value)) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName} must be a finite integer number or numeric string, got ${value}`,
+                { fieldName, receivedValue: value, receivedType: typeof value }
+            );
+        }
+    } else {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be a bigint, integer number, or numeric string, got ${typeof value}`,
+            { fieldName, receivedValue: value, receivedType: typeof value }
+        );
+    }
+
     try {
-        return BigInt(value as any);
+        return BigInt(value);
     } catch (error) {
         throw new TurbineError(
             "INPUT_VALIDATION_ERROR",

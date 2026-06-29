@@ -291,6 +291,32 @@ describe("Validation Functions", () => {
                     TurbineError
                 );
 
+                // Invalid: type-confused values that BigInt() would silently
+                // coerce to 0n/1n instead of rejecting
+                expect(() => validateBigIntConvertible(true, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible(false, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible("", "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible("   ", "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible([], "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible(["5"], "testBigInt")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: non-integer number
+                expect(() => validateBigIntConvertible(1.5, "testBigInt")).toThrow(
+                    TurbineError
+                );
+
                 // Check error details
                 try {
                     validateBigIntConvertible("invalid", "testField");
