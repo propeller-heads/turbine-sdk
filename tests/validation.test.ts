@@ -1316,6 +1316,20 @@ describe("Validation Functions", () => {
                 expect(() => validateOrderIntent(missingCurve)).toThrow(
                     /`spreadCurve` is required/
                 );
+
+                // Salt must be exactly bytes32 (protocol encodes it as bytes32)
+                const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
+                expect(() => validateOrderIntent(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
+
+                const oversizedSalt = {
+                    ...createValid(),
+                    salt: ("0x" + "ab".repeat(4096)) as Hex,
+                };
+                expect(() => validateOrderIntent(oversizedSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
             });
 
             it("rejects curves whose windowBps truncate to order boundaries (short duration)", () => {
@@ -1635,6 +1649,20 @@ describe("Validation Functions", () => {
                 expect(() => validateAddLiquidityIntent(bothZero)).toThrow(
                     /At least one token amount must be greater than zero/
                 );
+
+                // Salt must be exactly bytes32 (protocol encodes it as bytes32)
+                const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
+                expect(() => validateAddLiquidityIntent(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
+
+                const oversizedSalt = {
+                    ...createValid(),
+                    salt: ("0x" + "ab".repeat(4096)) as Hex,
+                };
+                expect(() => validateAddLiquidityIntent(oversizedSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
             });
         });
 
@@ -1682,6 +1710,12 @@ describe("Validation Functions", () => {
                 );
                 expect(() => validateRemoveLiquidityIntent(zeroAmount)).toThrow(
                     /removeLiquidityIntent.lpTokenAmount must be positive/
+                );
+
+                // Salt must be exactly bytes32 (protocol encodes it as bytes32)
+                const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
+                expect(() => validateRemoveLiquidityIntent(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
                 );
             });
         });
@@ -1890,6 +1924,13 @@ describe("Validation Functions", () => {
                 expect(() => validateRemoveLiquidityIntentOnchain(zeroAmount)).toThrow(
                     TurbineError
                 );
+
+                // Salt shorter than bytes32 must be rejected at the validation
+                // boundary, not deferred to the bytes32 ABI encoder.
+                const shortSalt = { ...validIntent, salt: "0x1234" };
+                expect(() =>
+                    validateRemoveLiquidityIntentOnchain(shortSalt)
+                ).toThrow(/must be a 32-byte hash/);
             });
         });
 

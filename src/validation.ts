@@ -508,7 +508,7 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
             partialFill: validateBoolean,
             callData: validateHex,
             callDataTarget: validateAddress,
-            salt: validateHex,
+            salt: validateHash,
         },
         "orderIntent"
     );
@@ -587,7 +587,7 @@ export function validateAddLiquidityIntent(intent: unknown): AddLiquidityIntent 
             token0Amount: validateNonNegativeBigInt,
             token1Amount: validateNonNegativeBigInt,
             exact: validateBoolean,
-            salt: validateHex,
+            salt: validateHash,
         },
         "addLiquidityIntent"
     );
@@ -623,7 +623,7 @@ export function validateRemoveLiquidityIntent(intent: unknown): RemoveLiquidityI
             fee: validateFee,
             lpToken: validateAddress,
             lpTokenAmount: validatePositiveBigInt,
-            salt: validateHex,
+            salt: validateHash,
         },
         "removeLiquidityIntent"
     );
@@ -805,7 +805,7 @@ export function validateRemoveLiquidityIntentOnchain(intent: unknown): void {
             owner: validateAddress,
             poolId: validateHash,
             lpTokenAmount: validatePositiveBigInt,
-            salt: validateHex,
+            salt: validateHash,
         },
         "removeLiquidityIntentOnchain"
     );
