@@ -10,6 +10,7 @@ import { SpreadCurve } from "./models";
 
 /** A flat curve that returns the same delta across the entire order window. */
 export function constant(deltaBps: number): SpreadCurve {
+    validateIntInDomain(deltaBps, "deltaBps", MIN_DELTA_BPS, MAX_DELTA_BPS);
     return {
         startDeltaBps: deltaBps,
         endDeltaBps: deltaBps,
