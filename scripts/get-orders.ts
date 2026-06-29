@@ -4,10 +4,8 @@ import { createPublicClient, createWalletClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import { TurbineClient } from "../src/turbineClient";
 import { GetOrdersOptions, OrderState } from "../src/models";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
-
-const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://localhost:8080/api";
 
 function displayPage(label: string, orders: OrderState[]): void {
     console.log("\n" + "=".repeat(80));
@@ -58,11 +56,7 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const client = await TurbineClient.create(
-        walletClient,
-        publicClient,
-        TURBINE_API_URL
-    );
+    const client = await TurbineClient.create(walletClient, publicClient);
     console.log(`👤 Account: ${account.address}`);
 
     const all = await run(client, "All orders (no filters)", {});

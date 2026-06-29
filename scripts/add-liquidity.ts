@@ -97,11 +97,7 @@ async function main() {
     }
 
     // Create the TurbineClient for submitting the intent
-    const turbineClient = await TurbineClient.create(
-        walletClient,
-        publicClient,
-        TURBINE_API_URL
-    );
+    const turbineClient = await TurbineClient.create(walletClient, publicClient);
 
     // Build the liquidity intent
     const liquidityIntent: AddLiquidityIntent = {
