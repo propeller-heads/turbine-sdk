@@ -286,15 +286,14 @@ export function verifyKeystore(
         const key = Keystore.toKey(keystoreObj, { password });
         decryptedPrivateKey = Keystore.decrypt(keystoreObj, key) as Hex;
     } catch {
-        throw new Error(
-            "Keystore verification failed: could not decrypt written file"
-        );
+        throw new Error("Keystore verification failed: could not decrypt written file");
     }
 
-    if (!decryptedPrivateKey || decryptedPrivateKey.toLowerCase() !== expectedPrivateKey.toLowerCase()) {
-        throw new Error(
-            "Keystore verification failed: decrypted key does not match"
-        );
+    if (
+        !decryptedPrivateKey ||
+        decryptedPrivateKey.toLowerCase() !== expectedPrivateKey.toLowerCase()
+    ) {
+        throw new Error("Keystore verification failed: decrypted key does not match");
     }
 }
 

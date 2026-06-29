@@ -1154,7 +1154,13 @@ function validateResolvedCurveDeltaBps(value: unknown, fieldName: string): void 
 function validateResolvedSpreadCurveResponse(value: unknown, fieldName: string): void {
     const obj = validateObject(value, fieldName) as Record<string, unknown>;
 
-    const requiredFields = ["startSecs", "endSecs", "startDeltaBps", "endDeltaBps", "points"];
+    const requiredFields = [
+        "startSecs",
+        "endSecs",
+        "startDeltaBps",
+        "endDeltaBps",
+        "points",
+    ];
     for (const field of requiredFields) {
         if (!(field in obj)) {
             throw new TurbineError(
@@ -1197,7 +1203,10 @@ function validateResolvedSpreadCurveResponse(value: unknown, fieldName: string):
             );
         }
         validateBigIntConvertible(p.timeSecs, `${fieldName}.points[${index}].timeSecs`);
-        validateResolvedCurveDeltaBps(p.deltaBps, `${fieldName}.points[${index}].deltaBps`);
+        validateResolvedCurveDeltaBps(
+            p.deltaBps,
+            `${fieldName}.points[${index}].deltaBps`
+        );
     });
 }
 
@@ -1240,7 +1249,10 @@ export function validateOrderDetailsResponse(value: unknown): void {
     validatePrice(detailsAny.limitPrice, "orderDetails.limitPrice");
     validateBigIntConvertible(detailsAny.startTime, "orderDetails.startTime");
     validateBigIntConvertible(detailsAny.endTime, "orderDetails.endTime");
-    validateResolvedSpreadCurveResponse(detailsAny.spreadCurve, "orderDetails.spreadCurve");
+    validateResolvedSpreadCurveResponse(
+        detailsAny.spreadCurve,
+        "orderDetails.spreadCurve"
+    );
     validateString(detailsAny.createdTimestamp, "orderDetails.createdTimestamp");
 }
 

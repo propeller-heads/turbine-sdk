@@ -1935,9 +1935,9 @@ describe("Validation Functions", () => {
                 // Salt shorter than bytes32 must be rejected at the validation
                 // boundary, not deferred to the bytes32 ABI encoder.
                 const shortSalt = { ...validIntent, salt: "0x1234" };
-                expect(() =>
-                    validateRemoveLiquidityIntentOnchain(shortSalt)
-                ).toThrow(/must be a 32-byte hash/);
+                expect(() => validateRemoveLiquidityIntentOnchain(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
             });
         });
 
@@ -2183,7 +2183,9 @@ describe("Validation Functions", () => {
 
             it("should validate turbine config correctly", () => {
                 // Valid config
-                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)).not.toThrow();
+                expect(() =>
+                    validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)
+                ).not.toThrow();
 
                 // Missing field
                 const missingField = { ...MOCK_TURBINE_CONFIG };
@@ -2225,7 +2227,9 @@ describe("Validation Functions", () => {
                 ).toThrow(TurbineError);
 
                 // Optional minTradeSizeUsdc: absent is valid (backwards compat)
-                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)).not.toThrow();
+                expect(() =>
+                    validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)
+                ).not.toThrow();
 
                 // Optional minTradeSizeUsdc: decimal string converted to bigint
                 const withMinTradeSize = {
@@ -2465,7 +2469,9 @@ describe("Validation Functions", () => {
                         ...validDetails,
                         spreadCurve: partialCurve,
                     })
-                ).toThrow(/orderDetails\.spreadCurve is missing required field: startSecs/);
+                ).toThrow(
+                    /orderDetails\.spreadCurve is missing required field: startSecs/
+                );
             });
 
             it("rejects a non-array points field", () => {
@@ -2494,7 +2500,10 @@ describe("Validation Functions", () => {
                 expect(() =>
                     validateOrderDetailsResponse({
                         ...validDetails,
-                        spreadCurve: { ...validDetails.spreadCurve, startDeltaBps: 50000 },
+                        spreadCurve: {
+                            ...validDetails.spreadCurve,
+                            startDeltaBps: 50000,
+                        },
                     })
                 ).toThrow(/orderDetails\.spreadCurve\.startDeltaBps must be in/);
             });
@@ -2508,7 +2517,9 @@ describe("Validation Functions", () => {
                             points: [{ timeSecs: 1713307200, deltaBps: -20000 }],
                         },
                     })
-                ).toThrow(/orderDetails\.spreadCurve\.points\[0\]\.deltaBps must be in/);
+                ).toThrow(
+                    /orderDetails\.spreadCurve\.points\[0\]\.deltaBps must be in/
+                );
             });
 
             it("rejects a point missing deltaBps", () => {
