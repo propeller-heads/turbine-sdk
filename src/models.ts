@@ -247,14 +247,7 @@ export interface OrderIntent {
     /** Minimum buy amount, effectively defining limit price. */
     minBuyAmount: bigint;
     /** Piecewise-linear spread curve over the order window. */
-    spreadCurve?: SpreadCurve;
-    /**
-     * Constant spread in basis points, signed `[-10_000, 9_999]`.
-     *
-     * @deprecated Use {@link spreadCurve}. Exactly one of `spreadCurve`
-     * or `midPriceDelta` must be set.
-     */
-    midPriceDelta?: number;
+    spreadCurve: SpreadCurve;
     /**
      * Unix timestamp since when the order is valid.
      * Note: only immediately valid orders are supported for now.

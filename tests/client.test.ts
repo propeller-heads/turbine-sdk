@@ -20,7 +20,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
-import { LiquidityIntentStatus, OrderIntent } from "../src/models";
+import { LiquidityIntentStatus } from "../src/models";
 import { turbineHookABI } from "../src/abi";
 
 // Helper function to mock authentication
@@ -151,38 +151,6 @@ describe("TurbineClient", () => {
 
             expect(orderIds).toEqual(mockOrderIds);
             expect(mockCallAPI).toHaveBeenCalledTimes(1);
-        });
-
-        it("converts legacy midPriceDelta to spreadCurve", async () => {
-            const mockOrderId =
-                "0x1111111111111111111111111111111111111111111111111111111111111111";
-            const client = await createMockTurbineClient();
-            mockAuthentication(client, ACCOUNT.address);
-
-            const mockCallAPI = jest
-                .spyOn(client as any, "callApiEndpoint")
-                .mockResolvedValue(
-                    new Response(JSON.stringify([{ orderHash: mockOrderId }]), {
-                        status: 200,
-                        statusText: "OK",
-                    })
-                );
-
-            const { spreadCurve: _omit, ...rest } = ORDER_INTENT;
-            const legacyIntent = { ...rest, midPriceDelta: 5 } as OrderIntent;
-
-            await withTurbineErrorHandling(() => client.addOrders([legacyIntent]));
-
-            expect(mockCallAPI).toHaveBeenCalledTimes(1);
-            const [payload, endpoint] = mockCallAPI.mock.calls[0] as [any, string];
-            expect(endpoint).toBe("add_orders");
-            expect(payload).toHaveLength(1);
-            expect(payload[0].order.spreadCurve).toEqual({
-                startDeltaBps: 5,
-                endDeltaBps: 5,
-                points: [],
-            });
-            expect(payload[0].order.midPriceDelta).toBeUndefined();
         });
 
         it("attaches per-order annotations aligned by index", async () => {

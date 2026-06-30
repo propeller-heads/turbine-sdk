@@ -1317,13 +1317,6 @@ describe("Validation Functions", () => {
                     /endTime must be greater than startTime/
                 );
 
-                // Missing both spreadCurve and midPriceDelta is rejected.
-                const missingCurve = createValid();
-                delete (missingCurve as any).spreadCurve;
-                expect(() => validateOrderIntent(missingCurve)).toThrow(
-                    /`spreadCurve` is required/
-                );
-
                 // Salt must be exactly bytes32 (protocol encodes it as bytes32)
                 const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
                 expect(() => validateOrderIntent(shortSalt)).toThrow(
@@ -1466,95 +1459,6 @@ describe("Validation Functions", () => {
                 };
 
                 expect(() => validateOrderIntent(smart)).not.toThrow();
-            });
-
-            it("accepts deprecated midPriceDelta and converts to a flat spreadCurve", () => {
-                const now = BigInt(Math.floor(Date.now() / 1000));
-                const legacy: any = {
-                    owner: ACCOUNT.address,
-                    sellToken: USDC.address,
-                    buyToken: WETH.address,
-                    sellAmount: 1000000n,
-                    minBuyAmount: 950000n,
-                    midPriceDelta: 500,
-                    startTime: now,
-                    endTime: now + 3600n,
-                    partialFill: true,
-                    callData: "0x" as Hex,
-                    callDataTarget: NULL_ADDRESS,
-                    salt: ("0x" + "1".repeat(64)) as Hex,
-                };
-
-                const validated = validateOrderIntent(legacy);
-                expect(validated.spreadCurve).toEqual(spreads.constant(500));
-                expect((validated as any).midPriceDelta).toBeUndefined();
-            });
-
-            it("accepts negative midPriceDelta", () => {
-                const now = BigInt(Math.floor(Date.now() / 1000));
-                const validated = validateOrderIntent({
-                    owner: ACCOUNT.address,
-                    sellToken: USDC.address,
-                    buyToken: WETH.address,
-                    sellAmount: 1000000n,
-                    minBuyAmount: 950000n,
-                    midPriceDelta: -1000,
-                    startTime: now,
-                    endTime: now + 3600n,
-                    partialFill: true,
-                    callData: "0x" as Hex,
-                    callDataTarget: NULL_ADDRESS,
-                    salt: ("0x" + "1".repeat(64)) as Hex,
-                } as any);
-                expect(validated.spreadCurve).toEqual(spreads.constant(-1000));
-            });
-
-            it("rejects both spreadCurve and midPriceDelta set", () => {
-                const now = BigInt(Math.floor(Date.now() / 1000));
-                expect(() =>
-                    validateOrderIntent({
-                        owner: ACCOUNT.address,
-                        sellToken: USDC.address,
-                        buyToken: WETH.address,
-                        sellAmount: 1000000n,
-                        minBuyAmount: 950000n,
-                        spreadCurve: spreads.constant(500),
-                        midPriceDelta: 500,
-                        startTime: now,
-                        endTime: now + 3600n,
-                        partialFill: true,
-                        callData: "0x" as Hex,
-                        callDataTarget: NULL_ADDRESS,
-                        salt: ("0x" + "1".repeat(64)) as Hex,
-                    } as any)
-                ).toThrow(/pass `spreadCurve` or `midPriceDelta`, not both/);
-            });
-
-            it("rejects non-integer / out-of-range midPriceDelta", () => {
-                const now = BigInt(Math.floor(Date.now() / 1000));
-                const base: any = {
-                    owner: ACCOUNT.address,
-                    sellToken: USDC.address,
-                    buyToken: WETH.address,
-                    sellAmount: 1000000n,
-                    minBuyAmount: 950000n,
-                    startTime: now,
-                    endTime: now + 3600n,
-                    partialFill: true,
-                    callData: "0x" as Hex,
-                    callDataTarget: NULL_ADDRESS,
-                    salt: ("0x" + "1".repeat(64)) as Hex,
-                };
-
-                expect(() =>
-                    validateOrderIntent({ ...base, midPriceDelta: 1.5 })
-                ).toThrow(/must be an integer/);
-                expect(() =>
-                    validateOrderIntent({ ...base, midPriceDelta: 10000 })
-                ).toThrow(/must be in \[-10000, 9999\]/);
-                expect(() =>
-                    validateOrderIntent({ ...base, midPriceDelta: -10001 })
-                ).toThrow(/must be in \[-10000, 9999\]/);
             });
 
             it("rejects half-set callData/callDataTarget", () => {
