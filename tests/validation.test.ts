@@ -1,7 +1,13 @@
 import { describe, expect, it } from "@jest/globals";
 import { Address, Hex } from "viem";
 import { TurbineError } from "../src/errorHandling";
-import { NULL_ADDRESS, USDC, WETH } from "../src/constants";
+import {
+    MAX_SPREAD_CURVE_POINTS,
+    NULL_ADDRESS,
+    USDC,
+    WBTC,
+    WETH,
+} from "../src/constants";
 import {
     validateNumber,
     validatePositiveBigInt,
@@ -40,6 +46,7 @@ import {
     validateOrderExecutionResponse,
     validatePrice,
     validateOrderStateResponse,
+    validateOrderDetailsResponse,
     validateLiquidityIntentStateResponse,
     hexToSignature,
     parseSignatureBytes,
@@ -288,6 +295,32 @@ describe("Validation Functions", () => {
 
                 // Invalid: object
                 expect(() => validateBigIntConvertible({}, "testBigInt")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: type-confused values that BigInt() would silently
+                // coerce to 0n/1n instead of rejecting
+                expect(() => validateBigIntConvertible(true, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible(false, "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible("", "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible("   ", "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible([], "testBigInt")).toThrow(
+                    TurbineError
+                );
+                expect(() => validateBigIntConvertible(["5"], "testBigInt")).toThrow(
+                    TurbineError
+                );
+
+                // Invalid: non-integer number
+                expect(() => validateBigIntConvertible(1.5, "testBigInt")).toThrow(
                     TurbineError
                 );
 
@@ -1290,6 +1323,20 @@ describe("Validation Functions", () => {
                 expect(() => validateOrderIntent(missingCurve)).toThrow(
                     /`spreadCurve` is required/
                 );
+
+                // Salt must be exactly bytes32 (protocol encodes it as bytes32)
+                const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
+                expect(() => validateOrderIntent(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
+
+                const oversizedSalt = {
+                    ...createValid(),
+                    salt: ("0x" + "ab".repeat(4096)) as Hex,
+                };
+                expect(() => validateOrderIntent(oversizedSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
             });
 
             it("rejects curves whose windowBps truncate to order boundaries (short duration)", () => {
@@ -1609,6 +1656,20 @@ describe("Validation Functions", () => {
                 expect(() => validateAddLiquidityIntent(bothZero)).toThrow(
                     /At least one token amount must be greater than zero/
                 );
+
+                // Salt must be exactly bytes32 (protocol encodes it as bytes32)
+                const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
+                expect(() => validateAddLiquidityIntent(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
+
+                const oversizedSalt = {
+                    ...createValid(),
+                    salt: ("0x" + "ab".repeat(4096)) as Hex,
+                };
+                expect(() => validateAddLiquidityIntent(oversizedSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
             });
         });
 
@@ -1656,6 +1717,12 @@ describe("Validation Functions", () => {
                 );
                 expect(() => validateRemoveLiquidityIntent(zeroAmount)).toThrow(
                     /removeLiquidityIntent.lpTokenAmount must be positive/
+                );
+
+                // Salt must be exactly bytes32 (protocol encodes it as bytes32)
+                const shortSalt = { ...createValid(), salt: "0x1234" as Hex };
+                expect(() => validateRemoveLiquidityIntent(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
                 );
             });
         });
@@ -1864,6 +1931,13 @@ describe("Validation Functions", () => {
                 expect(() => validateRemoveLiquidityIntentOnchain(zeroAmount)).toThrow(
                     TurbineError
                 );
+
+                // Salt shorter than bytes32 must be rejected at the validation
+                // boundary, not deferred to the bytes32 ABI encoder.
+                const shortSalt = { ...validIntent, salt: "0x1234" };
+                expect(() => validateRemoveLiquidityIntentOnchain(shortSalt)).toThrow(
+                    /must be a 32-byte hash/
+                );
             });
         });
 
@@ -1880,7 +1954,20 @@ describe("Validation Functions", () => {
                         exact: true,
                         salt: ("0x" + "1".repeat(64)) as Hex,
                     },
-                    permitTokens: VALID_SIGNED_BATCH_SIGNATURE_TRANSFER,
+                    permitTokens: {
+                        signature: VALID_PRIMITIVE_SIGNATURE,
+                        permit: {
+                            permitted: [
+                                { token: USDC.address as Address, amount: 1000000n },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                            nonce: 0n,
+                            deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                        },
+                    },
                 };
 
                 // Valid payload
@@ -1948,6 +2035,101 @@ describe("Validation Functions", () => {
                         singleSidedPayload.permitTokens
                     )
                 ).not.toThrow();
+            });
+
+            it("should reject permit arrays not bound to the intent tokens", () => {
+                const basePayload = {
+                    addLiquidity: {
+                        owner: ACCOUNT.address,
+                        token0: USDC.address,
+                        token1: WETH.address,
+                        fee: 3000,
+                        token0Amount: 1000000n,
+                        token1Amount: 1000000000000000000n,
+                        exact: true,
+                        salt: ("0x" + "1".repeat(64)) as Hex,
+                    },
+                    permitTokens: {
+                        signature: VALID_PRIMITIVE_SIGNATURE,
+                        permit: {
+                            permitted: [
+                                { token: USDC.address as Address, amount: 1000000n },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                            nonce: 0n,
+                            deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
+                        },
+                    },
+                };
+
+                // Baseline: tokens match token0/token1 in order
+                expect(() => validateAddLiquidityPayload(basePayload)).not.toThrow();
+
+                // Extra (unbounded) permitted entries beyond the two intent tokens
+                const oversized = {
+                    ...basePayload,
+                    permitTokens: {
+                        ...basePayload.permitTokens,
+                        permit: {
+                            ...basePayload.permitTokens.permit,
+                            permitted: [
+                                ...basePayload.permitTokens.permit.permitted,
+                                { token: WBTC.address as Address, amount: 1n },
+                            ],
+                        },
+                    },
+                };
+                expect(() => validateAddLiquidityPayload(oversized)).toThrow(
+                    TurbineError
+                );
+
+                // Permitted token that is not one of the intent tokens
+                const mismatched = {
+                    ...basePayload,
+                    permitTokens: {
+                        ...basePayload.permitTokens,
+                        permit: {
+                            ...basePayload.permitTokens.permit,
+                            permitted: [
+                                { token: WBTC.address as Address, amount: 1n },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                        },
+                    },
+                };
+                expect(() => validateAddLiquidityPayload(mismatched)).toThrow(
+                    TurbineError
+                );
+
+                // Tokens match the intent but an amount differs
+                const amountMismatch = {
+                    ...basePayload,
+                    permitTokens: {
+                        ...basePayload.permitTokens,
+                        permit: {
+                            ...basePayload.permitTokens.permit,
+                            permitted: [
+                                {
+                                    token: USDC.address as Address,
+                                    amount: basePayload.addLiquidity.token0Amount - 1n,
+                                },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                        },
+                    },
+                };
+                expect(() => validateAddLiquidityPayload(amountMismatch)).toThrow(
+                    TurbineError
+                );
             });
         });
     });
@@ -2021,21 +2203,27 @@ describe("Validation Functions", () => {
         });
 
         describe("validateTurbineConfig", () => {
+            const API_URL = MOCK_TURBINE_CONFIG.siweUri;
+
             it("should validate turbine config correctly", () => {
                 // Valid config
-                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG)).not.toThrow();
+                expect(() =>
+                    validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)
+                ).not.toThrow();
 
                 // Missing field
                 const missingField = { ...MOCK_TURBINE_CONFIG };
                 delete (missingField as any).turbineSettlerAddress;
-                expect(() => validateTurbineConfig(missingField)).toThrow(TurbineError);
+                expect(() => validateTurbineConfig(missingField, API_URL)).toThrow(
+                    TurbineError
+                );
 
                 // Invalid address
                 const invalidAddress = {
                     ...MOCK_TURBINE_CONFIG,
                     turbineSettlerAddress: "invalid",
                 };
-                expect(() => validateTurbineConfig(invalidAddress)).toThrow(
+                expect(() => validateTurbineConfig(invalidAddress, API_URL)).toThrow(
                     TurbineError
                 );
 
@@ -2044,51 +2232,89 @@ describe("Validation Functions", () => {
                     ...MOCK_TURBINE_CONFIG,
                     submitSettlements: "true",
                 };
-                expect(() => validateTurbineConfig(invalidBoolean)).toThrow(
+                expect(() => validateTurbineConfig(invalidBoolean, API_URL)).toThrow(
                     TurbineError
                 );
 
+                // Invalid siweUri (not a URL)
+                const invalidSiweUri = { ...MOCK_TURBINE_CONFIG, siweUri: "not a url" };
+                expect(() => validateTurbineConfig(invalidSiweUri, API_URL)).toThrow(
+                    TurbineError
+                );
+
+                // siweUri not matching the configured API URL
+                expect(() =>
+                    validateTurbineConfig(
+                        MOCK_TURBINE_CONFIG,
+                        "https://different-api.example.com"
+                    )
+                ).toThrow(TurbineError);
+
                 // Optional minTradeSizeUsdc: absent is valid (backwards compat)
-                expect(() => validateTurbineConfig(MOCK_TURBINE_CONFIG)).not.toThrow();
+                expect(() =>
+                    validateTurbineConfig(MOCK_TURBINE_CONFIG, API_URL)
+                ).not.toThrow();
 
                 // Optional minTradeSizeUsdc: decimal string converted to bigint
                 const withMinTradeSize = {
                     ...MOCK_TURBINE_CONFIG,
                     minTradeSizeUsdc: "10000000",
                 };
-                expect(validateTurbineConfig(withMinTradeSize).minTradeSizeUsdc).toBe(
-                    10000000n
-                );
+                expect(
+                    validateTurbineConfig(withMinTradeSize, API_URL).minTradeSizeUsdc
+                ).toBe(10000000n);
 
                 // Optional minTradeSizeUsdc: non-numeric string rejected
                 const invalidMinTradeSize = {
                     ...MOCK_TURBINE_CONFIG,
                     minTradeSizeUsdc: "not-a-number",
                 };
-                expect(() => validateTurbineConfig(invalidMinTradeSize)).toThrow(
-                    TurbineError
-                );
+                expect(() =>
+                    validateTurbineConfig(invalidMinTradeSize, API_URL)
+                ).toThrow(TurbineError);
 
                 // Optional minTradeSizeUsdc: zero rejected (min trade size must be > 0)
                 expect(() =>
-                    validateTurbineConfig({
-                        ...MOCK_TURBINE_CONFIG,
-                        minTradeSizeUsdc: "0",
-                    })
+                    validateTurbineConfig(
+                        { ...MOCK_TURBINE_CONFIG, minTradeSizeUsdc: "0" },
+                        API_URL
+                    )
                 ).toThrow(TurbineError);
 
                 // Optional minTradeSizeUsdc: negative rejected
                 expect(() =>
-                    validateTurbineConfig({
-                        ...MOCK_TURBINE_CONFIG,
-                        minTradeSizeUsdc: "-1",
-                    })
+                    validateTurbineConfig(
+                        { ...MOCK_TURBINE_CONFIG, minTradeSizeUsdc: "-1" },
+                        API_URL
+                    )
                 ).toThrow(TurbineError);
             });
         });
     });
 
     describe("API Response Validators", () => {
+        describe("validatePrice", () => {
+            it("should validate a price with non-zero denominator", () => {
+                expect(() =>
+                    validatePrice({ numerator: "1", denominator: "2" }, "price")
+                ).not.toThrow();
+            });
+
+            it("should reject a zero denominator", () => {
+                expect(() =>
+                    validatePrice({ numerator: "1", denominator: "0" }, "price")
+                ).toThrow(/denominator must be non-zero/);
+                expect(() =>
+                    validatePrice({ numerator: 1n, denominator: 0n }, "price")
+                ).toThrow(/denominator must be non-zero/);
+                try {
+                    validatePrice({ numerator: "1", denominator: "0" }, "price");
+                } catch (error) {
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
+                }
+            });
+        });
+
         describe("validateOrderExecutionResponse", () => {
             it("should validate order execution response correctly", () => {
                 const validExecution = {
@@ -2239,6 +2465,120 @@ describe("Validation Functions", () => {
                 const invalidExecution = { ...validState, execution: "not-array" };
                 expect(() => validateOrderStateResponse(invalidExecution)).toThrow(
                     TurbineError
+                );
+            });
+        });
+
+        describe("validateOrderDetailsResponse", () => {
+            const validDetails = {
+                sellToken: VALID_ADDRESS,
+                buyToken: USDC.address,
+                sellAmount: "1000000",
+                limitPrice: { numerator: "1", denominator: "3500" },
+                startTime: "1713264000",
+                endTime: "1713350400",
+                spreadCurve: {
+                    startSecs: 1713264000,
+                    endSecs: 1713350400,
+                    startDeltaBps: 50,
+                    endDeltaBps: 250,
+                    points: [{ timeSecs: 1713307200, deltaBps: 150 }],
+                },
+                createdTimestamp: "2026-04-16T12:00:00",
+            };
+
+            it("accepts a well-formed orderDetails with resolved spreadCurve", () => {
+                expect(() => validateOrderDetailsResponse(validDetails)).not.toThrow();
+            });
+
+            it("accepts an empty points array", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, points: [] },
+                    })
+                ).not.toThrow();
+            });
+
+            it("rejects orderDetails missing spreadCurve", () => {
+                const missing = { ...validDetails };
+                delete (missing as any).spreadCurve;
+                expect(() => validateOrderDetailsResponse(missing)).toThrow(
+                    /missing required field: spreadCurve/
+                );
+            });
+
+            it("rejects a spreadCurve missing a required field", () => {
+                const { startSecs: _omit, ...partialCurve } = validDetails.spreadCurve;
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: partialCurve,
+                    })
+                ).toThrow(
+                    /orderDetails\.spreadCurve is missing required field: startSecs/
+                );
+            });
+
+            it("rejects a non-array points field", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, points: 5 },
+                    })
+                ).toThrow(/orderDetails\.spreadCurve\.points must be an array/);
+            });
+
+            it("rejects a points array over the cap", () => {
+                const tooMany = Array.from(
+                    { length: MAX_SPREAD_CURVE_POINTS + 1 },
+                    (_, i) => ({ timeSecs: i + 1, deltaBps: 1 })
+                );
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: { ...validDetails.spreadCurve, points: tooMany },
+                    })
+                ).toThrow(/points has \d+ entries; max is/);
+            });
+
+            it("rejects an out-of-range startDeltaBps", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: {
+                            ...validDetails.spreadCurve,
+                            startDeltaBps: 50000,
+                        },
+                    })
+                ).toThrow(/orderDetails\.spreadCurve\.startDeltaBps must be in/);
+            });
+
+            it("rejects an out-of-range deltaBps inside a point", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: {
+                            ...validDetails.spreadCurve,
+                            points: [{ timeSecs: 1713307200, deltaBps: -20000 }],
+                        },
+                    })
+                ).toThrow(
+                    /orderDetails\.spreadCurve\.points\[0\]\.deltaBps must be in/
+                );
+            });
+
+            it("rejects a point missing deltaBps", () => {
+                expect(() =>
+                    validateOrderDetailsResponse({
+                        ...validDetails,
+                        spreadCurve: {
+                            ...validDetails.spreadCurve,
+                            points: [{ timeSecs: 1713307200 }],
+                        },
+                    })
+                ).toThrow(
+                    /orderDetails\.spreadCurve\.points\[0\] must have timeSecs and deltaBps/
                 );
             });
         });

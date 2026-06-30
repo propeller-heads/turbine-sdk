@@ -65,6 +65,20 @@ describe("spreads", () => {
                 points: [],
             });
         });
+
+        it("rejects out-of-domain deltaBps", () => {
+            expect(() => spreads.constant(MAX_DELTA_BPS + 1)).toThrow(
+                /deltaBps must be in/
+            );
+            expect(() => spreads.constant(MIN_DELTA_BPS - 1)).toThrow(
+                /deltaBps must be in/
+            );
+        });
+
+        it("accepts boundary deltaBps", () => {
+            expect(() => spreads.constant(MIN_DELTA_BPS)).not.toThrow();
+            expect(() => spreads.constant(MAX_DELTA_BPS)).not.toThrow();
+        });
     });
 
     describe("fast", () => {
@@ -133,6 +147,24 @@ describe("spreads", () => {
             for (let i = 1; i < deltas.length; i++) {
                 expect(deltas[i]).toBeGreaterThanOrEqual(deltas[i - 1]);
             }
+        });
+
+        it("keeps metadata consistent with the clamped curve at the bound", () => {
+            const { curve, metadata } = spreads.fast(MAX_DELTA_BPS, 1);
+
+            const knot8000 = curve.points.find((p) => p.windowBps === 8000)!;
+            const realistic = metadata.realisticSpreadComponents;
+            const max = metadata.maxSpreadComponents;
+
+            // Realistic decomposition matches the 8000 knot; max matches the endpoint.
+            expect(
+                realistic.fastSpreadBps + realistic.feeBps + realistic.bufferBps
+            ).toBe(knot8000.deltaBps);
+            expect(max.fastSpreadBps + max.feeBps + max.bufferBps).toBe(
+                curve.endDeltaBps
+            );
+            expect(curve.endDeltaBps).toBeLessThanOrEqual(MAX_DELTA_BPS);
+            assertCurveWithinBounds(curve);
         });
     });
 

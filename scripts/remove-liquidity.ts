@@ -52,6 +52,13 @@ async function main() {
         args: [account.address],
     });
 
+    if (lpTokenBalance === 0n) {
+        console.error(
+            `\n❌ Account ${account.address} holds no LP tokens for ${pool.token0.symbol}/${pool.token1.symbol}; nothing to remove.`
+        );
+        process.exit(1);
+    }
+
     const lpTokenToBurn = lpTokenBalance / 5n; // Burn 20% of the balance
 
     // Create liquidity removal intent

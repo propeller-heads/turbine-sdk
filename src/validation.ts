@@ -59,6 +59,7 @@ import {
     validateBlockNumber,
     validateArray,
     validateFields,
+    validateUrlString,
 } from "./validationPrimitives";
 export * from "./validationPrimitives";
 
@@ -507,7 +508,7 @@ export function validateOrderIntent(intent: unknown): OrderIntent {
             partialFill: validateBoolean,
             callData: validateHex,
             callDataTarget: validateAddress,
-            salt: validateHex,
+            salt: validateHash,
         },
         "orderIntent"
     );
@@ -586,7 +587,7 @@ export function validateAddLiquidityIntent(intent: unknown): AddLiquidityIntent 
             token0Amount: validateNonNegativeBigInt,
             token1Amount: validateNonNegativeBigInt,
             exact: validateBoolean,
-            salt: validateHex,
+            salt: validateHash,
         },
         "addLiquidityIntent"
     );
@@ -622,7 +623,7 @@ export function validateRemoveLiquidityIntent(intent: unknown): RemoveLiquidityI
             fee: validateFee,
             lpToken: validateAddress,
             lpTokenAmount: validatePositiveBigInt,
-            salt: validateHex,
+            salt: validateHash,
         },
         "removeLiquidityIntent"
     );
@@ -804,7 +805,7 @@ export function validateRemoveLiquidityIntentOnchain(intent: unknown): void {
             owner: validateAddress,
             poolId: validateHash,
             lpTokenAmount: validatePositiveBigInt,
-            salt: validateHex,
+            salt: validateHash,
         },
         "removeLiquidityIntentOnchain"
     );
@@ -833,6 +834,35 @@ export function validateAddLiquidityPayload(payload: unknown): void {
 
     validateAddLiquidityIntent(payloadAny.addLiquidity);
     validateSignedBatchSignatureTransfer(payloadAny.permitTokens);
+
+    // Bind the batch permit to the intent: exactly [token0, token1] / [token0Amount, token1Amount].
+    const { token0, token1, token0Amount, token1Amount } = payloadAny.addLiquidity;
+    const permitted = payloadAny.permitTokens.permit.permitted;
+    const expected = [
+        { token: token0, amount: token0Amount },
+        { token: token1, amount: token1Amount },
+    ];
+
+    if (permitted.length !== expected.length) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `addLiquidityPayload.permitTokens.permit.permitted must have exactly 2 entries, got ${permitted.length}`,
+            { expectedLength: 2, actualLength: permitted.length }
+        );
+    }
+
+    permitted.forEach((p: TokenPermissions, i: number) => {
+        if (
+            p.token.toLowerCase() !== expected[i].token.toLowerCase() ||
+            p.amount !== expected[i].amount
+        ) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `addLiquidityPayload.permitTokens.permit.permitted[${i}] must match addLiquidity ${i === 0 ? "token0/token0Amount" : "token1/token1Amount"}`,
+                { index: i, expected: expected[i], actual: p }
+            );
+        }
+    });
 }
 
 // ============================================================================
@@ -937,7 +967,10 @@ export function validateTurbineToken(token: unknown, fieldName: string): Turbine
     );
 }
 
-export function validateTurbineConfig(config: unknown): TurbineConfig {
+export function validateTurbineConfig(
+    config: unknown,
+    turbineApiUrl: string
+): TurbineConfig {
     const validated = validateFields<TurbineConfig>(
         config,
         {
@@ -947,7 +980,7 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
             poolManagerAddress: validateAddress,
             submitSettlements: validateBoolean,
             siweDomain: validateString,
-            siweUri: validateString,
+            siweUri: validateUrlString,
             tokens: (value: unknown, name: string) =>
                 validateArray(value, name, (item, index) =>
                     validateTurbineToken(item, `${name}[${index}]`)
@@ -955,6 +988,18 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
         },
         "TurbineConfig"
     );
+
+    if (validated.siweUri !== turbineApiUrl) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `TurbineConfig.siweUri received from the server should be the same as the Turbine API URL configured in the client; got "${validated.siweUri}" but expected "${turbineApiUrl}"`,
+            {
+                fieldName: "TurbineConfig.siweUri",
+                receivedValue: validated.siweUri,
+                expectedValue: turbineApiUrl,
+            }
+        );
+    }
 
     const minTradeSizeUsdc = (config as Record<string, unknown>).minTradeSizeUsdc;
     if (minTradeSizeUsdc !== undefined && minTradeSizeUsdc !== null) {
@@ -984,7 +1029,7 @@ export function validateTurbineConfig(config: unknown): TurbineConfig {
  * @throws TurbineError if validation fails
  */
 export function validatePrice(value: unknown, fieldName: string): Price {
-    return validateFields<Price>(
+    const price = validateFields<Price>(
         value,
         {
             numerator: validateBigIntConvertible,
@@ -992,6 +1037,16 @@ export function validatePrice(value: unknown, fieldName: string): Price {
         },
         fieldName
     );
+
+    if (price.denominator === 0n) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName}.denominator must be non-zero, got 0`,
+            { fieldName: `${fieldName}.denominator`, receivedValue: price.denominator }
+        );
+    }
+
+    return price;
 }
 
 /**
@@ -1076,6 +1131,85 @@ export function validateOrderStateResponse(value: unknown): void {
     }
 }
 
+/** Validate a `deltaBps` field on a resolved (response-side) spread curve. */
+function validateResolvedCurveDeltaBps(value: unknown, fieldName: string): void {
+    const n = validateBigIntConvertible(value, fieldName);
+    if (n < BigInt(MIN_DELTA_BPS) || n > BigInt(MAX_DELTA_BPS)) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName} must be in [${MIN_DELTA_BPS}, ${MAX_DELTA_BPS}], got ${n}`,
+            { fieldName, receivedValue: value }
+        );
+    }
+}
+
+/**
+ * Validates a raw ResolvedSpreadCurve response from the API.
+ *
+ * Mirrors the fields `parseOrderState` dereferences: `startSecs`, `endSecs`,
+ * `startDeltaBps`, `endDeltaBps`, and a `points` array of `{ timeSecs, deltaBps }`.
+ * Required because the parser reads them unconditionally; the `points` length is
+ * capped to match the request-side {@link validateSpreadCurve} DoS guard.
+ */
+function validateResolvedSpreadCurveResponse(value: unknown, fieldName: string): void {
+    const obj = validateObject(value, fieldName) as Record<string, unknown>;
+
+    const requiredFields = [
+        "startSecs",
+        "endSecs",
+        "startDeltaBps",
+        "endDeltaBps",
+        "points",
+    ];
+    for (const field of requiredFields) {
+        if (!(field in obj)) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName} is missing required field: ${field}`,
+                { field, receivedValue: value }
+            );
+        }
+    }
+
+    validateBigIntConvertible(obj.startSecs, `${fieldName}.startSecs`);
+    validateBigIntConvertible(obj.endSecs, `${fieldName}.endSecs`);
+    validateResolvedCurveDeltaBps(obj.startDeltaBps, `${fieldName}.startDeltaBps`);
+    validateResolvedCurveDeltaBps(obj.endDeltaBps, `${fieldName}.endDeltaBps`);
+
+    if (!Array.isArray(obj.points)) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName}.points must be an array`,
+            { fieldName: `${fieldName}.points`, receivedValue: obj.points }
+        );
+    }
+    if (obj.points.length > MAX_SPREAD_CURVE_POINTS) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `${fieldName}.points has ${obj.points.length} entries; max is ${MAX_SPREAD_CURVE_POINTS}`,
+            { fieldName: `${fieldName}.points`, receivedValue: obj.points.length }
+        );
+    }
+    obj.points.forEach((point, index) => {
+        const p = validateObject(point, `${fieldName}.points[${index}]`) as Record<
+            string,
+            unknown
+        >;
+        if (!("timeSecs" in p) || !("deltaBps" in p)) {
+            throw new TurbineError(
+                "INPUT_VALIDATION_ERROR",
+                `${fieldName}.points[${index}] must have timeSecs and deltaBps properties`,
+                { fieldName: `${fieldName}.points[${index}]`, receivedValue: point }
+            );
+        }
+        validateBigIntConvertible(p.timeSecs, `${fieldName}.points[${index}].timeSecs`);
+        validateResolvedCurveDeltaBps(
+            p.deltaBps,
+            `${fieldName}.points[${index}].deltaBps`
+        );
+    });
+}
+
 /**
  * Validates a raw OrderDetails response from the API (with camelCase fields).
  * Only validates structure and types, does not transform the data.
@@ -1093,6 +1227,7 @@ export function validateOrderDetailsResponse(value: unknown): void {
         "limitPrice",
         "startTime",
         "endTime",
+        "spreadCurve",
         "createdTimestamp",
     ];
 
@@ -1114,6 +1249,10 @@ export function validateOrderDetailsResponse(value: unknown): void {
     validatePrice(detailsAny.limitPrice, "orderDetails.limitPrice");
     validateBigIntConvertible(detailsAny.startTime, "orderDetails.startTime");
     validateBigIntConvertible(detailsAny.endTime, "orderDetails.endTime");
+    validateResolvedSpreadCurveResponse(
+        detailsAny.spreadCurve,
+        "orderDetails.spreadCurve"
+    );
     validateString(detailsAny.createdTimestamp, "orderDetails.createdTimestamp");
 }
 

@@ -1,6 +1,6 @@
 import { createPublicClient, createWalletClient, Hex, http, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
 import {
     AddLiquidityIntent,
@@ -92,8 +92,8 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
     lpRouterAddress: "0x3456789012345678901234567890123456789012" as Address,
     poolManagerAddress: "0x4567890123456789012345678901234567890123" as Address,
     submitSettlements: true,
-    siweDomain: "test.propellerheads.xyz",
-    siweUri: "https://test-turbine.propellerheads.xyz/api",
+    siweDomain: "https://test.propellerheads.xyz",
+    siweUri: TURBINE_API_URL,
     tokens: [
         {
             address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address,
@@ -114,6 +114,8 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
 export async function createMockTurbineClient(
     customApiUrl?: string
 ): Promise<TurbineClient> {
+    const apiUrl = customApiUrl || TURBINE_API_URL;
+
     // Mock the status check and config fetch
     jest.spyOn(global, "fetch").mockImplementation(
         async (url: string | URL | Request) => {
@@ -124,10 +126,13 @@ export async function createMockTurbineClient(
             }
 
             if (urlString.includes("/config")) {
-                return new Response(JSON.stringify(MOCK_TURBINE_CONFIG), {
-                    status: 200,
-                    headers: { "Content-Type": "application/json" },
-                });
+                return new Response(
+                    JSON.stringify({ ...MOCK_TURBINE_CONFIG, siweUri: apiUrl }),
+                    {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    }
+                );
             }
 
             throw new Error(`Unmocked fetch URL: ${urlString}`);
@@ -170,27 +175,23 @@ export async function createMockTurbineClient(
             "0x111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111b" as Hex, // Added 1b at end for valid v value (v=27)
     });
 
+    // Liquidity permits are signed for the exact intent amounts, so mirror the
+    // real helper and echo back the requested tokens/amounts as the permitted set.
     jest.spyOn(
         await import("../src/permit2SignatureTransfer"),
         "getSignedBatchSignatureTransfer"
-    ).mockResolvedValue({
+    ).mockImplementation(async ({ tokens, amounts }) => ({
         permit: {
-            permitted: [
-                {
-                    token: USDC.address as Address,
-                    amount: BigInt("1000000000000000000000000000000"),
-                },
-                {
-                    token: WETH.address as Address,
-                    amount: BigInt("1000000000000000000000000000000"),
-                },
-            ],
+            permitted: tokens.map((token, i) => ({
+                token,
+                amount: amounts[i],
+            })),
             nonce: 0n,
             deadline: BigInt(Math.floor(Date.now() / 1000) + 3600),
         },
         permitSignature:
             "0x222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222221c" as Hex, // Added 1c at end for valid v value (v=28)
-    });
+    }));
 
     // Mock the getSignedAllowance function to prevent real blockchain calls
     jest.spyOn(await import("../src/permit2"), "getSignedAllowance").mockResolvedValue({

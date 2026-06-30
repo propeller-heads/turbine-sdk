@@ -237,16 +237,64 @@ export async function createKeystore(
         fs.mkdirSync(dir, { recursive: true });
     }
 
-    // Write keystore file
-    fs.writeFileSync(outputPath, keystoreJson, "utf8");
-
-    // Set file permissions to 0600 (owner read/write only) on Unix systems
-    if (process.platform !== "win32") {
-        fs.chmodSync(outputPath, 0o600);
-    }
+    // Write keystore file with restrictive permissions at creation time.
+    // mode 0o600 makes it owner-only readable/writable, and
+    // flag "wx" fails rather than overwriting an existing keystore.
+    fs.writeFileSync(
+        outputPath,
+        keystoreJson,
+        process.platform !== "win32"
+            ? { encoding: "utf8", mode: 0o600, flag: "wx" }
+            : { encoding: "utf8", flag: "wx" }
+    );
 
     console.log(`✅ Keystore created: ${outputPath}`);
     console.log(`📍 Address: ${address}`);
+}
+
+/**
+ * Read a keystore from disk and verify it can be decrypted.
+ * @throws If the file cannot be read, parsed, or decrypted
+ */
+export function verifyKeystore(
+    keystorePath: string,
+    password: string,
+    expectedPrivateKey: Hex
+): void {
+    let keystoreJson: string;
+    try {
+        keystoreJson = fs.readFileSync(keystorePath, "utf8");
+    } catch {
+        throw new Error(
+            `Keystore verification failed: could not read file at ${keystorePath}`
+        );
+    }
+
+    let keystoreObj: any;
+    try {
+        keystoreObj = JSON.parse(keystoreJson);
+    } catch {
+        throw new Error("Keystore verification failed: file is not valid JSON");
+    }
+
+    if (keystoreObj.version !== 3) {
+        throw new Error("Keystore verification failed: unsupported keystore format");
+    }
+
+    let decryptedPrivateKey: Hex | undefined;
+    try {
+        const key = Keystore.toKey(keystoreObj, { password });
+        decryptedPrivateKey = Keystore.decrypt(keystoreObj, key) as Hex;
+    } catch {
+        throw new Error("Keystore verification failed: could not decrypt written file");
+    }
+
+    if (
+        !decryptedPrivateKey ||
+        decryptedPrivateKey.toLowerCase() !== expectedPrivateKey.toLowerCase()
+    ) {
+        throw new Error("Keystore verification failed: decrypted key does not match");
+    }
 }
 
 /**
