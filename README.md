@@ -1,3 +1,5 @@
+<img src=".assets/turbine_logo.svg" alt="Turbine Logo" width="340" height="64"/>
+
 # Turbine SDK
 
 Turbine is a private orderbook built for large and long-running orders to settle peer-to-peer.
