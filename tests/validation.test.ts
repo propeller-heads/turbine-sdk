@@ -1283,13 +1283,6 @@ describe("Validation Functions", () => {
                 expect(() => validateOrderIntent(invalidTimeRange)).toThrow(
                     /endTime must be greater than startTime/
                 );
-
-                // Missing spreadCurve is rejected.
-                const missingCurve = createValid();
-                delete (missingCurve as any).spreadCurve;
-                expect(() => validateOrderIntent(missingCurve)).toThrow(
-                    /`spreadCurve` is required/
-                );
             });
 
             it("rejects curves whose windowBps truncate to order boundaries (short duration)", () => {

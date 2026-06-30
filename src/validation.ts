@@ -438,16 +438,7 @@ export function validatePrimitiveSignature(
  * @throws TurbineError if validation fails
  */
 export function validateOrderIntent(intent: unknown): OrderIntent {
-    const rawObj = validateObject(intent, "orderIntent") as Record<string, unknown>;
-
-    const obj = { ...rawObj };
-    if (obj.spreadCurve === undefined) {
-        throw new TurbineError(
-            "INPUT_VALIDATION_ERROR",
-            "orderIntent: `spreadCurve` is required",
-            { fieldName: "orderIntent.spreadCurve" }
-        );
-    }
+    const obj = validateObject(intent, "orderIntent") as Record<string, unknown>;
 
     // Both `callData` and `callDataTarget` must point at a real target for smart
     // orders, or both unset for regular orders. Reject half-set early — calldata
