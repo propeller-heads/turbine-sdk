@@ -2106,6 +2106,31 @@ describe("Validation Functions", () => {
                 expect(() => validateAddLiquidityPayload(mismatched)).toThrow(
                     TurbineError
                 );
+
+                // Tokens match the intent but an amount differs
+                const amountMismatch = {
+                    ...basePayload,
+                    permitTokens: {
+                        ...basePayload.permitTokens,
+                        permit: {
+                            ...basePayload.permitTokens.permit,
+                            permitted: [
+                                {
+                                    token: USDC.address as Address,
+                                    amount:
+                                        basePayload.addLiquidity.token0Amount - 1n,
+                                },
+                                {
+                                    token: WETH.address as Address,
+                                    amount: 1000000000000000000n,
+                                },
+                            ],
+                        },
+                    },
+                };
+                expect(() => validateAddLiquidityPayload(amountMismatch)).toThrow(
+                    TurbineError
+                );
             });
         });
     });
@@ -2269,6 +2294,30 @@ describe("Validation Functions", () => {
     });
 
     describe("API Response Validators", () => {
+        describe("validatePrice", () => {
+            it("should validate a price with non-zero denominator", () => {
+                expect(() =>
+                    validatePrice({ numerator: "1", denominator: "2" }, "price")
+                ).not.toThrow();
+            });
+
+            it("should reject a zero denominator", () => {
+                expect(() =>
+                    validatePrice({ numerator: "1", denominator: "0" }, "price")
+                ).toThrow(/denominator must be non-zero/);
+                expect(() =>
+                    validatePrice({ numerator: 1n, denominator: 0n }, "price")
+                ).toThrow(/denominator must be non-zero/);
+                try {
+                    validatePrice({ numerator: "1", denominator: "0" }, "price");
+                } catch (error) {
+                    expect((error as TurbineError).code).toBe(
+                        "INPUT_VALIDATION_ERROR"
+                    );
+                }
+            });
+        });
+
         describe("validateOrderExecutionResponse", () => {
             it("should validate order execution response correctly", () => {
                 const validExecution = {

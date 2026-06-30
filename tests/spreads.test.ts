@@ -65,6 +65,20 @@ describe("spreads", () => {
                 points: [],
             });
         });
+
+        it("rejects out-of-domain deltaBps", () => {
+            expect(() => spreads.constant(MAX_DELTA_BPS + 1)).toThrow(
+                /deltaBps must be in/
+            );
+            expect(() => spreads.constant(MIN_DELTA_BPS - 1)).toThrow(
+                /deltaBps must be in/
+            );
+        });
+
+        it("accepts boundary deltaBps", () => {
+            expect(() => spreads.constant(MIN_DELTA_BPS)).not.toThrow();
+            expect(() => spreads.constant(MAX_DELTA_BPS)).not.toThrow();
+        });
     });
 
     describe("fast", () => {
