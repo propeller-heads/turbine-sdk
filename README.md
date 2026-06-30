@@ -75,7 +75,7 @@ const turbineClient = await TurbineClient.create(walletClient, publicClient);
 > When placing orders, SDK automatically adds necessary Permit2 approvals. If you're using a `walletClient` with a private key, these approvals are signed automatically without asking for confirmation.
 
 > [!Note]
-> For the Beta version, Turbine has a limit of 60 active orders per `owner`.
+> For the Beta version, Turbine has a limit of 80 active orders per `owner`.
 
 > [!TIP]
 > You can also submit orders using our frontend: <https://app.turbine.exchange/>
