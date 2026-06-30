@@ -5,12 +5,9 @@ import { mainnet } from "viem/chains";
 import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { RemoveLiquidityIntent } from "../src/models";
 import { USDC, WETH } from "../src/constants";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { balanceOfABI } from "../src/abi";
 import { getAccount } from "./utils/keystore";
-
-// Configuration
-const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 
 async function main() {
     console.log("🚀 Starting Turbine liquidity removal script...");
@@ -27,11 +24,7 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = await TurbineClient.create(
-        walletClient,
-        publicClient,
-        TURBINE_API_URL
-    );
+    const turbineClient = await TurbineClient.create(walletClient, publicClient);
 
     console.log(`👤 Account: ${account.address}`);
     console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
@@ -51,6 +44,13 @@ async function main() {
         functionName: "balanceOf",
         args: [account.address],
     });
+
+    if (lpTokenBalance === 0n) {
+        console.error(
+            `\n❌ Account ${account.address} holds no LP tokens for ${pool.token0.symbol}/${pool.token1.symbol}; nothing to remove.`
+        );
+        process.exit(1);
+    }
 
     const lpTokenToBurn = lpTokenBalance / 5n; // Burn 20% of the balance
 

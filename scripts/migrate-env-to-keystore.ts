@@ -12,10 +12,11 @@
  *   ts-node scripts/migrate-env-to-keystore.ts
  *
  * The script will:
- *   1. Read PRIVATE_KEY from environment (or prompt if not set)
- *   2. Prompt for encryption password
- *   3. Create encrypted keystore file
- *   4. Provide instructions for cleanup
+ *   1. Prompt for keystore filename
+ *   2. Read PRIVATE_KEY from environment (or prompt if not set)
+ *   3. Prompt for encryption password
+ *   4. Create encrypted keystore file
+ *   5. Provide instructions for cleanup
  *
  * Security Notes:
  *   - After migration, remove PRIVATE_KEY from .env files
@@ -26,14 +27,41 @@
 
 import { Hex } from "viem";
 import prompts from "prompts";
+import * as fs from "fs";
 import * as path from "path";
-import { createKeystore } from "./utils/keystore";
+import { createKeystore, verifyKeystore } from "./utils/keystore";
 
 async function main() {
     console.log("🔄 Migrate to Encrypted Keystore");
     console.log("═════════════════════════════════\n");
 
-    // Step 1: Get private key from env or prompt
+    // Step 1: Get keystore name
+    console.log("Step 1: Choose a filename for your keystore\n");
+
+    const defaultName = "default.json";
+    const nameResponse = await prompts({
+        type: "text",
+        name: "filename",
+        message: "📁 Keystore filename:",
+        initial: defaultName,
+    });
+
+    if (!nameResponse.filename) {
+        console.log("\n❌ Operation cancelled");
+        process.exit(1);
+    }
+
+    const filename = nameResponse.filename.trim() || defaultName;
+    const finalFilename = filename.endsWith(".json") ? filename : `${filename}.json`;
+    const outputPath = path.resolve(process.cwd(), "scripts/.keystores", finalFilename);
+
+    if (fs.existsSync(outputPath)) {
+        console.error(`\n❌ Keystore already exists: ${outputPath}`);
+        console.error("Choose a different filename or delete the existing file first.");
+        process.exit(1);
+    }
+
+    // Step 2: Get private key from env or prompt
     let privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -88,8 +116,8 @@ async function main() {
         process.exit(1);
     }
 
-    // Step 2: Get password
-    console.log("Step 1: Choose a strong password for encryption");
+    // Step 3: Get password
+    console.log("Step 2: Choose a strong password for encryption");
     console.log("(Minimum 12 characters recommended)\n");
 
     let password: string;
@@ -127,35 +155,13 @@ async function main() {
         }
     }
 
-    // Step 3: Get keystore name
-    console.log("\nStep 2: Choose a filename for your keystore\n");
-
-    const defaultName = "default.json";
-    const nameResponse = await prompts({
-        type: "text",
-        name: "filename",
-        message: "📁 Keystore filename:",
-        initial: defaultName,
-    });
-
-    if (!nameResponse.filename) {
-        console.log("\n❌ Operation cancelled");
-        process.exit(1);
-    }
-
-    const filename = nameResponse.filename.trim() || defaultName;
-
-    // Ensure .json extension
-    const finalFilename = filename.endsWith(".json") ? filename : `${filename}.json`;
-
-    const outputPath = path.resolve(process.cwd(), "scripts/.keystores", finalFilename);
-
     // Step 4: Create keystore
     console.log("\n🔄 Creating encrypted keystore...");
     console.log("(This may take a few seconds due to secure key derivation)\n");
 
     try {
         await createKeystore(privateKey as Hex, password, outputPath);
+        verifyKeystore(outputPath, password, privateKey as Hex);
 
         console.log("\n✅ SUCCESS! Migration complete.");
         console.log("\n📋 IMPORTANT: Complete these security steps:");

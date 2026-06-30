@@ -4,11 +4,10 @@ import { createPublicClient, createWalletClient, Hex, http, isHash } from "viem"
 import { mainnet } from "viem/chains";
 import { TurbineClient } from "../src/turbineClient";
 import { OrderState } from "../src/models";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
 
 // Configuration
-const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 const POLL_INTERVAL_MS = 12000; // 12 seconds
 
 const hashArgs = process.argv.slice(2);
@@ -94,11 +93,7 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = await TurbineClient.create(
-        walletClient,
-        publicClient,
-        TURBINE_API_URL
-    );
+    const turbineClient = await TurbineClient.create(walletClient, publicClient);
 
     console.log(`👤 Account: ${account.address}`);
     console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
