@@ -2117,8 +2117,7 @@ describe("Validation Functions", () => {
                             permitted: [
                                 {
                                     token: USDC.address as Address,
-                                    amount:
-                                        basePayload.addLiquidity.token0Amount - 1n,
+                                    amount: basePayload.addLiquidity.token0Amount - 1n,
                                 },
                                 {
                                     token: WETH.address as Address,
@@ -2311,9 +2310,7 @@ describe("Validation Functions", () => {
                 try {
                     validatePrice({ numerator: "1", denominator: "0" }, "price");
                 } catch (error) {
-                    expect((error as TurbineError).code).toBe(
-                        "INPUT_VALIDATION_ERROR"
-                    );
+                    expect((error as TurbineError).code).toBe("INPUT_VALIDATION_ERROR");
                 }
             });
         });
