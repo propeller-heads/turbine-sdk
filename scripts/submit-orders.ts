@@ -6,11 +6,8 @@ import { TurbineClient, getRandomSalt } from "../src/turbineClient";
 import { OrderIntent } from "../src/models";
 import * as spreads from "../src/spreads";
 import { USDC, WETH, NULL_ADDRESS } from "../src/constants";
-import { RPC_URL } from "../src/config";
+import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
-
-// Configuration
-const TURBINE_API_URL = process.env.TURBINE_API_URL || "http://0.0.0.0:8080/api";
 
 async function main() {
     console.log("🚀 Starting Turbine order submission script...");
@@ -27,11 +24,7 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = await TurbineClient.create(
-        walletClient,
-        publicClient,
-        TURBINE_API_URL
-    );
+    const turbineClient = await TurbineClient.create(walletClient, publicClient);
 
     console.log(`📝 Account: ${account.address}`);
     console.log(`🔗 Turbine API: ${TURBINE_API_URL}`);
@@ -59,7 +52,7 @@ async function main() {
             buyToken: token1.address,
             sellAmount: maxToken0Amount,
             minBuyAmount: (maxToken1Amount * 75n) / 100n, // 75% of maxToken1Amount
-            spreadCurve: spreads.constant(500), // 5% flat spread
+            spreadCurve: spreads.constant(50), // 0.5% flat spread
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,
@@ -74,7 +67,7 @@ async function main() {
             buyToken: token0.address,
             sellAmount: maxToken1Amount,
             minBuyAmount: (maxToken0Amount * 75n) / 100n, // 75% of maxToken0Amount
-            spreadCurve: spreads.constant(500), // 5% flat spread
+            spreadCurve: spreads.constant(50), // 0.5% flat spread
             startTime: now,
             endTime: now + orderDuration,
             partialFill: true,

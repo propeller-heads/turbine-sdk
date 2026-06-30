@@ -10,7 +10,7 @@
  *
  * Environment Variables:
  * - RPC_URL (optional): RPC endpoint URL for Ethereum mainnet (uses default if not set)
- * - TURBINE_API_URL (optional): Turbine API URL (defaults to http://127.0.0.1:8080/api)
+ * - TURBINE_API_URL (optional): Turbine API URL (defaults to https://api.turbine.exchange/api)
  *
  * Authentication:
  * - Uses encrypted keystore from scripts/.keystores/ (run 'yarn create-keystore' to set up)
