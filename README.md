@@ -1,4 +1,8 @@
-<img src=".assets/turbine_logo.svg" alt="Turbine Logo" width="340" height="64"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".assets/turbine_logo_light.svg">
+  <source media="(prefers-color-scheme: light)" srcset=".assets/turbine_logo_dark.svg">
+  <img src=".assets/turbine_logo_dark.svg" alt="Turbine Logo" width="340" height="64">
+</picture>
 
 # Turbine SDK
 
