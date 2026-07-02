@@ -2122,6 +2122,13 @@ describe("Validation Functions", () => {
                     TurbineError
                 );
 
+                // Missing version (required)
+                const missingVersion = { ...MOCK_TURBINE_CONFIG };
+                delete (missingVersion as any).version;
+                expect(() =>
+                    validateTurbineConfig(missingVersion, API_URL)
+                ).toThrow(TurbineError);
+
                 // Invalid address
                 const invalidAddress = {
                     ...MOCK_TURBINE_CONFIG,
