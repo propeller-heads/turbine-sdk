@@ -87,6 +87,7 @@ export const REMOVE_LIQUIDITY_INTENT: RemoveLiquidityIntent = {
 
 // Mock configuration for testing
 export const MOCK_TURBINE_CONFIG: TurbineConfig = {
+    version: "0.135.0",
     turbineSettlerAddress: "0x1234567890123456789012345678901234567890" as Address,
     lpHookAddress: "0x2345678901234567890123456789012345678901" as Address,
     lpRouterAddress: "0x3456789012345678901234567890123456789012" as Address,

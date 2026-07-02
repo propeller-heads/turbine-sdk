@@ -11,6 +11,10 @@ export interface TurbineToken {
 }
 
 export interface TurbineConfig {
+    /**
+     * The Turbine backend version, e.g. "0.135.0".
+     */
+    version: string;
     turbineSettlerAddress: Address;
     lpHookAddress: Address;
     lpRouterAddress: Address;

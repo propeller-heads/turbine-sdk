@@ -945,6 +945,7 @@ export function validateTurbineConfig(
     const validated = validateFields<TurbineConfig>(
         config,
         {
+            version: validateString,
             turbineSettlerAddress: validateAddress,
             lpHookAddress: validateAddress,
             lpRouterAddress: validateAddress,
