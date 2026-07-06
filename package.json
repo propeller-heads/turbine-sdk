@@ -16,6 +16,8 @@
         "remove-liquidity": "tsx scripts/remove-liquidity.ts",
         "remove-liquidity-onchain": "tsx scripts/remove-liquidity-onchain.ts",
         "execute-pending-onchain-intents": "tsx scripts/execute-pending-onchain-intents.ts",
+        "remove-liquidity-from-old-router": "tsx scripts/remove-liquidity-from-old-router.ts",
+        "execute-pending-intents-from-old-router": "tsx scripts/execute-pending-intents-from-old-router.ts",
         "approve-token": "tsx scripts/approve-token.ts",
         "approve-lp-token": "tsx scripts/approve-lp-token.ts",
         "get-permit2-nonce": "tsx scripts/get-permit2-nonce.ts",
