@@ -100,13 +100,15 @@ Submits a remove-liquidity intent through the Turbine API. Burns 20% of the acco
 
 **Command:** `yarn remove-liquidity-onchain`
 
-Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain. Burns 20% of the account's LP token balance from the USDC/WETH 0.3% pool. Prints the transaction hash once the intent is queued. Requires manual update of the LP token address in the script.
+**Interactive:** Yes (prompts for the settler address and pool selection)
+
+Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain, without contacting the Turbine API. Prompts for the `TurbineSettler` contract address and derives the router, hook, and registered pools from it on-chain. Lists the pools where the account holds LP tokens (largest balance first) so you can pick one, then prompts for the amount of LP tokens to burn (in atomic units, capped at your balance). Prints the transaction hash once the intent is queued.
 
 ### Execute Pending On-Chain Intents
 
-**Command:** `yarn execute-pending-onchain-intents <intentHash1> [intentHash2] ...`
+**Command:** `yarn execute-pending-onchain-intents <lpRouterAddress> <intentHash1> [intentHash2] ...`
 
-Executes one or more pending remove-liquidity intents that were previously queued on-chain. Provide intent hashes as arguments. The script triggers intents execution and exits once the transaction is confirmed.
+Executes one or more pending remove-liquidity intents that were previously queued on-chain, without contacting the Turbine API. Provide the `TurbineLiquidityRouter` address as the first argument, followed by the intent hashes. The script triggers intents execution and exits once the transaction is confirmed. (The `remove-liquidity-onchain` script prints the exact command to run for the intents it creates.)
 
 ### Approve Token
 
