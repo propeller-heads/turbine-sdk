@@ -4,8 +4,6 @@
 export {
     TurbineClient,
     fetchConfig,
-    getPools,
-    getUserPositions,
     getRandomSalt,
 } from "./turbineClient";
 
@@ -27,6 +25,21 @@ export type {
     SpreadCurve,
     CurvePoint,
 } from "./models";
+
+export {
+    computeRemoveLiquidityIntentHash,
+    createPool,
+    executePendingRemoveLiquidityIntentsOnchain,
+    flushExpiredRemoveLiquidityIntentsOnchain,
+    getInitialLpScale,
+    getLiquidityConstants,
+    getMinimumLiquidity,
+    getPoolId,
+    getPools,
+    getUserPositions,
+    submitRemoveLiquidityIntentOnchain,
+    submitRemoveLiquidityTransaction,
+} from "./onchain";
 
 export * as spreads from "./spreads";
 
