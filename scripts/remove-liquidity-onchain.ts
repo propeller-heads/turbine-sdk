@@ -10,8 +10,7 @@ import {
 import { mainnet } from "viem/chains";
 import prompts from "prompts";
 import { getRandomSalt } from "../src/turbineClient";
-import { getUserPositions } from "../src/onchain";
-import { submitRemoveLiquidityIntentOnchain } from "../src/onchain";
+import { getUserPositions, submitRemoveLiquidityIntentOnchain } from "../src/onchain";
 import { RemoveLiquidityIntent, UserPosition } from "../src/models";
 import { RPC_URL } from "../src/config";
 import { turbineSettlerABI } from "../src/abi";
@@ -112,8 +111,8 @@ async function main() {
     // zero-balance positions).
     console.log("\n🔍 Looking up your liquidity positions...");
     const positions = await getUserPositions(
-        account.address,
         publicClient,
+        account.address,
         getAddress(lpHookAddress)
     );
 

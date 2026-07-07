@@ -547,8 +547,8 @@ describe("TurbineClient", () => {
 
             const positions = await withTurbineErrorHandling(() =>
                 getUserPositions(
-                    testUserAddress as Address,
                     PUBLIC_CLIENT,
+                    testUserAddress as Address,
                     MOCK_TURBINE_CONFIG.lpHookAddress
                 )
             );

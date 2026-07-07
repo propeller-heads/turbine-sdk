@@ -577,8 +577,8 @@ export async function getPools(
  */
 
 export async function getUserPositions(
-    userAddress: Address,
     publicClient: PublicClient,
+    userAddress: Address,
     hookAddress: Address
 ): Promise<UserPosition[]> {
     try {

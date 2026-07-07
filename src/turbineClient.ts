@@ -1091,8 +1091,8 @@ export class TurbineClient {
     async getUserPositions(): Promise<UserPosition[]> {
         const address = await this.walletClient.getAddresses();
         return await getUserPositions(
-            address[0],
             this.publicClient,
+            address[0],
             this.config.lpHookAddress
         );
     }
