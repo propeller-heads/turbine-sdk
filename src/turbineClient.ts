@@ -1,26 +1,16 @@
 import {
     Address,
-    BaseError,
     bytesToHex,
-    ContractFunctionRevertedError,
-    encodeAbiParameters,
     getAddress,
     Hex,
-    keccak256,
     PublicClient,
     WalletClient,
     withCache,
 } from "viem";
 import { createSiweMessage } from "viem/siwe";
-import {
-    balanceOfABI,
-    turbineHookABI,
-    poolManagerABI,
-    turbineLiquidityRouterABI,
-} from "./abi";
 import { TURBINE_API_URL } from "./config";
 import { TurbineCookieJar } from "./cookieJar";
-import { NULL_ADDRESS, SQRT_PRICE_IDENTITY } from "./constants";
+import { NULL_ADDRESS } from "./constants";
 import {
     toTurbineError,
     TurbineError,
@@ -38,11 +28,9 @@ import {
     LiquidityIntentStatus,
     LiquidityIntentState,
     OrderAnnotations,
-    OrderDetails,
     OrderIntent,
     OrderSettledAmount,
     OrderState,
-    PoolKey,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
@@ -59,6 +47,20 @@ import {
 } from "./permit2SignatureTransfer";
 import { buildApiUrl, validateResponseSize } from "./utils";
 import * as validate from "./validation";
+import {
+    computeRemoveLiquidityIntentHash,
+    createPool,
+    executePendingRemoveLiquidityIntentsOnchain,
+    flushExpiredRemoveLiquidityIntentsOnchain,
+    getInitialLpScale,
+    getLiquidityConstants,
+    getMinimumLiquidity,
+    getPoolId,
+    getPools,
+    getUserPositions,
+    submitRemoveLiquidityIntentOnchain,
+    submitRemoveLiquidityTransaction,
+} from "./onchain";
 
 const GET_ORDERS_MAX_HASHES = 30;
 const GET_ORDERS_MAX_LIMIT = 200;
@@ -333,12 +335,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to the minimum liquidity value
      */
     async getMinimumLiquidity(): Promise<bigint> {
-        const minimumLiquidity = await this.publicClient.readContract({
-            address: this.config.lpHookAddress,
-            abi: turbineHookABI,
-            functionName: "MINIMUM_LIQUIDITY",
-        });
-        return minimumLiquidity as bigint;
+        return getMinimumLiquidity(this.publicClient, this.config.lpHookAddress);
     }
 
     /**
@@ -347,12 +344,7 @@ export class TurbineClient {
      * @returns A Promise that resolves to the initial LP scale value
      */
     async getInitialLpScale(): Promise<bigint> {
-        const initialLpScale = await this.publicClient.readContract({
-            address: this.config.lpHookAddress,
-            abi: turbineHookABI,
-            functionName: "INITIAL_LP_SCALE",
-        });
-        return initialLpScale as bigint;
+        return getInitialLpScale(this.publicClient, this.config.lpHookAddress);
     }
 
     /**
@@ -363,11 +355,7 @@ export class TurbineClient {
         minimumLiquidity: bigint;
         initialLpScale: bigint;
     }> {
-        const [minimumLiquidity, initialLpScale] = await Promise.all([
-            this.getMinimumLiquidity(),
-            this.getInitialLpScale(),
-        ]);
-        return { minimumLiquidity, initialLpScale };
+        return getLiquidityConstants(this.publicClient, this.config.lpHookAddress);
     }
 
     /* PRIVATE HELPER METHODS */
@@ -443,18 +431,6 @@ export class TurbineClient {
         await this.extractAndStoreCookies(response, url);
 
         return response;
-    }
-
-    private createPoolKey(token0: Address, token1: Address, fee: number): PoolKey {
-        const [currency0, currency1] =
-            token0 < token1 ? [token0, token1] : [token1, token0];
-        return {
-            currency0,
-            currency1,
-            fee,
-            tickSpacing: 1,
-            hooks: this.config.lpHookAddress,
-        };
     }
 
     /* PUBLIC METHODS */
@@ -927,30 +903,13 @@ export class TurbineClient {
     async submitRemoveLiquidityIntentOnchain(
         intent: RemoveLiquidityIntent
     ): Promise<{ txHash: string; intentHash: Hex }> {
-        validate.validateRemoveLiquidityIntent(intent);
-
-        try {
-            const data = await this.createRemoveLiquidityDataOnchain(intent);
-            const txHash = await this.submitRemoveLiquidityTransaction(
-                data.intent,
-                data.permit
-            );
-
-            // Compute the intent hash (matches keccak256(abi.encode(intent)) in the contract)
-            const intentHash = this.computeRemoveLiquidityIntentHash({
-                owner: intent.owner,
-                poolId: data.intent.poolId,
-                lpTokenAmount: intent.lpTokenAmount,
-                salt: intent.salt,
-            });
-
-            validate.validateHash(txHash, "txHash");
-            validate.validateHash(intentHash, "intentHash");
-
-            return { txHash, intentHash };
-        } catch (error) {
-            throw toTurbineError(error);
-        }
+        return submitRemoveLiquidityIntentOnchain(
+            this.walletClient,
+            this.publicClient,
+            this.config.lpHookAddress,
+            this.config.lpRouterAddress,
+            intent
+        );
     }
 
     /**
@@ -965,48 +924,13 @@ export class TurbineClient {
         intent: RemoveLiquidityIntentOnchain,
         permit: SignedSignatureTransferOnchain
     ): Promise<string> {
-        validate.validateRemoveLiquidityIntentOnchain(intent);
-        validate.validateSignedSignatureTransferOnchain(permit);
-
-        const { request } = await this.publicClient.simulateContract({
-            address: this.config.lpRouterAddress,
-            abi: turbineLiquidityRouterABI,
-            functionName: "submitRemoveLiquidityIntent",
-            args: [
-                {
-                    owner: intent.owner,
-                    poolId: intent.poolId,
-                    lpTokenAmount: intent.lpTokenAmount,
-                    salt: intent.salt,
-                },
-                {
-                    signature: permit.signature,
-                    permit: {
-                        permitted: {
-                            token: permit.permit.permitted.token,
-                            amount: permit.permit.permitted.amount,
-                        },
-                        nonce: permit.permit.nonce,
-                        deadline: permit.permit.deadline,
-                    },
-                },
-            ],
-            account: this.walletClient.account!,
-            chain: this.publicClient.chain!,
-        });
-        const txHash = await this.walletClient.writeContract(request);
-        const receipt = await this.publicClient.waitForTransactionReceipt({
-            hash: txHash,
-        });
-        if (receipt.status !== "success") {
-            throw new TurbineError(
-                "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED",
-                "The remove liquidity intent onchain transaction was reverted. Please try again.",
-                receipt
-            );
-        }
-
-        return txHash;
+        return submitRemoveLiquidityTransaction(
+            this.walletClient,
+            this.publicClient,
+            this.config.lpRouterAddress,
+            intent,
+            permit
+        );
     }
 
     /**
@@ -1018,31 +942,12 @@ export class TurbineClient {
      * @throws {TurbineError} If the transaction fails or is reverted
      */
     async executePendingRemoveLiquidityIntentsOnchain(hashes: Hex[]): Promise<void> {
-        const orderHashes = validate.validateNonEmptyArray(
-            hashes,
-            "executePendingRemoveLiquidityIntentsOnchain hashes",
-            (hash, index) => validate.validateHash(hash, `hashes[${index}]`)
+        return executePendingRemoveLiquidityIntentsOnchain(
+            this.walletClient,
+            this.publicClient,
+            this.config.lpRouterAddress,
+            hashes
         );
-
-        const { request } = await this.publicClient.simulateContract({
-            address: this.config.lpRouterAddress,
-            abi: turbineLiquidityRouterABI,
-            functionName: "executePendingIntents",
-            args: [orderHashes],
-            account: this.walletClient.account!,
-            chain: this.publicClient.chain!,
-        });
-        const txHash = await this.walletClient.writeContract(request);
-        const receipt = await this.publicClient.waitForTransactionReceipt({
-            hash: txHash,
-        });
-        if (receipt.status !== "success") {
-            throw new TurbineError(
-                "EXECUTE_PENDING_REMOVE_LIQUIDITY_INTENTS_FAILED",
-                "The execute pending remove liquidity intents transaction was reverted. Please try again.",
-                receipt
-            );
-        }
     }
 
     /**
@@ -1052,25 +957,11 @@ export class TurbineClient {
      * @throws {TurbineError} If the transaction fails or is reverted
      */
     async flushExpiredRemoveLiquidityIntentsOnchain(): Promise<void> {
-        const { request } = await this.publicClient.simulateContract({
-            address: this.config.lpRouterAddress,
-            abi: turbineLiquidityRouterABI,
-            functionName: "flushExpiredIntents",
-            args: [],
-            account: this.walletClient.account!,
-            chain: this.publicClient.chain!,
-        });
-        const txHash = await this.walletClient.writeContract(request);
-        const receipt = await this.publicClient.waitForTransactionReceipt({
-            hash: txHash,
-        });
-        if (receipt.status !== "success") {
-            throw new TurbineError(
-                "FLUSH_EXPIRED_REMOVE_LIQUIDITY_INTENTS_FAILED",
-                "The flush expired remove liquidity intents transaction was reverted. Please try again.",
-                receipt
-            );
-        }
+        return flushExpiredRemoveLiquidityIntentsOnchain(
+            this.walletClient,
+            this.publicClient,
+            this.config.lpRouterAddress
+        );
     }
 
     /**
@@ -1082,20 +973,14 @@ export class TurbineClient {
      * @returns A Promise that resolves to the pool ID as a Hex string
      */
     async getPoolId(token0: Address, token1: Address, fee: number): Promise<Hex> {
-        // Call computePoolId view function from TurbineHook contract
-        const { request } = await this.publicClient.simulateContract({
-            address: this.config.lpHookAddress,
-            abi: turbineHookABI,
-            functionName: "computePoolId",
-            args: [token0, token1, fee],
-            account: this.walletClient.account!,
-            chain: this.publicClient.chain!,
-        });
-        const poolId = await this.publicClient.readContract(request);
-
-        validate.validateHash(poolId, "poolId");
-
-        return poolId as Hex;
+        return getPoolId(
+            this.walletClient,
+            this.publicClient,
+            this.config.lpHookAddress,
+            token0,
+            token1,
+            fee
+        );
     }
 
     /**
@@ -1106,18 +991,7 @@ export class TurbineClient {
      * @returns The intent hash as a Hex string
      */
     computeRemoveLiquidityIntentHash(intent: RemoveLiquidityIntentOnchain): Hex {
-        validate.validateRemoveLiquidityIntentOnchain(intent);
-
-        const encoded = encodeAbiParameters(
-            [
-                { name: "owner", type: "address" },
-                { name: "poolId", type: "bytes32" },
-                { name: "lpTokenAmount", type: "uint256" },
-                { name: "salt", type: "bytes32" },
-            ],
-            [intent.owner, intent.poolId, intent.lpTokenAmount, intent.salt]
-        );
-        return keccak256(encoded);
+        return computeRemoveLiquidityIntentHash(intent);
     }
 
     /**
@@ -1130,71 +1004,15 @@ export class TurbineClient {
      * @throws {TurbineError} If the pool already exists or the transaction fails
      */
     async createPool(token0: Address, token1: Address, fee: number): Promise<string> {
-        const validatedToken0 = validate.validateAddress(token0, "token0");
-        const validatedToken1 = validate.validateAddress(token1, "token1");
-        const validatedFee = validate.validateFee(fee, "fee");
-
-        validate.validateTokenPair(validatedToken0, validatedToken1);
-
-        try {
-            const poolKey = this.createPoolKey(
-                validatedToken0,
-                validatedToken1,
-                validatedFee
-            );
-
-            const { request } = await this.publicClient.simulateContract({
-                address: this.config.poolManagerAddress,
-                abi: poolManagerABI,
-                functionName: "initialize",
-                args: [
-                    {
-                        currency0: poolKey.currency0,
-                        currency1: poolKey.currency1,
-                        fee: poolKey.fee,
-                        tickSpacing: poolKey.tickSpacing,
-                        hooks: poolKey.hooks,
-                    },
-                    SQRT_PRICE_IDENTITY,
-                ],
-                account: this.walletClient.account!,
-                chain: this.publicClient.chain!,
-            });
-
-            const txHash = await this.walletClient.writeContract(request);
-
-            const receipt = await this.publicClient.waitForTransactionReceipt({
-                hash: txHash,
-            });
-            if (receipt.status !== "success") {
-                throw new TurbineError(
-                    "POOL_CREATION_FAILED",
-                    "The pool creation transaction failed. Please try again.",
-                    receipt
-                );
-            }
-
-            return validate.validateHash(txHash, "txHash");
-        } catch (err) {
-            if (err instanceof BaseError) {
-                const revertError = err.walk(
-                    (err) => err instanceof ContractFunctionRevertedError
-                );
-                // 0xb3e8301e is the selector of PoolAlreadyRegistered error from Hook contract.
-                // PoolManager returns it wrapped in WrappedError, which itself has a different selector.
-                if (
-                    revertError instanceof ContractFunctionRevertedError &&
-                    revertError.raw?.includes("b3e8301e")
-                ) {
-                    throw new TurbineError(
-                        "POOL_ALREADY_INITIALIZED",
-                        "The pool is already initialized. Please try creating a different pool.",
-                        revertError
-                    );
-                }
-            }
-            throw toTurbineError(err);
-        }
+        return createPool(
+            this.walletClient,
+            this.publicClient,
+            this.config.lpHookAddress,
+            this.config.poolManagerAddress,
+            token0,
+            token1,
+            fee
+        );
     }
 
     /**
@@ -1273,8 +1091,8 @@ export class TurbineClient {
     async getUserPositions(): Promise<UserPosition[]> {
         const address = await this.walletClient.getAddresses();
         return await getUserPositions(
-            address[0],
             this.publicClient,
+            address[0],
             this.config.lpHookAddress
         );
     }
@@ -1380,43 +1198,6 @@ export class TurbineClient {
             removeLiquidity: intent,
             permitLpToken: {
                 signature: convertSignature(permitSignature),
-                permit: permit,
-            },
-        };
-    }
-
-    /**
-     * Create remove liquidity data for onchain submission.
-     * Computes the pool ID and creates the onchain intent format with Permit2 signature.
-     * @param intent The liquidity removal intent
-     * @returns A Promise that resolves to an object containing the onchain intent and signed permit
-     */
-    private async createRemoveLiquidityDataOnchain(
-        intent: RemoveLiquidityIntent
-    ): Promise<{
-        intent: RemoveLiquidityIntentOnchain;
-        permit: SignedSignatureTransferOnchain;
-    }> {
-        const poolId = await this.getPoolId(intent.token0, intent.token1, intent.fee);
-        const removeLiquidityIntentOnchain: RemoveLiquidityIntentOnchain = {
-            owner: intent.owner,
-            poolId: poolId,
-            lpTokenAmount: intent.lpTokenAmount,
-            salt: intent.salt,
-        };
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 60 * 2.5); // 2.5 hours from now
-        const { permit, permitSignature } = await getSignedSignatureTransfer({
-            token: intent.lpToken,
-            amount: intent.lpTokenAmount,
-            walletClient: this.walletClient,
-            publicClient: this.publicClient,
-            deadline,
-            spender: this.config.lpRouterAddress,
-        });
-        return {
-            intent: removeLiquidityIntentOnchain,
-            permit: {
-                signature: permitSignature,
                 permit: permit,
             },
         };
@@ -1759,141 +1540,6 @@ export class TurbineClient {
                 cacheTime: Number.POSITIVE_INFINITY,
             }
         );
-    }
-}
-
-/**
- * Get the registered pools from the Turbine Hook contract. Returns every
- * registered pool without filtering — callers that need to restrict the
- * result to a token allowlist (e.g. `TurbineClient.getPools`) should apply
- * the filter themselves.
- * @param publicClient The public client used for blockchain interactions
- * @param hookAddress The address of the Turbine Hook contract
- * @returns A Promise that resolves to an array of `TurbinePool` objects.
- */
-export async function getPools(
-    publicClient: PublicClient,
-    hookAddress: Address
-): Promise<TurbinePool[]> {
-    try {
-        const numberOfPools = await publicClient.readContract({
-            address: hookAddress,
-            abi: turbineHookABI,
-            functionName: "getNumberOfRegisteredPools",
-        });
-
-        validate.validateBigInt(numberOfPools, "numberOfPools");
-
-        // Fetch pools in batches of up to 1000 at a time
-        const BATCH_SIZE = 1000n;
-        const poolsData: any[] = [];
-        for (let start = 0n; start < numberOfPools; start += BATCH_SIZE) {
-            const end =
-                start + BATCH_SIZE > numberOfPools ? numberOfPools : start + BATCH_SIZE;
-            const batch = await publicClient.readContract({
-                address: hookAddress,
-                abi: turbineHookABI,
-                functionName: "getRegisteredPoolsSlice",
-                args: [start, end],
-            });
-            poolsData.push(...batch);
-        }
-
-        // Validate each pool data before mapping
-        poolsData.forEach((poolData, index) => {
-            validate.validatePoolData(poolData, index);
-        });
-
-        return poolsData.map(
-            (poolData: any) =>
-                ({
-                    metadata: {
-                        token0: getAddress(poolData.token0),
-                        token1: getAddress(poolData.token1),
-                        fee: poolData.fee,
-                        lpToken: getAddress(poolData.lpToken),
-                    },
-                    state: {
-                        reserve0: BigInt(poolData.reserve0),
-                        reserve1: BigInt(poolData.reserve1),
-                        liquidity: BigInt(poolData.liquidity),
-                    },
-                    stats: {
-                        // Note: Weekly volume data is not available from the contract
-                        // Setting to 0 for now - this could be fetched from a subgraph. See TRB-464 https://propeller-heads.atlassian.net/browse/TRB-464
-                        weeklySellVolumeToken0: 0n,
-                        weeklySellVolumeToken1: 0n,
-                    },
-                }) as TurbinePool
-        );
-    } catch (error) {
-        throw toTurbineError(error);
-    }
-}
-
-/**
- * Get user positions for all registered pools.
- * @param userAddress The address of the user to get positions for
- * @param publicClient The public client used for blockchain interactions
- * @param hookAddress The address of the Turbine Hook contract
- * @returns A Promise that resolves to an array of `UserPosition` objects.
- */
-export async function getUserPositions(
-    userAddress: Address,
-    publicClient: PublicClient,
-    hookAddress: Address
-): Promise<UserPosition[]> {
-    try {
-        const pools = await getPools(publicClient, hookAddress);
-        if (pools.length === 0) {
-            return [];
-        }
-
-        // Execute all balance checks in a single multicall
-        const multicallContracts = pools.map((pool) => ({
-            address: pool.metadata.lpToken,
-            abi: balanceOfABI,
-            functionName: "balanceOf" as const,
-            args: [userAddress],
-        }));
-        const balanceResults = await publicClient.multicall({
-            contracts: multicallContracts,
-        });
-
-        // Process results and create user positions
-        const userPositions: UserPosition[] = [];
-        for (let i = 0; i < pools.length; i++) {
-            const pool = pools[i];
-            const balanceResult = balanceResults[i];
-
-            // Validate balance result structure
-            try {
-                validate.validateBalanceResult(balanceResult, `balanceResults[${i}]`);
-            } catch (error) {
-                // Log warning for invalid balance result but continue processing
-                console.warn(
-                    `Invalid balance result for LP token ${pool.metadata.lpToken}: ${error instanceof Error ? error.message : "Unknown error"}`
-                );
-                continue;
-            }
-
-            if (balanceResult.status === "success" && balanceResult.result > 0n) {
-                userPositions.push({
-                    poolMetadata: pool.metadata,
-                    userAddress: getAddress(userAddress),
-                    lpTokenBalance: balanceResult.result as bigint,
-                });
-            } else if (balanceResult.status === "failure") {
-                // Log warning for failed balance check but continue processing other pools
-                console.warn(
-                    `Failed to get balance for LP token ${pool.metadata.lpToken}: ${balanceResult.error?.message || "Unknown error"}`
-                );
-            }
-        }
-
-        return userPositions;
-    } catch (error) {
-        throw toTurbineError(error);
     }
 }
 

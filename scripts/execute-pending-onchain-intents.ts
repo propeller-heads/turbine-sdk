@@ -1,19 +1,35 @@
 #!/usr/bin/env ts-node
 
-import { createPublicClient, createWalletClient, Hex, http, isHash } from "viem";
+import {
+    createPublicClient,
+    createWalletClient,
+    getAddress,
+    Hex,
+    http,
+    isAddress,
+    isHash,
+} from "viem";
 import { mainnet } from "viem/chains";
-import { TurbineClient } from "../src/turbineClient";
-import { RPC_URL, TURBINE_API_URL } from "../src/config";
+import { executePendingRemoveLiquidityIntentsOnchain } from "../src/onchain";
+import { RPC_URL } from "../src/config";
 import { getAccount } from "./utils/keystore";
 
-const hashArgs = process.argv.slice(2);
-if (hashArgs.length === 0) {
+const args = process.argv.slice(2);
+if (args.length < 2) {
     console.error(
-        "Please provide at least one remove-liquidity intent hash as an argument.\n" +
-            "Example: ts-node scripts/execute-pending-onchain-intents.ts 0xabc... 0xdef..."
+        "Please provide the TurbineLiquidityRouter address followed by at least one remove-liquidity intent hash.\n" +
+            "Example: yarn execute-pending-onchain-intents 0xRouter... 0xIntent1... [0xIntent2...]"
     );
     process.exit(1);
 }
+
+const [routerArg, ...hashArgs] = args;
+
+if (!isAddress(routerArg)) {
+    console.error(`Invalid TurbineLiquidityRouter address provided: ${routerArg}`);
+    process.exit(1);
+}
+const lpRouterAddress = getAddress(routerArg);
 
 const intentHashes = hashArgs.map((hash) => {
     if (!isHash(hash)) {
@@ -41,16 +57,19 @@ async function main() {
         transport: http(RPC_URL),
     });
 
-    const turbineClient = await TurbineClient.create(walletClient, publicClient);
-
     console.log(`👤 Account: ${account.address}`);
-    console.log(`🌐 Turbine API: ${TURBINE_API_URL}`);
+    console.log(`🚦 Liquidity Router: ${lpRouterAddress}`);
     console.log(`🧾 Pending Intents: ${intentHashes.length}`);
 
     try {
         console.log("\n🔄 Executing pending remove liquidity intents on-chain...");
 
-        await turbineClient.executePendingRemoveLiquidityIntentsOnchain(intentHashes);
+        await executePendingRemoveLiquidityIntentsOnchain(
+            walletClient,
+            publicClient,
+            lpRouterAddress,
+            intentHashes
+        );
 
         console.log("\n✅ Pending intents executed successfully!");
         console.log("All provided intent hashes have been processed on-chain.");

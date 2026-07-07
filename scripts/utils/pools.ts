@@ -1,6 +1,7 @@
 import { Address, PublicClient } from "viem";
 import prompts from "prompts";
-import { getPools, fetchConfig } from "../../src/turbineClient";
+import { fetchConfig } from "../../src/turbineClient";
+import { getPools } from "../../src/onchain";
 import { TURBINE_API_URL } from "../../src/config";
 import { ADDR2TOKEN } from "../../src/constants";
 import { TurbinePool, Token } from "../../src/models";

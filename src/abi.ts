@@ -75,6 +75,7 @@ export const turbineLiquidityRouterABI = [
                 type: "bytes32[]",
             },
         ],
+        outputs: [],
         stateMutability: "nonpayable",
         type: "function",
         name: "executePendingIntents",
@@ -85,6 +86,23 @@ export const turbineLiquidityRouterABI = [
         inputs: [],
         outputs: [],
         stateMutability: "nonpayable",
+    },
+] as const;
+
+export const turbineSettlerABI = [
+    {
+        type: "function",
+        name: "getTurbineLiquidityRouter",
+        inputs: [],
+        outputs: [{ name: "", type: "address", internalType: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getTurbineHook",
+        inputs: [],
+        outputs: [{ name: "", type: "address", internalType: "address" }],
+        stateMutability: "view",
     },
 ] as const;
 

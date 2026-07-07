@@ -229,7 +229,7 @@ describe("Integration test", () => {
     it("should successfully get user positions (standalone function)", async () => {
         const config = await fetchConfig(TURBINE_API_URL);
         const positions = await withTurbineErrorHandling(() =>
-            getUserPositions(ACCOUNT.address, PUBLIC_CLIENT, config.lpHookAddress)
+            getUserPositions(PUBLIC_CLIENT, ACCOUNT.address, config.lpHookAddress)
         );
 
         expect(positions).toBeDefined();

@@ -1,13 +1,7 @@
 import { describe, expect, jest } from "@jest/globals";
 import { Address, getAddress, Hex } from "viem";
 import { USDC, WBTC, WETH } from "../src/constants";
-import {
-    checkStatus,
-    fetchConfig,
-    getPools,
-    getUserPositions,
-    TurbineClient,
-} from "../src/turbineClient";
+import { checkStatus, fetchConfig, TurbineClient } from "../src/turbineClient";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
@@ -22,6 +16,7 @@ import {
 import { withTurbineErrorHandling } from "./utils";
 import { LiquidityIntentStatus } from "../src/models";
 import { turbineHookABI } from "../src/abi";
+import { getPools, getUserPositions } from "../src/onchain";
 
 // Helper function to mock authentication
 function mockAuthentication(client: TurbineClient, address: Address) {
@@ -552,8 +547,8 @@ describe("TurbineClient", () => {
 
             const positions = await withTurbineErrorHandling(() =>
                 getUserPositions(
-                    testUserAddress as Address,
                     PUBLIC_CLIENT,
+                    testUserAddress as Address,
                     MOCK_TURBINE_CONFIG.lpHookAddress
                 )
             );
