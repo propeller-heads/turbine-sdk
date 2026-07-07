@@ -1,11 +1,7 @@
 // Public API barrel.
 // Deep imports into src/* remain supported for backwards-compatibility.
 
-export {
-    TurbineClient,
-    fetchConfig,
-    getRandomSalt,
-} from "./turbineClient";
+export { TurbineClient, fetchConfig, getRandomSalt } from "./turbineClient";
 
 export type {
     OrderIntent,
