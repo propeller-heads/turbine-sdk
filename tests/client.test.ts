@@ -14,6 +14,7 @@ import {
     REMOVE_LIQUIDITY_INTENT,
 } from "./constants";
 import { withTurbineErrorHandling } from "./utils";
+import { TurbineError } from "../src/errorHandling";
 import { LiquidityIntentStatus } from "../src/models";
 import { turbineHookABI } from "../src/abi";
 import { getPools, getUserPositions } from "../src/onchain";
@@ -1478,6 +1479,7 @@ describe("TurbineClient", () => {
         const INITIAL_LP_SCALE = 1_000_000_000_000n; // 10^12
         const MINIMUM_LIQUIDITY = 100_000n; // 10^5
         const POOL_FEE = 3000; // 0.3% fee in hundredths of basis points
+        const MID_PRICE = { numerator: 2n, denominator: 1n }; // 2 token1 per token0
 
         it("should estimate initial LP tokens correctly", () => {
             // (1e18 + 1e18) * 1e12 - 1e5 = 2e30 - 1e5
@@ -1564,13 +1566,14 @@ describe("TurbineClient", () => {
 
         it("should handle exact mode with fee calculation", () => {
             // Adding 100 token0 and 100 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
-            // User has relatively more token0 (providedRatioLess = false)
+            // User has relatively more token0 (providedRatioLess = false), so they virtually swap
+            // token0 -> token1 and the effective mid price is mp * f.
             // Fee complement = 1_000_000 - 3000 = 997_000
-            // effectivePriceNum = reserve1 * POOL_FEE_PRECISION = 2000 * 1_000_000 = 2_000_000_000
-            // effectivePriceDen = reserve0 * feeComplement = 1000 * 997_000 = 997_000_000
-            // addedValue = 2_000_000_000 * 100 + 100 * 997_000_000 = 200_000_000_000 + 99_700_000_000 = 299_700_000_000
-            // poolValue = 2_000_000_000 * 2000 + 1000 * 997_000_000 = 4_000_000_000_000 + 997_000_000_000 = 4_997_000_000_000
-            // lpTokens = 500 * 299_700_000_000 / 4_997_000_000_000 = 29 (integer division)
+            // effectivePriceNum = midPrice.numerator * feeComplement = 2 * 997_000 = 1_994_000
+            // effectivePriceDen = midPrice.denominator * POOL_FEE_PRECISION = 1 * 1_000_000 = 1_000_000
+            // addedValue = 1_994_000 * 100 + 100 * 1_000_000 = 199_400_000 + 100_000_000 = 299_400_000
+            // poolValue = 1_994_000 * 1000 + 2000 * 1_000_000 = 1_994_000_000 + 2_000_000_000 = 3_994_000_000
+            // lpTokens = 500 * 299_400_000 / 3_994_000_000 = 37 (integer division)
             const result = TurbineClient.estimateLpTokens(
                 100n,
                 100n,
@@ -1580,11 +1583,54 @@ describe("TurbineClient", () => {
                 INITIAL_LP_SCALE,
                 MINIMUM_LIQUIDITY,
                 true, // exact mode
-                POOL_FEE
+                POOL_FEE,
+                MID_PRICE
             );
-            expect(result.lpTokens).toBe(29n);
+            expect(result.lpTokens).toBe(37n);
             expect(result.actualToken0).toBe(100n);
             expect(result.actualToken1).toBe(100n);
+        });
+
+        it("should penalise the excess token1 side in exact mode", () => {
+            // Adding 100 token0 and 400 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
+            // providedRatioLess = 100 * 2000 < 1000 * 400 = true (user has more token1), so they
+            // virtually swap token1 -> token0 and the effective mid price is mp / f.
+            // effectivePriceNum = 2 * 1_000_000 = 2_000_000
+            // effectivePriceDen = 1 * 997_000 = 997_000
+            // addedValue = 2_000_000 * 100 + 400 * 997_000 = 200_000_000 + 398_800_000 = 598_800_000
+            // poolValue = 2_000_000 * 1000 + 2000 * 997_000 = 2_000_000_000 + 1_994_000_000 = 3_994_000_000
+            // lpTokens = 500 * 598_800_000 / 3_994_000_000 = 74 (integer division)
+            const result = TurbineClient.estimateLpTokens(
+                100n,
+                400n,
+                1000n,
+                2000n,
+                500n,
+                INITIAL_LP_SCALE,
+                MINIMUM_LIQUIDITY,
+                true, // exact mode
+                POOL_FEE,
+                MID_PRICE
+            );
+            expect(result.lpTokens).toBe(74n);
+            expect(result.actualToken0).toBe(100n);
+            expect(result.actualToken1).toBe(400n);
+        });
+
+        it("should require a mid price in exact mode", () => {
+            expect(() =>
+                TurbineClient.estimateLpTokens(
+                    100n,
+                    100n,
+                    1000n,
+                    2000n,
+                    500n,
+                    INITIAL_LP_SCALE,
+                    MINIMUM_LIQUIDITY,
+                    true, // exact mode
+                    POOL_FEE
+                )
+            ).toThrow(TurbineError);
         });
 
         it("should return zero LP for single-sided in proportional mode", () => {
@@ -1612,11 +1658,11 @@ describe("TurbineClient", () => {
         it("should handle single-sided subsequent mint in exact mode", () => {
             // Adding 100 token0 and 0 token1 to a pool with 1000 token0, 2000 token1, and 500 LP
             // providedRatioLess = 100 * 2000 < 1000 * 0 = false (user has more token0)
-            // effectivePriceNum = reserve1 * POOL_FEE_PRECISION = 2000 * 1_000_000 = 2_000_000_000
-            // effectivePriceDen = reserve0 * feeComplement = 1000 * 997_000 = 997_000_000
-            // addedValue = 2_000_000_000 * 0 + 100 * 997_000_000 = 99_700_000_000
-            // poolValue = 2_000_000_000 * 2000 + 1000 * 997_000_000 = 4_997_000_000_000
-            // lpTokens = 500 * 99_700_000_000 / 4_997_000_000_000 = 9 (integer division)
+            // effectivePriceNum = 2 * 997_000 = 1_994_000
+            // effectivePriceDen = 1 * 1_000_000 = 1_000_000
+            // addedValue = 1_994_000 * 100 + 0 * 1_000_000 = 199_400_000
+            // poolValue = 1_994_000 * 1000 + 2000 * 1_000_000 = 3_994_000_000
+            // lpTokens = 500 * 199_400_000 / 3_994_000_000 = 24 (integer division)
             const result = TurbineClient.estimateLpTokens(
                 100n,
                 0n,
@@ -1626,9 +1672,10 @@ describe("TurbineClient", () => {
                 INITIAL_LP_SCALE,
                 MINIMUM_LIQUIDITY,
                 true, // exact mode
-                POOL_FEE
+                POOL_FEE,
+                MID_PRICE
             );
-            expect(result.lpTokens).toBe(9n);
+            expect(result.lpTokens).toBe(24n);
             expect(result.actualToken0).toBe(100n);
             expect(result.actualToken1).toBe(0n);
         });

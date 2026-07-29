@@ -31,6 +31,7 @@ import {
     OrderIntent,
     OrderSettledAmount,
     OrderState,
+    Price,
     PrimitiveSignature,
     RemoveLiquidity,
     RemoveLiquidityIntent,
@@ -186,6 +187,9 @@ export class TurbineClient {
      * @param minimumLiquidity - Minimum liquidity burned on first mint (fetch via getMinimumLiquidity())
      * @param exact - Whether to use exact mode (true) or proportional mode (false)
      * @param fee - Pool fee in hundredths of basis points (e.g., 3000 for 0.3%), required for exact mode
+     * @param midPrice - Current mid price as token1 per token0, in on-chain (atomic) units.
+     * Required for exact mode: the backend values the imbalanced part of the deposit at the
+     * external mid price, not at the pool's reserve ratio.
      * @returns Object with estimated LP tokens and actual token amounts used
      */
     static estimateLpTokens(
@@ -197,7 +201,8 @@ export class TurbineClient {
         initialLpScale: bigint,
         minimumLiquidity: bigint,
         exact: boolean = false,
-        fee: number = 0
+        fee: number = 0,
+        midPrice?: Price
     ): { lpTokens: bigint; actualToken0: bigint; actualToken1: bigint } {
         // Initial mint case
         if (lpSupply === 0n) {
@@ -215,10 +220,13 @@ export class TurbineClient {
 
         if (ratiosEqual) {
             // When ratios match exactly, use direct calculation
-            const lpTokens =
-                reserve1 > 0n
-                    ? (lpSupply * token1Amount) / reserve1
-                    : (lpSupply * token0Amount) / reserve0;
+            const lpTokens = TurbineClient.liquidityIncrement(
+                token0Amount,
+                token1Amount,
+                reserve0,
+                reserve1,
+                lpSupply
+            );
             return { lpTokens, actualToken0: token0Amount, actualToken1: token1Amount };
         }
 
@@ -228,6 +236,12 @@ export class TurbineClient {
         const providedRatioLess = token0Amount * reserve1 < reserve0 * token1Amount;
 
         if (exact) {
+            if (midPrice === undefined) {
+                throw new TurbineError(
+                    "SDK_ERROR",
+                    "estimateLpTokens requires a midPrice in exact mode."
+                );
+            }
             return TurbineClient.calculateExactLiquidity(
                 token0Amount,
                 token1Amount,
@@ -235,6 +249,7 @@ export class TurbineClient {
                 reserve1,
                 lpSupply,
                 fee,
+                midPrice,
                 providedRatioLess
             );
         } else {
@@ -263,27 +278,49 @@ export class TurbineClient {
     ): { lpTokens: bigint; actualToken0: bigint; actualToken1: bigint } {
         let actualToken0: bigint;
         let actualToken1: bigint;
-        let lpTokens: bigint;
 
         if (providedRatioLess) {
             // User has relatively more token1, use all of token0
             actualToken0 = token0Amount;
-            actualToken1 = (token0Amount * reserve1) / reserve0;
-            lpTokens =
-                reserve1 > 0n
-                    ? (lpSupply * actualToken1) / reserve1
-                    : (lpSupply * actualToken0) / reserve0;
+            actualToken1 = reserve0 === 0n ? 0n : (token0Amount * reserve1) / reserve0;
         } else {
             // User has relatively more token0, use all of token1
             actualToken1 = token1Amount;
-            actualToken0 = (token1Amount * reserve0) / reserve1;
-            lpTokens =
-                reserve1 > 0n
-                    ? (lpSupply * actualToken1) / reserve1
-                    : (lpSupply * actualToken0) / reserve0;
+            actualToken0 = reserve1 === 0n ? 0n : (token1Amount * reserve0) / reserve1;
         }
 
+        const lpTokens = TurbineClient.liquidityIncrement(
+            actualToken0,
+            actualToken1,
+            reserve0,
+            reserve1,
+            lpSupply
+        );
+
         return { lpTokens, actualToken0, actualToken1 };
+    }
+
+    /**
+     * LP tokens minted for a deposit that is already in the pool's reserve ratio.
+     * Uses whichever reserve is non-zero, mirroring the backend.
+     */
+    private static liquidityIncrement(
+        token0Amount: bigint,
+        token1Amount: bigint,
+        reserve0: bigint,
+        reserve1: bigint,
+        lpSupply: bigint
+    ): bigint {
+        if (reserve1 !== 0n) {
+            return (lpSupply * token1Amount) / reserve1;
+        }
+        if (reserve0 !== 0n) {
+            return (lpSupply * token0Amount) / reserve0;
+        }
+        throw new TurbineError(
+            "SDK_ERROR",
+            "Cannot estimate LP tokens: pool has a non-zero LP supply but both reserves are zero."
+        );
     }
 
     /**
@@ -297,32 +334,43 @@ export class TurbineClient {
         reserve1: bigint,
         lpSupply: bigint,
         fee: number,
+        midPrice: Price,
         providedRatioLess: boolean
     ): { lpTokens: bigint; actualToken0: bigint; actualToken1: bigint } {
-        const feeBigInt = BigInt(fee);
-        const feeComplement = TurbineClient.POOL_FEE_PRECISION - feeBigInt;
+        const feePrecision = TurbineClient.POOL_FEE_PRECISION;
+        const feeComplement = feePrecision - BigInt(fee);
 
-        // Reserve ratio is reserve1/reserve0 (token1 per token0)
-        // We represent it as numerator=reserve1, denominator=reserve0
+        // The effective mid price is the mid price penalised by the swap fee, in the direction
+        // of the virtual swap that rebalances the deposit.
         let effectivePriceNum: bigint;
         let effectivePriceDen: bigint;
 
         if (providedRatioLess) {
-            // effective_price = reserve_ratio * fee_factor
-            effectivePriceNum = reserve1 * feeComplement;
-            effectivePriceDen = reserve0 * TurbineClient.POOL_FEE_PRECISION;
+            // User has excess token1 and swaps token1 -> token0, so they receive fewer
+            // token0 per token1: effective_price = mid_price / fee_factor
+            effectivePriceNum = midPrice.numerator * feePrecision;
+            effectivePriceDen = midPrice.denominator * feeComplement;
         } else {
-            // effective_price = reserve_ratio / fee_factor
-            effectivePriceNum = reserve1 * TurbineClient.POOL_FEE_PRECISION;
-            effectivePriceDen = reserve0 * feeComplement;
+            // User has excess token0 and swaps token0 -> token1, so they receive fewer
+            // token1 per token0: effective_price = mid_price * fee_factor
+            effectivePriceNum = midPrice.numerator * feeComplement;
+            effectivePriceDen = midPrice.denominator * feePrecision;
         }
 
-        // Value calculation:
-        // liq_inc = lp_supply * (effective_price_num * token1 + token0 * effective_price_den)
-        //                      / (effective_price_num * reserve1 + reserve0 * effective_price_den)
+        // Value everything in token1 units (token0 * mid_price + token1), then take the share
+        // of the pool's value that the deposit represents:
+        // liq_inc = lp_supply * (effective_price_num * token0 + token1 * effective_price_den)
+        //                      / (effective_price_num * reserve0 + reserve1 * effective_price_den)
         const addedValue =
-            effectivePriceNum * token1Amount + token0Amount * effectivePriceDen;
-        const poolValue = effectivePriceNum * reserve1 + reserve0 * effectivePriceDen;
+            effectivePriceNum * token0Amount + token1Amount * effectivePriceDen;
+        const poolValue = effectivePriceNum * reserve0 + reserve1 * effectivePriceDen;
+
+        if (poolValue === 0n) {
+            throw new TurbineError(
+                "SDK_ERROR",
+                "Cannot estimate LP tokens for a pool with zero value; both reserves are zero while LP supply is not."
+            );
+        }
 
         const lpTokens = (lpSupply * addedValue) / poolValue;
 
