@@ -292,7 +292,7 @@ export interface AddLiquidityIntent {
     token0: Address;
     /** token1 of the pool to which the liquidity is provided */
     token1: Address;
-    /** fee of the pool to which the liquidity is provided, in BIPs (30=0.3%) */
+    /** fee of the pool to which the liquidity is provided, in hundredths of a basis point (3000=0.3%) */
     fee: number;
     /**
      * Amount of token0 to provide. Can be 0 for single-sided liquidity addition
