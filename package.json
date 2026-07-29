@@ -17,6 +17,7 @@
         "remove-liquidity-onchain": "tsx scripts/remove-liquidity-onchain.ts",
         "execute-pending-onchain-intents": "tsx scripts/execute-pending-onchain-intents.ts",
         "approve-token": "tsx scripts/approve-token.ts",
+        "stress-liquidity-intents": "tsx scripts/stress-liquidity-intents.ts",
         "approve-lp-token": "tsx scripts/approve-lp-token.ts",
         "get-permit2-nonce": "tsx scripts/get-permit2-nonce.ts",
         "create-keystore": "tsx scripts/create-keystore.ts",
