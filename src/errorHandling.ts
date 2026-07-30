@@ -9,6 +9,8 @@ const TURBINE_ERROR_CODES = [
     "INPUT_VALIDATION_ERROR", // specific validation errors
     "ORDERBOOK_CAPACITY_ERROR", // orderbook is full
     "USER_ORDER_LIMIT_REACHED", // user has reached the maximum number of orders they can have
+    "USER_LIQUIDITY_ACTION_LIMIT_REACHED", // user has reached the maximum number of queued liquidity actions
+    "GLOBAL_LIQUIDITY_ACTION_LIMIT_REACHED", // the queue of liquidity actions is full
     "MAX_ORDERS_IN_PAYLOAD", // the number of orders in the payload is too large
     "VALIDATION_ERRORS", // multiple validation errors occurred, expect inner errors
     "ORDER_ALREADY_EXISTS", // order already exists (can be returned only when the SAME user submits the same order again)
@@ -19,10 +21,12 @@ const TURBINE_ERROR_CODES = [
     "AUTHENTICATED_WITH_NONCE", // authenticated, but nonce still present in the backend; this should never happen
     "VERIFICATION_FAILED", // failed to verify authentication request
     "ORDER_NOT_AVAILABLE", // order not found or owner is not authenticated
-    "MID_PRICE_NOT_FOUND", // Turbine couldn't determine mid-price necessary to perform the operation
+    "USDC_PRICE_NOT_FOUND", // Turbine couldn't determine the USDC prices needed to value the order or liquidity intent
     "INVALID_CURSOR", // pagination cursor passed to GET /api/orders is malformed
     "TOO_MANY_HASHES", // too many hashes passed as filter to GET /api/orders (max 30)
     "LIMIT_TOO_HIGH", // pagination limit passed to GET /api/orders exceeds max (200)
+    "QUOTE_ERROR", // POST /api/quote failed to produce a quote
+    "FYND_NOT_ENABLED", // POST /api/quote is unavailable because the Fynd solver is disabled on this instance
     // SDK-specific error codes
     "SDK_ERROR", // developer error, wrong usage of the SDK
     "UNEXPECTED_CANCELLATION_RESPONSE", // server returned a successful but unexpected response format for a cancellation request
