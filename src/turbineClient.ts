@@ -1369,6 +1369,16 @@ export class TurbineClient {
     /**
      * Ensures that the user is authenticated with the Turbine API.
      *
+     * @throws {TurbineError} If authentication fails or if there is an error checking authentication status.
+     * @returns {Promise<Address>} The authenticated user's address.
+     */
+    public async ensureAuthenticated(): Promise<Address> {
+        return await this.ensureSIWEAuthenticated();
+    }
+
+    /**
+     * Ensures that the user is authenticated with the Turbine API using a SIWE session.
+     *
      * This method checks the current authentication status by making a request to the `/me` endpoint.
      * If the user is not authenticated, it automatically attempts to authenticate them.
      * If authentication is successful, it returns the authenticated user's address.
@@ -1376,7 +1386,7 @@ export class TurbineClient {
      * @throws {TurbineError} If authentication fails or if there is an error checking authentication status.
      * @returns {Promise<Address>} The authenticated user's address.
      */
-    public async ensureAuthenticated(): Promise<Address> {
+    public async ensureSIWEAuthenticated(): Promise<Address> {
         // If authentication is already in progress, wait for it
         if (this.authenticationInProgress) {
             // Poll until authentication completes with 5 minute timeout
