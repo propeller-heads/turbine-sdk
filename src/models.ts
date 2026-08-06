@@ -10,6 +10,19 @@ export interface TurbineToken {
     class: TurbineTokenClass;
 }
 
+/**
+ * The EIP-712 signing domain that `/api/eip712/` request signatures are
+ * verified against, as served by the `/config` endpoint.
+ */
+export interface Eip712DomainInfo {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: Address;
+    /** keccak256 hash of the UTF-8 encoded API URI. */
+    salt: Hex;
+}
+
 export interface TurbineClientOptions {
     /**
      * The Turbine API URL. Defaults to `TURBINE_API_URL` from config.
@@ -29,6 +42,10 @@ export interface TurbineConfig {
     submitSettlements: boolean;
     siweDomain: string;
     siweUri: string;
+    /** The EIP-712 domain that `/api/eip712/` request signatures are verified against. */
+    eip712Domain: Eip712DomainInfo;
+    /** Maximum allowed remaining validity of an EIP-712 auth signature, in seconds. */
+    maxSignatureLifetimeS: number;
     tokens: TurbineToken[];
     /**
      * Minimum trade size in native USDC atomic units (6 decimals), e.g.

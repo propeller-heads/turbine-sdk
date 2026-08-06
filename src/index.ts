@@ -15,6 +15,7 @@ export type {
     OrderAnnotations,
     GetOrdersOptions,
     GetOrdersResponse,
+    Eip712DomainInfo,
     TurbineClientOptions,
     TurbineConfig,
     TurbineToken,
