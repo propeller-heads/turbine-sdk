@@ -3,11 +3,10 @@ import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/m
 import {
     getRandomSalt,
     TurbineClient,
-    getPools,
-    getUserPositions,
     checkStatus,
     fetchConfig,
 } from "../src/turbineClient";
+import { getPools, getUserPositions } from "../src/onchain";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
