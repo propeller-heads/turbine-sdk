@@ -17,6 +17,7 @@ This SDK helps you interact with Turbine.
 ## Table of Contents
 - [Installation](#installation)
 - [Basic setup](#basic-setup)
+- [Authentication](#authentication)
 - [Swapping tokens](#swapping-tokens)
     - [Submitting orders](#submitting-orders)
     - [Checking order state](#checking-order-state)
@@ -67,6 +68,55 @@ const publicClient = createPublicClient({
 // Create Turbine client.
 const turbineClient = await TurbineClient.create(walletClient, publicClient);
 ```
+
+`create` accepts an optional options object:
+
+```typescript
+const turbineClient = await TurbineClient.create(walletClient, publicClient, {
+    turbineApiUrl: "https://api.turbine.exchange/api", // default
+    authMethod: "siwe", // default; or "eip712"
+});
+```
+
+## Authentication
+
+The SDK supports two authentication methods, selected with the `authMethod`
+option when instantiating `TurbineClient`:
+
+### SIWE (default)
+
+Session authentication via Sign-In with Ethereum. The client signs in
+automatically on the first authenticated call (one signature) and a session
+cookie authenticates subsequent requests. This is the right choice for
+interactive wallets.
+
+### EIP-712
+
+Stateless per-request signing against the `/api/eip712/` endpoints. There is
+no session and no login round-trip: every request — including reads like
+`getOrders` — carries a fresh EIP-712 signature over its payload.
+
+```typescript
+const turbineClient = await TurbineClient.create(walletClient, publicClient, {
+    authMethod: "eip712",
+});
+
+// Works exactly like in SIWE mode, but each call is signed individually.
+const orderHash = await turbineClient.addOrder(order);
+const orders = await turbineClient.getOrders({ hashes: [orderHash] });
+```
+
+Because every call requires a signature, EIP-712 mode is intended for
+local/headless keys (e.g. viem local accounts) rather than interactive
+wallets, where each poll would prompt the user.
+
+Differences from SIWE mode:
+
+-   `getOrderStates` and `getSettledAmounts` have no EIP-712 API counterpart
+    and throw; use `getOrders({ hashes })` instead, which also returns order
+    status and executions.
+-   `authenticate`, `logout`, and `getAuthStatus` are session concepts and
+    throw.
 
 ## Swapping tokens
 
