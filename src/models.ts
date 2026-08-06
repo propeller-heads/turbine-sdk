@@ -10,6 +10,13 @@ export interface TurbineToken {
     class: TurbineTokenClass;
 }
 
+export interface TurbineClientOptions {
+    /**
+     * The Turbine API URL. Defaults to `TURBINE_API_URL` from config.
+     */
+    turbineApiUrl?: string;
+}
+
 export interface TurbineConfig {
     /**
      * The Turbine backend version, e.g. "0.135.0".

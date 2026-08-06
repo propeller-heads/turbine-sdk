@@ -140,11 +140,9 @@ export async function createMockTurbineClient(
         }
     );
 
-    const client = await TurbineClient.create(
-        WALLET_CLIENT,
-        PUBLIC_CLIENT,
-        customApiUrl
-    );
+    const client = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT, {
+        turbineApiUrl: customApiUrl,
+    });
 
     jest.spyOn(client as any, "getBlockTimestamp").mockImplementation(
         (...args: unknown[]) => {

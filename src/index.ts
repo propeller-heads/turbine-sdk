@@ -15,6 +15,7 @@ export type {
     OrderAnnotations,
     GetOrdersOptions,
     GetOrdersResponse,
+    TurbineClientOptions,
     TurbineConfig,
     TurbineToken,
     TurbineTokenClass,

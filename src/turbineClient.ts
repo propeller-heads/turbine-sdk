@@ -37,6 +37,7 @@ import {
     RemoveLiquidityIntent,
     RemoveLiquidityIntentOnchain,
     SignedSignatureTransferOnchain,
+    TurbineClientOptions,
     TurbineConfig,
     TurbinePool,
     UserPosition,
@@ -129,15 +130,15 @@ export class TurbineClient {
      * Creates a new TurbineClient instance with configuration fetched from the API
      * @param walletClient The wallet client for signing transactions
      * @param publicClient The public client for reading blockchain data
-     * @param turbineApiUrl Optional API URL (defaults to TURBINE_API_URL)
+     * @param options Optional client options, see {@link TurbineClientOptions}
      * @returns Promise that resolves to a configured TurbineClient instance
      */
     static async create(
         walletClient: WalletClient,
         publicClient: PublicClient,
-        turbineApiUrl?: string
+        options?: TurbineClientOptions
     ): Promise<TurbineClient> {
-        const apiUrl = turbineApiUrl || TURBINE_API_URL;
+        const apiUrl = options?.turbineApiUrl || TURBINE_API_URL;
 
         // Check status first
         await checkStatus(apiUrl);
