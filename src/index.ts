@@ -4,6 +4,7 @@
 export { TurbineClient, fetchConfig, getRandomSalt } from "./turbineClient";
 
 export type {
+    AuthMethod,
     OrderIntent,
     AddLiquidityIntent,
     RemoveLiquidityIntent,

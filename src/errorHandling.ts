@@ -27,6 +27,15 @@ const TURBINE_ERROR_CODES = [
     "LIMIT_TOO_HIGH", // pagination limit passed to GET /api/orders exceeds max (200)
     "QUOTE_ERROR", // POST /api/quote failed to produce a quote
     "FYND_NOT_ENABLED", // POST /api/quote is unavailable because the Fynd solver is disabled on this instance
+    // Backend error codes specific to the EIP-712 signed API
+    "DEADLINE_EXPIRED", // the auth deadline is in the past
+    "SIGNATURE_LIFETIME_TOO_LONG", // the auth deadline exceeds the maximum signature lifetime
+    "DEADLINE_IN_RESTART_QUARANTINE", // the auth deadline falls into the server's post-restart quarantine window
+    "INVALID_SIGNATURE", // the EIP-712 signature could not be recovered
+    "SIGNER_MISMATCH", // the recovered signer does not match the claimed signer or payload owner
+    "NONCE_ALREADY_USED", // the (signer, nonce) pair was already used by an un-expired request
+    "MIXED_BATCH_SIGNERS", // envelopes in an add_orders batch are signed by different signers
+    "INVALID_SIGNED_PAYLOAD", // the signed payload has no canonical form (e.g. unresolvable spread curve)
     // SDK-specific error codes
     "SDK_ERROR", // developer error, wrong usage of the SDK
     "UNEXPECTED_CANCELLATION_RESPONSE", // server returned a successful but unexpected response format for a cancellation request
@@ -37,6 +46,7 @@ const TURBINE_ERROR_CODES = [
     "AUTHENTICATION_FAILED", // tried to authenticate but backend still answers as if unauthenticated
     "AUTHENTICATION_ERROR", // some other error occurred during authentication
     "UNAUTHORIZED", // authenticated user does not match the owner of submitted intent
+    "NOT_SUPPORTED_IN_EIP712_MODE", // the called method has no EIP-712 API counterpart
     "INVALID_RESPONSE", // server returned an unexpected response format; the response is in the details field
     "INTERNAL_SERVER_ERROR", // server returned a 500 error
     "REMOVE_LIQUIDITY_INTENT_ONCHAIN_FAILED", // remove liquidity intent onchain transaction was reverted

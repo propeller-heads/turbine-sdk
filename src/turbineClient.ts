@@ -17,9 +17,22 @@ import {
     unsuccessfulResponseToTurbineError,
 } from "./errorHandling";
 import {
+    buildAddOrderWirePayload,
+    buildSignedOrderIntentMessage,
+    Eip712AuthBlock,
+    Eip712Endpoint,
+    EIP712_PRIMARY_TYPES,
+    EIP712_TYPES,
+    Eip712Messages,
+    Eip712RequestBody,
+    eip712Deadline,
+    generateEip712Nonce,
+} from "./eip712";
+import {
     AddLiquidity,
     AddLiquidityIntent,
     AddOrder,
+    AuthMethod,
     AddSmartOrder,
     CancelOrderPayload,
     GetOrderStatesPayload,
@@ -110,6 +123,7 @@ export class TurbineClient {
     public walletClient: WalletClient;
     public publicClient: PublicClient;
     public config: TurbineConfig;
+    public readonly authMethod: AuthMethod;
     private cookieJar: TurbineCookieJar;
     private authenticationInProgress: boolean = false;
 
@@ -117,12 +131,14 @@ export class TurbineClient {
         walletClient: WalletClient,
         publicClient: PublicClient,
         turbineApiUrl: string,
-        config: TurbineConfig
+        config: TurbineConfig,
+        authMethod: AuthMethod
     ) {
         this.walletClient = walletClient;
         this.publicClient = publicClient;
         this.turbineApiUrl = validate.validateUrlString(turbineApiUrl, "turbineApiUrl");
         this.config = config;
+        this.authMethod = authMethod;
         this.cookieJar = new TurbineCookieJar();
     }
 
@@ -146,7 +162,13 @@ export class TurbineClient {
         // Fetch config
         const config = await fetchConfig(apiUrl);
 
-        return new TurbineClient(walletClient, publicClient, apiUrl, config);
+        return new TurbineClient(
+            walletClient,
+            publicClient,
+            apiUrl,
+            config,
+            options?.authMethod ?? "siwe"
+        );
     }
 
     /** Fee precision constant matching the backend (1_000_000) */
@@ -511,7 +533,14 @@ export class TurbineClient {
 
         try {
             const payload = await this.createAddOrderData(intent, annotations);
-            const response = await this.callApiEndpoint(payload, "add_order");
+            const response =
+                this.authMethod === "eip712"
+                    ? await this.callEip712Endpoint(
+                          "add_order",
+                          { order: buildSignedOrderIntentMessage(intent) },
+                          buildAddOrderWirePayload(payload)
+                      )
+                    : await this.callApiEndpoint(payload, "add_order");
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -589,7 +618,24 @@ export class TurbineClient {
                     this.createAddOrderData(intent, annotations?.[index])
                 )
             );
-            const response = await this.callApiEndpoint(payloads, "add_orders");
+            let response: Response;
+            if (this.authMethod === "eip712") {
+                // The batch body is a bare array of envelopes, each
+                // independently signed with a fresh nonce.
+                const envelopes: Eip712RequestBody[] = [];
+                for (const [index, payload] of payloads.entries()) {
+                    const auth = await this.signEip712Envelope("AddOrder", {
+                        order: buildSignedOrderIntentMessage(intents[index]),
+                    });
+                    envelopes.push({
+                        payload: buildAddOrderWirePayload(payload),
+                        auth,
+                    });
+                }
+                response = await this.postEip712("add_orders", envelopes);
+            } else {
+                response = await this.callApiEndpoint(payloads, "add_orders");
+            }
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -653,7 +699,14 @@ export class TurbineClient {
 
         try {
             const payload = await this.createRemoveLiquidityData(intent);
-            const response = await this.callApiEndpoint(payload, "remove_liquidity");
+            const response =
+                this.authMethod === "eip712"
+                    ? await this.callEip712Endpoint(
+                          "remove_liquidity",
+                          { intent },
+                          payload
+                      )
+                    : await this.callApiEndpoint(payload, "remove_liquidity");
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -690,7 +743,10 @@ export class TurbineClient {
                 orderHash: orderHash,
             };
 
-            const response = await this.callApiEndpoint(payload, "cancel_order");
+            const response =
+                this.authMethod === "eip712"
+                    ? await this.callEip712Endpoint("cancel_order", payload)
+                    : await this.callApiEndpoint(payload, "cancel_order");
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -724,6 +780,9 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of `OrderState` objects.
      */
     async getOrderStates(orderHashes: Hex[]): Promise<OrderState[]> {
+        this.throwIfEip712Mode(
+            "getOrderStates has no EIP-712 API counterpart. Use getOrders({ hashes }) instead."
+        );
         orderHashes = validate.validateNonEmptyArray(
             orderHashes,
             "getOrderStates orderHashes",
@@ -813,23 +872,34 @@ export class TurbineClient {
 
         await this.ensureAuthenticated();
 
-        const queryParams = new URLSearchParams();
-        if (hashes?.length) queryParams.set("hash", hashes.join(","));
-        if (statuses?.length) queryParams.set("status", statuses.join(","));
-        if (cursor !== undefined) {
-            queryParams.set("cursor", cursor);
-        }
-        if (limit !== undefined) {
-            queryParams.set("limit", String(limit));
-        }
-
-        const queryString = queryParams.toString();
-        const endpoint = queryString ? `orders?${queryString}` : "orders";
-
         try {
-            const response = await this.fetchWithCookies(endpoint, {
-                method: "GET",
-            });
+            let response: Response;
+            if (this.authMethod === "eip712") {
+                // Zero values mean "unset" in the signed query struct.
+                response = await this.callEip712Endpoint("orders", {
+                    hashes: hashes ?? [],
+                    statuses: statuses ?? [],
+                    cursor: cursor ?? "",
+                    limit: limit ?? 0,
+                });
+            } else {
+                const queryParams = new URLSearchParams();
+                if (hashes?.length) queryParams.set("hash", hashes.join(","));
+                if (statuses?.length) queryParams.set("status", statuses.join(","));
+                if (cursor !== undefined) {
+                    queryParams.set("cursor", cursor);
+                }
+                if (limit !== undefined) {
+                    queryParams.set("limit", String(limit));
+                }
+
+                const queryString = queryParams.toString();
+                const endpoint = queryString ? `orders?${queryString}` : "orders";
+
+                response = await this.fetchWithCookies(endpoint, {
+                    method: "GET",
+                });
+            }
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -866,10 +936,15 @@ export class TurbineClient {
         await this.ensureAuthenticated();
 
         try {
-            const response = await this.fetchWithCookies("liquidity_intent_states", {
-                method: "POST",
-                body: JSON.stringify({ intentHashes: orderHashes }),
-            });
+            const response =
+                this.authMethod === "eip712"
+                    ? await this.callEip712Endpoint("liquidity_intents", {
+                          hashes: orderHashes,
+                      })
+                    : await this.fetchWithCookies("liquidity_intent_states", {
+                          method: "POST",
+                          body: JSON.stringify({ intentHashes: orderHashes }),
+                      });
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -916,7 +991,14 @@ export class TurbineClient {
         }
 
         try {
-            const response = await this.callApiEndpoint(payload, "add_liquidity");
+            const response =
+                this.authMethod === "eip712"
+                    ? await this.callEip712Endpoint(
+                          "add_liquidity",
+                          { intent: payload.addLiquidity },
+                          payload
+                      )
+                    : await this.callApiEndpoint(payload, "add_liquidity");
 
             if (!response.ok) {
                 throw await unsuccessfulResponseToTurbineError(response);
@@ -1071,6 +1153,9 @@ export class TurbineClient {
      * @returns A Promise that resolves to an array of OrderSettledAmount objects containing order hash and executed sell amount
      */
     async getSettledAmounts(orderHashes: Hex[]): Promise<OrderSettledAmount[]> {
+        this.throwIfEip712Mode(
+            "getSettledAmounts has no EIP-712 API counterpart. Use getOrders({ hashes }) instead."
+        );
         orderHashes = validate.validateNonEmptyArray(
             orderHashes,
             "getSettledAmounts orderHashes",
@@ -1267,6 +1352,9 @@ export class TurbineClient {
      * First calls /nonce to get nonce, then calls /verify with the signed message.
      */
     async authenticate(): Promise<void> {
+        this.throwIfEip712Mode(
+            "authenticate() applies to SIWE session authentication only; in EIP-712 mode every request is signed individually."
+        );
         const chainId = await this.walletClient.getChainId();
         const addresses = await this.walletClient.getAddresses();
         const address = addresses[0];
@@ -1320,6 +1408,9 @@ export class TurbineClient {
      * @returns A Promise that resolves to the authentication status
      */
     async getAuthStatus(): Promise<{ authenticated: boolean; address?: string }> {
+        this.throwIfEip712Mode(
+            "getAuthStatus() applies to SIWE session authentication only; in EIP-712 mode there is no session."
+        );
         try {
             const response = await this.fetchWithCookies("me");
             if (!response.ok) {
@@ -1355,6 +1446,9 @@ export class TurbineClient {
      * Logout and clear the current session.
      */
     async logout(): Promise<void> {
+        this.throwIfEip712Mode(
+            "logout() applies to SIWE session authentication only; in EIP-712 mode there is no session."
+        );
         try {
             await this.fetchWithCookies("logout", { method: "POST" });
             // Clear all cookies from jar
@@ -1367,12 +1461,20 @@ export class TurbineClient {
     }
 
     /**
-     * Ensures that the user is authenticated with the Turbine API.
+     * Ensures that the user is authenticated with the Turbine API and returns
+     * the address requests are authenticated as.
+     *
+     * In SIWE mode this establishes a session if needed. In EIP-712 mode
+     * there is no session; the wallet address that signs each request is
+     * returned.
      *
      * @throws {TurbineError} If authentication fails or if there is an error checking authentication status.
      * @returns {Promise<Address>} The authenticated user's address.
      */
     public async ensureAuthenticated(): Promise<Address> {
+        if (this.authMethod === "eip712") {
+            return (await this.walletClient.getAddresses())[0];
+        }
         return await this.ensureSIWEAuthenticated();
     }
 
@@ -1481,6 +1583,86 @@ export class TurbineClient {
             method: "POST",
             body: JSON.stringify(payload, bigIntReplacer),
         });
+    }
+
+    /** Throws when the client is in EIP-712 mode; used by session-only methods. */
+    private throwIfEip712Mode(message: string): void {
+        if (this.authMethod === "eip712") {
+            throw new TurbineError("NOT_SUPPORTED_IN_EIP712_MODE", message);
+        }
+    }
+
+    /**
+     * Signs the given message fields as the EIP-712 struct `primaryType`,
+     * together with a fresh random nonce and a deadline, returning the auth
+     * block of a signed envelope.
+     */
+    private async signEip712Envelope(
+        primaryType: (typeof EIP712_PRIMARY_TYPES)[Eip712Endpoint],
+        signedFields: object
+    ): Promise<Eip712AuthBlock> {
+        const signer = (await this.walletClient.getAddresses())[0];
+        const nonce = generateEip712Nonce();
+        const deadline = eip712Deadline(this.config.maxSignatureLifetimeS);
+        const signature = await this.walletClient.signTypedData({
+            account: this.walletClient.account!,
+            domain: {
+                name: this.config.eip712Domain.name,
+                version: this.config.eip712Domain.version,
+                chainId: this.config.eip712Domain.chainId,
+                verifyingContract: this.config.eip712Domain.verifyingContract,
+                salt: this.config.eip712Domain.salt,
+            },
+            types: EIP712_TYPES[primaryType],
+            primaryType,
+            message: {
+                ...signedFields,
+                nonce: BigInt(nonce),
+                deadline: BigInt(deadline),
+            },
+        });
+        return { signer, nonce, deadline, signature: convertSignature(signature) };
+    }
+
+    /**
+     * POSTs a body to an `/api/eip712/` endpoint, retrying the identical body
+     * once on HTTP 409: NONCE_ALREADY_USED can be a transient race, and a
+     * failed request releases its nonce.
+     */
+    private async postEip712(endpoint: Eip712Endpoint, body: unknown): Promise<Response> {
+        const post = () =>
+            this.fetchWithCookies(`eip712/${endpoint}`, {
+                method: "POST",
+                body: JSON.stringify(body, bigIntReplacer),
+            });
+        let response = await post();
+        if (response.status === 409) {
+            response = await post();
+        }
+        return response;
+    }
+
+    /**
+     * Signs and posts a single envelope to an `/api/eip712/` endpoint. The
+     * primary type is looked up from the endpoint; `signedFields` must match
+     * its typed-data struct minus `nonce`/`deadline`, which are appended here.
+     * `wirePayload` defaults to `signedFields` — pass it only where the wire
+     * payload differs from the signed message.
+     */
+    private async callEip712Endpoint<E extends Eip712Endpoint>(
+        endpoint: E,
+        signedFields: Eip712Messages[(typeof EIP712_PRIMARY_TYPES)[E]],
+        wirePayload?: unknown
+    ): Promise<Response> {
+        const auth = await this.signEip712Envelope(
+            EIP712_PRIMARY_TYPES[endpoint],
+            signedFields
+        );
+        const envelope: Eip712RequestBody = {
+            payload: wirePayload ?? signedFields,
+            auth,
+        };
+        return await this.postEip712(endpoint, envelope);
     }
 
     /**

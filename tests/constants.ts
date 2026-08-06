@@ -14,6 +14,7 @@ import {
     AddLiquidityIntent,
     OrderIntent,
     RemoveLiquidityIntent,
+    TurbineClientOptions,
     TurbineConfig,
 } from "../src/models";
 import * as spreads from "../src/spreads";
@@ -129,7 +130,8 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
 
 // Helper function to create a mocked TurbineClient for testing
 export async function createMockTurbineClient(
-    customApiUrl?: string
+    customApiUrl?: string,
+    options?: Omit<TurbineClientOptions, "turbineApiUrl">
 ): Promise<TurbineClient> {
     const apiUrl = customApiUrl || TURBINE_API_URL;
 
@@ -164,6 +166,7 @@ export async function createMockTurbineClient(
     );
 
     const client = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT, {
+        ...options,
         turbineApiUrl: customApiUrl,
     });
 

@@ -23,11 +23,26 @@ export interface Eip712DomainInfo {
     salt: Hex;
 }
 
+/**
+ * How the client authenticates requests to the Turbine API.
+ *
+ * - `"siwe"`: session authentication via Sign-In with Ethereum. The client
+ *   signs in once and the session cookie authenticates subsequent requests.
+ * - `"eip712"`: stateless per-request signing. Every request to an
+ *   `/api/eip712/` endpoint carries an EIP-712 signature over its payload;
+ *   there is no session. Each call (including reads) requires a fresh
+ *   signature, so this mode is intended for local/headless keys rather than
+ *   interactive wallets.
+ */
+export type AuthMethod = "siwe" | "eip712";
+
 export interface TurbineClientOptions {
     /**
      * The Turbine API URL. Defaults to `TURBINE_API_URL` from config.
      */
     turbineApiUrl?: string;
+    /** The authentication method to use. Defaults to `"siwe"`. */
+    authMethod?: AuthMethod;
 }
 
 export interface TurbineConfig {
