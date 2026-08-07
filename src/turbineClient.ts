@@ -1629,7 +1629,10 @@ export class TurbineClient {
      * once on HTTP 409: NONCE_ALREADY_USED can be a transient race, and a
      * failed request releases its nonce.
      */
-    private async postEip712(endpoint: Eip712Endpoint, body: unknown): Promise<Response> {
+    private async postEip712(
+        endpoint: Eip712Endpoint,
+        body: unknown
+    ): Promise<Response> {
         const post = () =>
             this.fetchWithCookies(`eip712/${endpoint}`, {
                 method: "POST",

@@ -151,9 +151,7 @@ describe("resolveSpreadCurvePoints", () => {
                 endDeltaBps: 0,
                 points: [{ windowBps: 1, deltaBps: 10 }],
             })
-        ).toThrow(
-            expect.objectContaining({ code: "INPUT_VALIDATION_ERROR" })
-        );
+        ).toThrow(expect.objectContaining({ code: "INPUT_VALIDATION_ERROR" }));
     });
 
     it("rejects knots that collapse onto each other after truncation", () => {
@@ -168,9 +166,7 @@ describe("resolveSpreadCurvePoints", () => {
                     { windowBps: 1500, deltaBps: 20 },
                 ],
             })
-        ).toThrow(
-            expect.objectContaining({ code: "INPUT_VALIDATION_ERROR" })
-        );
+        ).toThrow(expect.objectContaining({ code: "INPUT_VALIDATION_ERROR" }));
     });
 });
 
@@ -250,13 +246,11 @@ describe("TurbineClient in EIP-712 mode", () => {
 
     it("cancelOrder posts a signed envelope to eip712/cancel_order", async () => {
         const client = await createEip712Client();
-        const spy = jest
-            .spyOn(client as any, "fetchWithCookies")
-            .mockResolvedValue(
-                new Response(JSON.stringify({ orderHash: FIXTURE_HASH }), {
-                    status: 200,
-                })
-            );
+        const spy = jest.spyOn(client as any, "fetchWithCookies").mockResolvedValue(
+            new Response(JSON.stringify({ orderHash: FIXTURE_HASH }), {
+                status: 200,
+            })
+        );
 
         const before = Math.floor(Date.now() / 1000);
         const result = await client.cancelOrder(FIXTURE_HASH);
@@ -297,13 +291,11 @@ describe("TurbineClient in EIP-712 mode", () => {
 
     it("does not touch the session endpoints", async () => {
         const client = await createEip712Client();
-        const spy = jest
-            .spyOn(client as any, "fetchWithCookies")
-            .mockResolvedValue(
-                new Response(JSON.stringify({ orderHash: FIXTURE_HASH }), {
-                    status: 200,
-                })
-            );
+        const spy = jest.spyOn(client as any, "fetchWithCookies").mockResolvedValue(
+            new Response(JSON.stringify({ orderHash: FIXTURE_HASH }), {
+                status: 200,
+            })
+        );
 
         await client.cancelOrder(FIXTURE_HASH);
 
@@ -400,9 +392,7 @@ describe("TurbineClient in EIP-712 mode", () => {
             limit: 5,
         });
 
-        const body = JSON.parse(
-            (spy.mock.calls[0][1] as RequestInit).body as string
-        );
+        const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string);
         expect(body.payload).toEqual({
             hashes: [FIXTURE_HASH],
             statuses: ["Active", "Filled"],
@@ -433,13 +423,11 @@ describe("TurbineClient in EIP-712 mode", () => {
 
     it("addOrder moves the spread curve out of the signed order payload", async () => {
         const client = await createEip712Client();
-        const spy = jest
-            .spyOn(client as any, "fetchWithCookies")
-            .mockResolvedValue(
-                new Response(JSON.stringify({ orderHash: FIXTURE_HASH }), {
-                    status: 200,
-                })
-            );
+        const spy = jest.spyOn(client as any, "fetchWithCookies").mockResolvedValue(
+            new Response(JSON.stringify({ orderHash: FIXTURE_HASH }), {
+                status: 200,
+            })
+        );
 
         const orderHash = await client.addOrder(ORDER_INTENT);
         expect(orderHash).toBe(FIXTURE_HASH);
