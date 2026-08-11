@@ -10,6 +10,41 @@ export interface TurbineToken {
     class: TurbineTokenClass;
 }
 
+/**
+ * The EIP-712 signing domain that `/api/eip712/` request signatures are
+ * verified against, as served by the `/config` endpoint.
+ */
+export interface Eip712DomainInfo {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: Address;
+    /** keccak256 hash of the UTF-8 encoded API URI. */
+    salt: Hex;
+}
+
+/**
+ * How the client authenticates requests to the Turbine API.
+ *
+ * - `"siwe"`: session authentication via Sign-In with Ethereum. The client
+ *   signs in once and the session cookie authenticates subsequent requests.
+ * - `"eip712"`: stateless per-request signing. Every request to an
+ *   `/api/eip712/` endpoint carries an EIP-712 signature over its payload;
+ *   there is no session. Each call (including reads) requires a fresh
+ *   signature, so this mode is intended for local/headless keys rather than
+ *   interactive wallets.
+ */
+export type AuthMethod = "siwe" | "eip712";
+
+export interface TurbineClientOptions {
+    /**
+     * The Turbine API URL. Defaults to `TURBINE_API_URL` from config.
+     */
+    turbineApiUrl?: string;
+    /** The authentication method to use. Defaults to `"siwe"`. */
+    authMethod?: AuthMethod;
+}
+
 export interface TurbineConfig {
     /**
      * The Turbine backend version, e.g. "0.135.0".
@@ -22,6 +57,10 @@ export interface TurbineConfig {
     submitSettlements: boolean;
     siweDomain: string;
     siweUri: string;
+    /** The EIP-712 domain that `/api/eip712/` request signatures are verified against. */
+    eip712Domain: Eip712DomainInfo;
+    /** Maximum allowed remaining validity of an EIP-712 auth signature, in seconds. */
+    maxSignatureLifetimeS: number;
     tokens: TurbineToken[];
     /**
      * Minimum trade size in native USDC atomic units (6 decimals), e.g.

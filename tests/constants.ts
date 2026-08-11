@@ -1,4 +1,12 @@
-import { createPublicClient, createWalletClient, Hex, http, Address } from "viem";
+import {
+    createPublicClient,
+    createWalletClient,
+    Hex,
+    http,
+    Address,
+    keccak256,
+    stringToBytes,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { RPC_URL, TURBINE_API_URL } from "../src/config";
 import { NULL_ADDRESS, USDC, USDT, WETH } from "../src/constants";
@@ -6,6 +14,7 @@ import {
     AddLiquidityIntent,
     OrderIntent,
     RemoveLiquidityIntent,
+    TurbineClientOptions,
     TurbineConfig,
 } from "../src/models";
 import * as spreads from "../src/spreads";
@@ -95,6 +104,14 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
     submitSettlements: true,
     siweDomain: "https://test.propellerheads.xyz",
     siweUri: TURBINE_API_URL,
+    eip712Domain: {
+        name: "Turbine",
+        version: "1",
+        chainId: 1,
+        verifyingContract: "0x1234567890123456789012345678901234567890" as Address,
+        salt: keccak256(stringToBytes(TURBINE_API_URL)),
+    },
+    maxSignatureLifetimeS: 600,
     tokens: [
         {
             address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as Address,
@@ -113,7 +130,8 @@ export const MOCK_TURBINE_CONFIG: TurbineConfig = {
 
 // Helper function to create a mocked TurbineClient for testing
 export async function createMockTurbineClient(
-    customApiUrl?: string
+    customApiUrl?: string,
+    options?: Omit<TurbineClientOptions, "turbineApiUrl">
 ): Promise<TurbineClient> {
     const apiUrl = customApiUrl || TURBINE_API_URL;
 
@@ -128,7 +146,14 @@ export async function createMockTurbineClient(
 
             if (urlString.includes("/config")) {
                 return new Response(
-                    JSON.stringify({ ...MOCK_TURBINE_CONFIG, siweUri: apiUrl }),
+                    JSON.stringify({
+                        ...MOCK_TURBINE_CONFIG,
+                        siweUri: apiUrl,
+                        eip712Domain: {
+                            ...MOCK_TURBINE_CONFIG.eip712Domain,
+                            salt: keccak256(stringToBytes(apiUrl)),
+                        },
+                    }),
                     {
                         status: 200,
                         headers: { "Content-Type": "application/json" },
@@ -140,11 +165,10 @@ export async function createMockTurbineClient(
         }
     );
 
-    const client = await TurbineClient.create(
-        WALLET_CLIENT,
-        PUBLIC_CLIENT,
-        customApiUrl
-    );
+    const client = await TurbineClient.create(WALLET_CLIENT, PUBLIC_CLIENT, {
+        ...options,
+        turbineApiUrl: customApiUrl,
+    });
 
     jest.spyOn(client as any, "getBlockTimestamp").mockImplementation(
         (...args: unknown[]) => {

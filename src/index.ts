@@ -4,6 +4,7 @@
 export { TurbineClient, fetchConfig, getRandomSalt } from "./turbineClient";
 
 export type {
+    AuthMethod,
     OrderIntent,
     AddLiquidityIntent,
     RemoveLiquidityIntent,
@@ -15,6 +16,8 @@ export type {
     OrderAnnotations,
     GetOrdersOptions,
     GetOrdersResponse,
+    Eip712DomainInfo,
+    TurbineClientOptions,
     TurbineConfig,
     TurbineToken,
     TurbineTokenClass,

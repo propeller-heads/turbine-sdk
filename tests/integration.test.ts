@@ -3,11 +3,10 @@ import { AddLiquidityIntent, OrderIntent, RemoveLiquidityIntent } from "../src/m
 import {
     getRandomSalt,
     TurbineClient,
-    getPools,
-    getUserPositions,
     checkStatus,
     fetchConfig,
 } from "../src/turbineClient";
+import { getPools, getUserPositions } from "../src/onchain";
 import {
     ACCOUNT,
     ADD_LIQUIDITY_INTENT,
@@ -174,6 +173,78 @@ describe("Integration test", () => {
 
         expect(result).toBeDefined();
         expect(result.orderHash).toBe(orderHash);
+    });
+
+    describe("EIP-712 authentication", () => {
+        it("should submit, list, and cancel an order without a session", async () => {
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT,
+                { authMethod: "eip712" }
+            );
+
+            const intent: OrderIntent = {
+                ...ORDER_INTENT,
+                salt: getRandomSalt(),
+            };
+
+            const orderHash = await withTurbineErrorHandling(() =>
+                turbineClient.addOrder(intent)
+            );
+            expect(orderHash).toBeDefined();
+
+            const orders = await withTurbineErrorHandling(() =>
+                turbineClient.getOrders({ hashes: [orderHash as Hex] })
+            );
+            expect(orders.orders).toHaveLength(1);
+            expect(orders.orders[0].hash).toBe(orderHash);
+
+            const result = await withTurbineErrorHandling(() =>
+                turbineClient.cancelOrder(orderHash as Hex)
+            );
+            expect(result.orderHash).toBe(orderHash);
+        });
+
+        it("should submit an order array", async () => {
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT,
+                { authMethod: "eip712" }
+            );
+
+            const intents: OrderIntent[] = Array.from({ length: 3 }, () => ({
+                ...ORDER_INTENT,
+                salt: getRandomSalt(),
+            }));
+
+            const result = await withTurbineErrorHandling(() =>
+                turbineClient.addOrders(intents)
+            );
+            expect(result).toHaveLength(3);
+        });
+
+        it("should submit an add liquidity intent and query its state", async () => {
+            const turbineClient = await TurbineClient.create(
+                WALLET_CLIENT,
+                PUBLIC_CLIENT,
+                { authMethod: "eip712" }
+            );
+
+            const intent: AddLiquidityIntent = {
+                ...ADD_LIQUIDITY_INTENT,
+                salt: getRandomSalt(),
+            };
+
+            const intentHash = await withTurbineErrorHandling(() =>
+                turbineClient.addLiquidity(intent)
+            );
+            expect(intentHash).toBeDefined();
+
+            const states = await withTurbineErrorHandling(() =>
+                turbineClient.getLiquidityIntents([intentHash as Hex])
+            );
+            expect(states).toHaveLength(1);
+        });
     });
 
     it("should successfully get registered pools (client method)", async () => {

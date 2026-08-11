@@ -11,9 +11,18 @@
  * - Response layer: Validate API responses
  */
 
-import { Address, Hex, hexToBytes, bytesToHex } from "viem";
+import {
+    Address,
+    getAddress,
+    Hex,
+    hexToBytes,
+    bytesToHex,
+    keccak256,
+    stringToBytes,
+} from "viem";
 import { TurbineError } from "./errorHandling";
 import {
+    Eip712DomainInfo,
     OrderIntent,
     OrderAnnotations,
     AddLiquidityIntent,
@@ -43,6 +52,7 @@ import {
 } from "./constants";
 import {
     validateNumber,
+    validatePositiveNumber,
     validateObject,
     validateBigInt,
     validateBoolean,
@@ -938,6 +948,23 @@ export function validateTurbineToken(token: unknown, fieldName: string): Turbine
     );
 }
 
+export function validateEip712Domain(
+    value: unknown,
+    fieldName: string
+): Eip712DomainInfo {
+    return validateFields<Eip712DomainInfo>(
+        value,
+        {
+            name: validateString,
+            version: validateString,
+            chainId: validatePositiveNumber,
+            verifyingContract: validateAddress,
+            salt: validateHash,
+        },
+        fieldName
+    );
+}
+
 export function validateTurbineConfig(
     config: unknown,
     turbineApiUrl: string
@@ -953,6 +980,8 @@ export function validateTurbineConfig(
             submitSettlements: validateBoolean,
             siweDomain: validateString,
             siweUri: validateUrlString,
+            eip712Domain: validateEip712Domain,
+            maxSignatureLifetimeS: validatePositiveNumber,
             tokens: (value: unknown, name: string) =>
                 validateArray(value, name, (item, index) =>
                     validateTurbineToken(item, `${name}[${index}]`)
@@ -969,6 +998,34 @@ export function validateTurbineConfig(
                 fieldName: "TurbineConfig.siweUri",
                 receivedValue: validated.siweUri,
                 expectedValue: turbineApiUrl,
+            }
+        );
+    }
+
+    if (
+        getAddress(validated.eip712Domain.verifyingContract) !==
+        getAddress(validated.turbineSettlerAddress)
+    ) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `TurbineConfig.eip712Domain.verifyingContract should be the Turbine settler address; got "${validated.eip712Domain.verifyingContract}" but expected "${validated.turbineSettlerAddress}"`,
+            {
+                fieldName: "TurbineConfig.eip712Domain.verifyingContract",
+                receivedValue: validated.eip712Domain.verifyingContract,
+                expectedValue: validated.turbineSettlerAddress,
+            }
+        );
+    }
+
+    const expectedSalt = keccak256(stringToBytes(validated.siweUri));
+    if (validated.eip712Domain.salt.toLowerCase() !== expectedSalt.toLowerCase()) {
+        throw new TurbineError(
+            "INPUT_VALIDATION_ERROR",
+            `TurbineConfig.eip712Domain.salt should be the keccak256 hash of the API URI; got "${validated.eip712Domain.salt}" but expected "${expectedSalt}"`,
+            {
+                fieldName: "TurbineConfig.eip712Domain.salt",
+                receivedValue: validated.eip712Domain.salt,
+                expectedValue: expectedSalt,
             }
         );
     }
