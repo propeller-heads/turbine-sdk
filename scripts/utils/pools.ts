@@ -64,9 +64,14 @@ export function printPoolDetails(pool: TurbinePool, index?: number): void {
 
 /**
  * Fetch all registered pools from on-chain via the Turbine Hook contract.
+ * The hook address comes from the API at `apiUrl`, so it always matches the
+ * deployment that API is serving.
  */
-export async function fetchPools(publicClient: PublicClient): Promise<TurbinePool[]> {
-    const config = await fetchConfig(TURBINE_API_URL);
+export async function fetchPools(
+    publicClient: PublicClient,
+    apiUrl: string = TURBINE_API_URL
+): Promise<TurbinePool[]> {
+    const config = await fetchConfig(apiUrl);
     return getPools(publicClient, config.lpHookAddress);
 }
 
