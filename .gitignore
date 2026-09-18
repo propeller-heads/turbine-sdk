@@ -23,3 +23,6 @@ node_modules/
 # These files should never be committed to version control
 scripts/.keystores/
 !scripts/.keystores/EXAMPLE-DO-NOT-USE.json
+
+# Liquidity migration progress files
+scripts/.migration-state/

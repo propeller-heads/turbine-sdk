@@ -110,6 +110,22 @@ Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart
 
 Executes one or more pending remove-liquidity intents that were previously queued on-chain, without contacting the Turbine API. Provide the `TurbineLiquidityRouter` address as the first argument, followed by the intent hashes. The script triggers intents execution and exits once the transaction is confirmed. (The `remove-liquidity-onchain` script prints the exact command to run for the intents it creates.)
 
+### Migrate Liquidity
+
+**Command:** `yarn migrate-liquidity [--env staging|prod|all] [--dry-run] [--yes] [--old-settler 0x...] [--api-url https://...] [--address 0x...]`
+
+**Interactive:** Yes (prompts for the private key and for one confirmation of the whole plan)
+
+Moves the account's liquidity from a previous Turbine deployment to the one the API currently serves. The old router and hook are derived from the old `TurbineSettler` address (built in per environment, overridable with `--old-settler`); the new addresses come from the API `/config` endpoint.
+
+For each pool where the account holds LP tokens on the old hook, the script approves the LP token for Permit2, submits an on-chain remove-liquidity intent, waits out the router speedbump, executes the intents itself, creates the matching pool on the new hook if needed, and submits an add-liquidity intent with the exact amounts recovered.
+
+Progress is written to `scripts/.migration-state/` from the first submitted intent onwards, so an interrupted run is never stranded: re-run the same command and it settles whatever is still pending on the old router — including intents that landed after an earlier run gave up on them — and continues with the deposits.
+
+Every transaction is confirmed with a bounded timeout; one that does not land within 90 seconds is replaced at the same nonce with a higher priority fee, up to four attempts. The tip never goes below 0.1 gwei, because some RPCs answer `eth_maxPriorityFeePerGas` with 0 and a zero-tip transaction is never included.
+
+Use `--dry-run --address <address>` to print the plan for any address without providing a private key.
+
 ### Approve Token
 
 **Command:** `yarn approve-token <tokenAddress> [tokenAddress2] ... [-y]`

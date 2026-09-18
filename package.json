@@ -15,6 +15,7 @@
         "add-liquidity": "tsx scripts/add-liquidity.ts",
         "remove-liquidity": "tsx scripts/remove-liquidity.ts",
         "remove-liquidity-onchain": "tsx scripts/remove-liquidity-onchain.ts",
+        "migrate-liquidity": "tsx scripts/migrate-liquidity.ts",
         "execute-pending-onchain-intents": "tsx scripts/execute-pending-onchain-intents.ts",
         "approve-token": "tsx scripts/approve-token.ts",
         "approve-lp-token": "tsx scripts/approve-lp-token.ts",
