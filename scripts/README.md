@@ -102,7 +102,7 @@ Submits a remove-liquidity intent through the Turbine API. Burns 20% of the acco
 
 **Interactive:** Yes (prompts for the settler address and pool selection)
 
-Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain, without contacting the Turbine API. Prompts for the `TurbineSettler` contract address and derives the router, hook, and registered pools from it on-chain. Lists the pools where the account holds LP tokens (largest balance first) so you can pick one, then prompts for the amount of LP tokens to burn (in atomic units, capped at your balance). Prints the transaction hash once the intent is queued.
+Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain, without contacting the Turbine API. Prompts for the `TurbineSettler` contract address and derives the router, hook, and registered pools from it on-chain. Lists the pools where the account holds LP tokens (largest balance first) so you can pick one, then prompts for the amount of LP tokens to burn (in atomic units, capped at your balance). If Permit2 is not yet approved to spend that amount of the LP token, grants it an infinite approval first. Prints the transaction hash once the intent is queued.
 
 ### Execute Pending On-Chain Intents
 
@@ -150,11 +150,19 @@ Creates a new USDC/WETH pool with a 0.3% fee. Prints the transaction hash once t
 
 ### List Pools
 
-**Command:** `yarn list-pools [--env dev|staging|prod]`
+**Command:** `yarn list-pools [--env dev|staging|prod | --hook <address> | --settler <address>]`
 
 Lists all registered pools with their token pairs, fees, LP token addresses, and current reserves.
 
 `--env` picks the API the hook address is read from, so you can list another deployment's pools without changing `TURBINE_API_URL`. Without it the script uses `TURBINE_API_URL`, or the production API if that is unset.
+
+`--hook` gives the hook contract address directly. The script then reads pools on-chain only and does not call the Turbine API, so it works when the API is unreachable.
+
+`--settler` gives the settler contract address instead. The script reads the hook address from the settler and then works like `--hook`.
+
+Only one of `--env`, `--hook` and `--settler` can be given.
+
+`--help` prints usage.
 
 ### Get Order States
 

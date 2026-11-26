@@ -16,6 +16,7 @@ import { RPC_URL } from "../src/config";
 import { turbineSettlerABI } from "../src/abi";
 import { getTokenDisplay } from "./utils/pools";
 import { getAccount } from "./utils/keystore";
+import { ensurePermit2Allowance } from "./utils/permit2";
 
 /**
  * Parse a user-supplied LP token amount (in atomic units, matching how
@@ -187,6 +188,16 @@ async function main() {
     );
 
     try {
+        // The router pulls the LP tokens through Permit2, which needs an ERC20 approval.
+        console.log("\n🔓 Checking LP token approval for Permit2...");
+        await ensurePermit2Allowance(
+            walletClient,
+            publicClient,
+            account,
+            position.poolMetadata.lpToken,
+            lpTokenToBurn
+        );
+
         // Submit liquidity removal on-chain
         console.log("\n🔄 Submitting liquidity removal intent on-chain...");
 
