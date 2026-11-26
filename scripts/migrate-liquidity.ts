@@ -42,7 +42,6 @@ import {
     Hex,
     http,
     isAddress,
-    maxUint256,
     PublicClient,
     WaitForTransactionReceiptTimeoutError,
     WalletClient,
@@ -50,7 +49,6 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
-import { PERMIT2_ADDRESS } from "@uniswap/permit2-sdk";
 import prompts from "prompts";
 import { TurbineClient, fetchConfig, getRandomSalt } from "../src/turbineClient";
 import {
@@ -62,6 +60,7 @@ import {
 import { AddLiquidityIntent, TurbinePool, UserPosition } from "../src/models";
 import { RPC_URL } from "../src/config";
 import { turbineSettlerABI } from "../src/abi";
+import { ensurePermit2Allowance } from "./utils/permit2";
 
 /** An old deployment to migrate away from, and the API that serves its replacement. */
 interface MigrationEnvironment {
@@ -871,40 +870,6 @@ async function finishRemoval(
 
     const reservesAfter = await readReserves(publicClient, oldDeployment.hook);
     return collectWithdrawals(publicClient, account, intents, reservesAfter);
-}
-
-async function ensurePermit2Allowance(
-    walletClient: WalletClient,
-    publicClient: PublicClient,
-    account: Account,
-    token: Address,
-    required: bigint
-) {
-    const allowance = await publicClient.readContract({
-        address: token,
-        abi: erc20ABI,
-        functionName: "allowance",
-        args: [account.address, PERMIT2_ADDRESS as Address],
-    });
-    if (allowance >= required) {
-        console.log(`   ${token}: allowance sufficient`);
-        return;
-    }
-
-    const { request } = await publicClient.simulateContract({
-        address: token,
-        abi: erc20ABI,
-        functionName: "approve",
-        args: [PERMIT2_ADDRESS as Address, maxUint256],
-        account,
-        chain: mainnet,
-    });
-    const txHash = await walletClient.writeContract(request);
-    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-    if (receipt.status !== "success") {
-        throw new Error(`Permit2 approval for ${token} reverted (tx ${txHash})`);
-    }
-    console.log(`   ${token}: approved Permit2 (tx ${txHash})`);
 }
 
 /**

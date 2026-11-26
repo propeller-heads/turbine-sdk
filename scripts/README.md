@@ -102,7 +102,7 @@ Submits a remove-liquidity intent through the Turbine API. Burns 20% of the acco
 
 **Interactive:** Yes (prompts for the settler address and pool selection)
 
-Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain, without contacting the Turbine API. Prompts for the `TurbineSettler` contract address and derives the router, hook, and registered pools from it on-chain. Lists the pools where the account holds LP tokens (largest balance first) so you can pick one, then prompts for the amount of LP tokens to burn (in atomic units, capped at your balance). Prints the transaction hash once the intent is queued.
+Submits a remove-liquidity intent directly to the `TurbineLiquidityRouter` smart contract on-chain, without contacting the Turbine API. Prompts for the `TurbineSettler` contract address and derives the router, hook, and registered pools from it on-chain. Lists the pools where the account holds LP tokens (largest balance first) so you can pick one, then prompts for the amount of LP tokens to burn (in atomic units, capped at your balance). If Permit2 is not yet approved to spend that amount of the LP token, grants it an infinite approval first. Prints the transaction hash once the intent is queued.
 
 ### Execute Pending On-Chain Intents
 
