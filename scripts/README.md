@@ -150,11 +150,19 @@ Creates a new USDC/WETH pool with a 0.3% fee. Prints the transaction hash once t
 
 ### List Pools
 
-**Command:** `yarn list-pools [--env dev|staging|prod]`
+**Command:** `yarn list-pools [--env dev|staging|prod | --hook <address> | --settler <address>]`
 
 Lists all registered pools with their token pairs, fees, LP token addresses, and current reserves.
 
 `--env` picks the API the hook address is read from, so you can list another deployment's pools without changing `TURBINE_API_URL`. Without it the script uses `TURBINE_API_URL`, or the production API if that is unset.
+
+`--hook` gives the hook contract address directly. The script then reads pools on-chain only and does not call the Turbine API, so it works when the API is unreachable.
+
+`--settler` gives the settler contract address instead. The script reads the hook address from the settler and then works like `--hook`.
+
+Only one of `--env`, `--hook` and `--settler` can be given.
+
+`--help` prints usage.
 
 ### Get Order States
 
